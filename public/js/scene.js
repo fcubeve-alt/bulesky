@@ -133,10 +133,10 @@ export function initScene(canvas) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const col = ctx.createLinearGradient(moon.x, horizonY, moon.x, h);
-    col.addColorStop(0, 'rgba(255,244,220,0.16)');
+    col.addColorStop(0, 'rgba(255,244,220,0.09)');
     col.addColorStop(1, 'rgba(255,244,220,0)');
     ctx.fillStyle = col;
-    const cw = moon.r * 1.4;
+    const cw = moon.r * 1.05;
     ctx.fillRect(moon.x - cw / 2, horizonY, cw, h - horizonY);
     ctx.restore();
 
@@ -221,23 +221,62 @@ export function initScene(canvas) {
   };
 }
 
-// ---- Lantern field: the whispers, as drifting glowing lights ----
+// ---- Whisper world: the whispers, as rising lanterns you can pan through ----
 
 const WARMTH_CAP = 12;
+const PREVIEW_CHARS = 20;
+const COL_SPACING = 104; // horizontal room per whisper; wider than a screen when many
 
-// Each whisper becomes a lantern that slowly rises from the lake and sways,
-// wrapping back down when it drifts off the top. Only `transform` and
-// `opacity` change per frame. Returns a controller with setWhispers().
-export function createLanternField(container, { onTap }) {
+// Each whisper is a glowing lantern that shows a short preview and slowly
+// rises from the lake. When there are more whispers than fit on screen, the
+// field becomes wider than the viewport and can be dragged left/right.
+// `viewport` is the fixed clipping element; `world` is the wide inner layer
+// that pans. Tap vs. drag is distinguished by movement distance.
+export function createWhisperWorld(viewport, world, { onTap }) {
   let items = [];
   let raf = null;
+  let worldW = 0;
+  let panX = 0;
+  let minPan = 0;
+
+  // Drag state
+  let dragging = false;
+  let moved = false;
+  let startX = 0;
+  let startPan = 0;
+
+  function clampPan(x) {
+    return Math.max(minPan, Math.min(0, x));
+  }
+
+  function onDown(e) {
+    dragging = true;
+    moved = false;
+    startX = (e.touches ? e.touches[0].clientX : e.clientX);
+    startPan = panX;
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const dx = cx - startX;
+    if (Math.abs(dx) > 6) moved = true;
+    panX = clampPan(startPan + dx);
+    world.style.transform = `translateX(${panX.toFixed(1)}px)`;
+  }
+  function onUp() {
+    dragging = false;
+  }
+
+  viewport.addEventListener('pointerdown', onDown);
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
 
   function frame(t) {
     const time = t * 0.001;
     const H = window.innerHeight;
     for (const it of items) {
-      it.y -= it.rise; // rise upward
-      if (it.y < -80) it.y = H + rand(20, 120); // wrap back below the waterline
+      it.y -= it.rise;
+      if (it.y < -120) it.y = H + rand(20, 140);
       const sway = Math.sin(time * it.swayFreq + it.swayPhase) * it.swayAmp;
       const bob = Math.cos(time * it.bobFreq + it.bobPhase) * it.bobAmp;
       it.el.style.transform = `translate(${(it.x + sway).toFixed(1)}px, ${(it.y + bob).toFixed(1)}px)`;
@@ -246,34 +285,55 @@ export function createLanternField(container, { onTap }) {
   }
 
   function build(whispers) {
-    container.innerHTML = '';
+    world.innerHTML = '';
     const W = window.innerWidth;
     const H = window.innerHeight;
     const horizon = H * HORIZON;
+
+    // World is at least a screen wide, wider when there are many whispers,
+    // so the sky never feels crammed and you can drag to explore.
+    worldW = Math.max(W, whispers.length * COL_SPACING);
+    world.style.width = worldW + 'px';
+    minPan = Math.min(0, W - worldW);
+    panX = clampPan(panX);
+    world.style.transform = `translateX(${panX.toFixed(1)}px)`;
+
     items = whispers.map((wsp, i) => {
       const warmth = Math.min(1, (wsp.warmth || 0) / WARMTH_CAP);
-      const size = 24 + warmth * 18 + rand(-3, 5);
+      const size = 82 + warmth * 34; // big enough to read a short preview
 
       const el = document.createElement('button');
       el.className = `lantern type-${wsp.type}`;
       el.style.width = size + 'px';
-      el.style.height = size * 1.18 + 'px';
+      el.style.height = size + 'px';
       el.style.setProperty('--glow', (0.5 + warmth * 0.5).toFixed(2));
       el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');
-      el.addEventListener('click', () => onTap(wsp.id));
-      container.appendChild(el);
 
-      // Spread across width and depth; start scattered through sky + lake.
+      const text = (wsp.content || '').trim();
+      const span = document.createElement('span');
+      span.className = 'lantern-text';
+      span.textContent = text.length > PREVIEW_CHARS ? text.slice(0, PREVIEW_CHARS) + '…' : text;
+      el.appendChild(span);
+
+      // Fire a tap only when the pointer didn't drag the world.
+      el.addEventListener('click', () => {
+        if (!moved) onTap(wsp.id);
+      });
+      world.appendChild(el);
+
+      // Spread evenly across the (possibly wide) world.
+      const slot = worldW / Math.max(1, whispers.length);
       return {
         el,
-        x: (i / Math.max(1, whispers.length)) * W + rand(-W * 0.06, W * 0.06),
-        y: rand(horizon - H * 0.15, H + 40),
-        rise: rand(0.12, 0.42),
-        swayAmp: rand(6, 20),
-        swayFreq: rand(0.1, 0.3),
+        x: i * slot + slot / 2 + rand(-slot * 0.22, slot * 0.22) - size / 2,
+        y: rand(-H * 0.05, H * 1.02), // pre-scattered across full height so the sky looks alive on load
+
+        rise: rand(0.1, 0.34),
+        swayAmp: rand(5, 16),
+        swayFreq: rand(0.08, 0.26),
         swayPhase: rand(0, Math.PI * 2),
-        bobAmp: rand(2, 6),
-        bobFreq: rand(0.4, 0.9),
+        bobAmp: rand(2, 5),
+        bobFreq: rand(0.3, 0.8),
         bobPhase: rand(0, Math.PI * 2),
       };
     });
@@ -284,6 +344,9 @@ export function createLanternField(container, { onTap }) {
   return {
     setWhispers(whispers) {
       build(whispers);
+    },
+    get pannable() {
+      return worldW > window.innerWidth + 4;
     },
     stop() {
       cancelAnimationFrame(raf);

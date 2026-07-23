@@ -1,6 +1,7 @@
 import { t, currentLang } from './i18n.js';
-import { initScene, createLanternField } from './scene.js';
+import { initScene, createWhisperWorld } from './scene.js';
 import { initAmbient } from './ambient.js';
+import { initBackgrounds } from './backgrounds.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -8,11 +9,20 @@ const els = {
   appTitle: $('app-title'),
   tagline: $('tagline'),
   tapHint: $('tap-hint'),
+  bgIcon: $('bg-icon'),
   musicIcon: $('music-icon'),
   findIcon: $('find-icon'),
   coffeeIcon: $('coffee-icon'),
   scene: $('scene'),
   lanterns: $('lanterns'),
+  world: $('world'),
+  bgVideo: $('bg-video'),
+  bgScrim: $('bg-scrim'),
+  bgPanel: $('bg-panel'),
+  bgClose: $('bg-close'),
+  bgNow: $('bg-now'),
+  bgNext: $('bg-next'),
+  bgNote: $('bg-note'),
   findPanel: $('find-panel'),
   findClose: $('find-close'),
   findLabel: $('find-label'),
@@ -82,8 +92,9 @@ const ERROR_KEYS = {
 };
 
 const state = { composeType: 'pain', composeOpenedAt: 0, detailBubbleId: null };
-let lanternField = null;
+let whisperWorld = null;
 const ambient = initAmbient();
+let backgrounds = null;
 
 function applyText() {
   els.appTitle.textContent = t('appName');
@@ -139,11 +150,10 @@ async function loadWhispers() {
     const res = await fetch('/api/bubbles?limit=80');
     const data = await res.json();
     const whispers = data.bubbles || [];
-    lanternField.setWhispers(whispers);
-    // Hide the tap hint once there are lights to tap.
+    whisperWorld.setWhispers(whispers);
     els.tapHint.style.opacity = whispers.length ? '1' : '0';
   } catch {
-    lanternField.setWhispers([]);
+    whisperWorld.setWhispers([]);
   }
 }
 
@@ -329,10 +339,22 @@ function refreshMusicPanel() {
 
 // ---------- Wiring ----------
 
+function refreshBgPanel() {
+  els.bgNow.textContent = backgrounds.currentTitle;
+  els.bgNext.textContent = t('bgNext');
+  els.bgNote.textContent = backgrounds.hasVideos ? '' : t('bgEmptyNote');
+  els.bgNext.style.display = backgrounds.count > 1 ? '' : 'none';
+}
+
 function init() {
   applyText();
   initScene(els.scene);
-  lanternField = createLanternField(els.lanterns, { onTap: openDetail });
+  backgrounds = initBackgrounds({
+    video: els.bgVideo,
+    scrim: els.bgScrim,
+    proceduralTitle: t('bgProcedural'),
+  });
+  whisperWorld = createWhisperWorld(els.lanterns, els.world, { onTap: openDetail });
   loadWhispers();
 
   els.entryPain.addEventListener('click', () => openCompose('pain'));
@@ -364,6 +386,7 @@ function init() {
     els.findPanel.classList.toggle('hidden');
     els.coffeePanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
+    els.bgPanel.classList.add('hidden');
   });
   els.findClose.addEventListener('click', () => els.findPanel.classList.add('hidden'));
   els.findSubmit.addEventListener('click', submitFind);
@@ -373,13 +396,28 @@ function init() {
     els.coffeePanel.classList.toggle('hidden');
     els.findPanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
+    els.bgPanel.classList.add('hidden');
   });
   els.coffeeClose.addEventListener('click', () => els.coffeePanel.classList.add('hidden'));
+
+  els.bgIcon.addEventListener('click', () => {
+    els.bgPanel.classList.toggle('hidden');
+    els.findPanel.classList.add('hidden');
+    els.coffeePanel.classList.add('hidden');
+    els.musicPanel.classList.add('hidden');
+    refreshBgPanel();
+  });
+  els.bgClose.addEventListener('click', () => els.bgPanel.classList.add('hidden'));
+  els.bgNext.addEventListener('click', () => {
+    backgrounds.next();
+    refreshBgPanel();
+  });
 
   els.musicIcon.addEventListener('click', () => {
     els.musicPanel.classList.toggle('hidden');
     els.findPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');
+    els.bgPanel.classList.add('hidden');
     refreshMusicPanel();
   });
   els.musicClose.addEventListener('click', () => els.musicPanel.classList.add('hidden'));

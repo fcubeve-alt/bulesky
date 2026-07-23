@@ -14,6 +14,8 @@
 <body>
 
 <!-- Landscape layers (back → front) -->
+<video id="bg-video" class="hidden" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>
+<div id="bg-scrim" class="hidden" aria-hidden="true"></div>
 <div id="sky-bg" aria-hidden="true"></div>
 <canvas id="scene" aria-hidden="true"></canvas>
 <svg id="mountains" aria-hidden="true" viewBox="0 0 1440 320" preserveAspectRatio="none">
@@ -22,13 +24,14 @@
 </svg>
 <div id="mist" aria-hidden="true"></div>
 
-<!-- Whispers, as drifting lanterns -->
-<div id="lanterns" aria-live="polite"></div>
+<!-- Whispers, as drifting lanterns (world pans horizontally when crowded) -->
+<div id="lanterns" aria-live="polite"><div id="world"></div></div>
 
 <!-- Top bar -->
 <header class="top-bar">
   <span id="app-title" class="brand"></span>
   <div class="top-icons">
+    <button id="bg-icon" class="icon-btn" aria-label="Switch background">🏔️</button>
     <button id="music-icon" class="icon-btn" aria-label="Toggle music" aria-pressed="false">♪</button>
     <button id="find-icon" class="icon-btn" aria-label="Find my light">🔍</button>
     <button id="coffee-icon" class="icon-btn" aria-label="Buy a coffee">☕</button>
@@ -54,6 +57,15 @@
   <button class="mini-close" id="coffee-close" aria-label="Close">×</button>
   <p id="coffee-text"></p>
   <a id="coffee-link" class="btn-primary btn-small" href="https://ko-fi.com/" target="_blank" rel="noopener noreferrer"></a>
+</div>
+
+<div id="bg-panel" class="mini-panel hidden">
+  <button class="mini-close" id="bg-close" aria-label="Close">×</button>
+  <p id="bg-now" class="music-now"></p>
+  <div class="mini-panel-row">
+    <button id="bg-next" class="btn-primary btn-small"></button>
+  </div>
+  <p id="bg-note" class="hint"></p>
 </div>
 
 <div id="music-panel" class="mini-panel hidden">
