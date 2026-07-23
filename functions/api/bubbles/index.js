@@ -81,7 +81,11 @@ export async function onRequestPost({ request, env }) {
   const safeLang = typeof lang === 'string' ? lang.slice(0, 10) : null;
   const now = Date.now();
 
-  const finalCode = code.trim();
+  // Mobile keyboards auto-capitalize text inputs by default, so the exact
+  // casing a user typed when creating a bubble can easily differ from what
+  // they type later when searching for it. Normalize to lowercase so
+  // lookups aren't case-sensitive by accident.
+  const finalCode = code.trim().toLowerCase();
 
   try {
     const result = await env.DB.prepare(

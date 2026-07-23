@@ -1,14 +1,28 @@
 // Procedural ambient space-pad, built entirely with the Web Audio API —
-// no external audio files, so nothing to fetch, license, or bundle.
+// no external audio files. (Note: this sandbox's network policy blocks
+// fetching real audio assets from anywhere but a handful of package
+// registries, so a licensed/found track isn't an option here — this is a
+// deliberately gentle, consonant synth pad instead of one.)
 // Muted until the user explicitly opts in (autoplay policies require a
 // gesture anyway, and staying quiet by default is the polite choice).
 
-const CHORD = [110, 164.81, 220, 277.18]; // A2, E3, A3, C#4 — a soft, open drone
+// A plain root/fifth/octave drone — the most consonant chord there is,
+// standard in ambient/drone music, impossible to make "clashy".
+const CHORD = [
+  { freq: 110, gain: 0.05, pan: -0.25 }, // A2 root
+  { freq: 165, gain: 0.035, pan: 0.25 }, // E3 fifth
+  { freq: 220, gain: 0.03, pan: 0 }, // A3 octave
+];
+
+// Notes for the twinkle chimes, all drawn from the same A major-pentatonic
+// family as the drone so anything that plays is harmonically "safe".
+const TWINKLE_NOTES = [440, 493.88, 587.33, 659.25, 880, 987.77];
 
 function startPad(context, destination) {
   const filter = context.createBiquadFilter();
   filter.type = 'lowpass';
-  filter.frequency.value = 900;
+  filter.frequency.value = 1100;
+  filter.Q.value = 0.3;
 
   const swell = context.createGain();
   swell.gain.value = 1;
@@ -17,23 +31,30 @@ function startPad(context, destination) {
 
   const lfo = context.createOscillator();
   lfo.type = 'sine';
-  lfo.frequency.value = 0.04;
+  lfo.frequency.value = 0.035;
   const lfoDepth = context.createGain();
-  lfoDepth.gain.value = 0.18;
+  lfoDepth.gain.value = 0.08; // subtle breathing, not a tremolo
   lfo.connect(lfoDepth);
   lfoDepth.connect(swell.gain);
   lfo.start();
 
-  const voices = CHORD.map((freq, i) => {
+  const voices = CHORD.map(({ freq, gain: gainValue, pan }) => {
     const osc = context.createOscillator();
-    osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+    osc.type = 'sine';
     osc.frequency.value = freq;
-    osc.detune.value = (Math.random() - 0.5) * 6;
+    osc.detune.value = (Math.random() - 0.5) * 3; // barely-there chorus, not dissonance
 
     const gain = context.createGain();
-    gain.gain.value = 0.05;
+    gain.gain.value = gainValue;
 
-    osc.connect(gain);
+    let node = osc;
+    if (context.createStereoPanner) {
+      const panner = context.createStereoPanner();
+      panner.pan.value = pan;
+      osc.connect(panner);
+      node = panner;
+    }
+    node.connect(gain);
     gain.connect(filter);
     osc.start();
     return osc;
@@ -50,7 +71,7 @@ function startPad(context, destination) {
 }
 
 function playTwinkle(context, destination) {
-  const freq = 700 + Math.random() * 1400;
+  const freq = TWINKLE_NOTES[Math.floor(Math.random() * TWINKLE_NOTES.length)];
   const osc = context.createOscillator();
   osc.type = 'sine';
   osc.frequency.value = freq;
@@ -62,10 +83,10 @@ function playTwinkle(context, destination) {
   gain.connect(destination);
 
   const now = context.currentTime;
-  gain.gain.linearRampToValueAtTime(0.035, now + 0.08);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
+  gain.gain.linearRampToValueAtTime(0.025, now + 0.15);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
   osc.start(now);
-  osc.stop(now + 1.5);
+  osc.stop(now + 2.3);
   osc.onended = () => {
     osc.disconnect();
     gain.disconnect();
@@ -94,7 +115,7 @@ export function initAmbient() {
       if (!playing) return;
       playTwinkle(ctx, masterGain);
       scheduleTwinkle();
-    }, 3500 + Math.random() * 5000);
+    }, 6000 + Math.random() * 8000);
   }
 
   return {
@@ -106,9 +127,9 @@ export function initAmbient() {
         playing = false;
         clearTimeout(twinkleTimer);
         masterGain.gain.cancelScheduledValues(context.currentTime);
-        masterGain.gain.linearRampToValueAtTime(0, context.currentTime + 0.8);
+        masterGain.gain.linearRampToValueAtTime(0, context.currentTime + 1.2);
         const stopping = pad;
-        setTimeout(() => stopping && stopping.stop(), 900);
+        setTimeout(() => stopping && stopping.stop(), 1300);
         pad = null;
         return false;
       }
@@ -116,7 +137,7 @@ export function initAmbient() {
       playing = true;
       pad = startPad(context, masterGain);
       masterGain.gain.cancelScheduledValues(context.currentTime);
-      masterGain.gain.linearRampToValueAtTime(0.4, context.currentTime + 1.8);
+      masterGain.gain.linearRampToValueAtTime(0.32, context.currentTime + 2.5);
       scheduleTwinkle();
       return true;
     },

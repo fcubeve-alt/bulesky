@@ -85,16 +85,19 @@ export function createBubbleDrift() {
     for (const e of entries) {
       const dx = Math.sin(time * e.freqX + e.phaseX) * e.ampX;
       const dy = Math.cos(time * e.freqY + e.phaseY) * e.ampY;
-      e.el.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
+      e.el.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${e.scale})`;
     }
     raf = requestAnimationFrame(tick);
   }
   raf = requestAnimationFrame(tick);
 
   return {
+    // `elements` are DOM nodes carrying a `data-depth-scale` attribute
+    // (0.8–1.15ish) set by the caller for the depth-of-field illusion.
     setBubbles(elements) {
       entries = elements.map((el) => ({
         el,
+        scale: parseFloat(el.dataset.depthScale) || 1,
         ampX: 5 + Math.random() * 9,
         ampY: 5 + Math.random() * 9,
         freqX: 0.12 + Math.random() * 0.22,
@@ -142,22 +145,24 @@ export function bubbleColor(type, warmth) {
 
 export function bubbleSize(content) {
   const len = (content || '').length;
-  const base = 76;
-  const grown = base + Math.min(46, Math.round(len / 12));
+  const base = 68;
+  const grown = base + Math.min(32, Math.round(len / 14));
   return grown;
 }
 
 // Places bubbles in a loosely jittered grid so they read as scattered
 // without overlapping, and returns the total height the container needs.
+// The cell is sized well past the largest bubble (including its depth
+// scale-up) so drift + jitter can't push neighbors into each other.
 export function layoutBubbles(items, containerWidth) {
-  const cell = 116;
+  const cell = 150;
   const cols = Math.max(2, Math.floor(containerWidth / cell));
   const rows = Math.ceil(items.length / cols);
   const positions = items.map((item, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    const jitterX = (Math.random() - 0.5) * (cell * 0.4);
-    const jitterY = (Math.random() - 0.5) * (cell * 0.4);
+    const jitterX = (Math.random() - 0.5) * (cell * 0.3);
+    const jitterY = (Math.random() - 0.5) * (cell * 0.3);
     const x = col * cell + cell / 2 + jitterX;
     const y = row * cell + cell / 2 + jitterY;
     return { item, x, y };

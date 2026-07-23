@@ -4,7 +4,7 @@ import { initAmbient } from './ambient.js';
 
 // How much of a bubble's content shows on its face before "…" — full text
 // is always one tap away in the detail view.
-const PREVIEW_CHAR_LIMIT = 24;
+const PREVIEW_CHAR_LIMIT = 20;
 
 const $ = (id) => document.getElementById(id);
 
@@ -179,6 +179,13 @@ function renderSky(bubbles) {
     btn.style.setProperty('--tail-color', color);
     btn.dataset.id = item.id;
     btn.setAttribute('aria-label', item.type === 'pain' ? t('entryPain') : t('entryWish'));
+
+    // Depth-of-field illusion: "nearer" bubbles are bigger, sharper, and
+    // brighter; "farther" ones recede into soft focus.
+    const depth = Math.random();
+    btn.dataset.depthScale = (0.88 + depth * 0.24).toFixed(2);
+    btn.style.setProperty('--depth-blur', `${((1 - depth) * 1.1).toFixed(2)}px`);
+    btn.style.opacity = (0.75 + depth * 0.25).toFixed(2);
 
     const preview = document.createElement('span');
     preview.className = 'bubble-preview';

@@ -14,6 +14,7 @@
 <body>
 
 <canvas id="bg-stars" aria-hidden="true"></canvas>
+<div id="planet" aria-hidden="true"></div>
 
 <header class="top-bar">
   <span id="app-title" class="brand"></span>
@@ -28,7 +29,7 @@
   <button class="mini-close" id="find-close" aria-label="Close">×</button>
   <label id="find-label" for="find-input"></label>
   <div class="mini-panel-row">
-    <input id="find-input" type="text" autocomplete="off" />
+    <input id="find-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
     <button id="find-submit" class="btn-primary btn-small"></button>
   </div>
   <div id="find-result" class="find-result"></div>
@@ -40,7 +41,9 @@
   <a id="coffee-link" class="btn-primary btn-small" href="https://ko-fi.com/" target="_blank" rel="noopener noreferrer"></a>
 </div>
 
-<div id="sky" aria-live="polite"></div>
+<div class="sky-dome">
+  <div id="sky" aria-live="polite"></div>
+</div>
 <p id="sky-empty" class="sky-empty hidden"></p>
 
 <nav class="bottom-bar">
@@ -63,7 +66,7 @@
   <div id="compose-count" class="char-count">0/500</div>
 
   <label id="compose-code-label" for="compose-code"></label>
-  <input id="compose-code" type="text" maxlength="25" autocomplete="off" />
+  <input id="compose-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
   <p id="compose-code-hint" class="hint"></p>
 
   <input id="compose-hp" type="text" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />

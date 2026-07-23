@@ -10,7 +10,7 @@ function json(data, status = 200) {
 // isn't an access-control gate — it's a convenience shortcut back to "my"
 // bubble and its replies.
 export async function onRequestGet({ params, env }) {
-  const code = (params.code || '').toString().trim();
+  const code = (params.code || '').toString().trim().toLowerCase();
   if (!code) return json({ error: 'empty_code' }, 400);
 
   const bubble = await env.DB.prepare(
