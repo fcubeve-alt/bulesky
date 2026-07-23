@@ -45,6 +45,21 @@ cd cron-worker && npx wrangler deploy   # deploys the retention-cleanup Worker
 The cron Worker's `wrangler.toml` already declares a daily trigger
 (`0 3 * * *`); Cloudflare schedules it automatically once deployed.
 
+### Or: deploy via GitHub Actions
+
+`.github/workflows/deploy.yml` runs the same steps on GitHub's runners —
+useful when you don't want to run `wrangler` locally. It creates the D1
+database if missing, migrates it, and deploys both the Pages project and the
+cleanup Worker. Add two repository secrets under **Settings → Secrets and
+variables → Actions**:
+
+- `CLOUDFLARE_API_TOKEN` — a token with Account-level `Cloudflare Pages: Edit`,
+  `D1: Edit`, and `Workers Scripts: Edit` permissions, scoped to your account.
+- `CLOUDFLARE_ACCOUNT_ID` — found on the right sidebar of any page in the
+  Cloudflare dashboard.
+
+Then run the workflow from the **Actions** tab (or push to this branch).
+
 ## API surface
 
 | Method | Path                          | Purpose                                   |
