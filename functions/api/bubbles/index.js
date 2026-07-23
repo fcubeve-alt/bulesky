@@ -1,0 +1,120 @@
+import { containsAbusive, containsCrisisKeyword, maskContactInfo } from '../../../src/filters.js';
+
+const MAX_CONTENT_LEN = 500;
+const MAX_CODE_LEN = 30;
+const LIST_LIMIT_DEFAULT = 60;
+const LIST_LIMIT_MAX = 120;
+
+function randomSuffix() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+  });
+}
+
+export async function onRequestGet({ request, env }) {
+  const url = new URL(request.url);
+  const type = url.searchParams.get('type');
+  const limitParam = parseInt(url.searchParams.get('limit') || '', 10);
+  const limit = Math.min(
+    LIST_LIMIT_MAX,
+    Number.isFinite(limitParam) && limitParam > 0 ? limitParam : LIST_LIMIT_DEFAULT
+  );
+  const before = parseInt(url.searchParams.get('before') || '', 10);
+
+  const clauses = ['hidden = 0'];
+  const params = [];
+  if (type === 'pain' || type === 'wish') {
+    clauses.push('type = ?');
+    params.push(type);
+  }
+  if (Number.isFinite(before)) {
+    clauses.push('created_at < ?');
+    params.push(before);
+  }
+
+  const stmt = env.DB.prepare(
+    `SELECT id, type, content, lang, warmth, created_at
+       FROM bubbles
+      WHERE ${clauses.join(' AND ')}
+      ORDER BY created_at DESC
+      LIMIT ?`
+  ).bind(...params, limit);
+
+  const { results } = await stmt.all();
+  return json({ bubbles: results });
+}
+
+export async function onRequestPost({ request, env }) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'invalid_json' }, 400);
+  }
+
+  const { type, content, code, lang } = body || {};
+
+  if (type !== 'pain' && type !== 'wish') {
+    return json({ error: 'invalid_type' }, 400);
+  }
+  if (typeof content !== 'string' || !content.trim()) {
+    return json({ error: 'empty_content' }, 400);
+  }
+  if (content.length > MAX_CONTENT_LEN) {
+    return json({ error: 'content_too_long', max: MAX_CONTENT_LEN }, 400);
+  }
+  if (typeof code !== 'string' || !code.trim()) {
+    return json({ error: 'empty_code' }, 400);
+  }
+  if (code.length > MAX_CODE_LEN) {
+    return json({ error: 'code_too_long', max: MAX_CODE_LEN }, 400);
+  }
+
+  const trimmedContent = content.trim();
+  if (containsAbusive(trimmedContent) || containsAbusive(code)) {
+    return json({ error: 'blocked_abusive' }, 400);
+  }
+
+  const { text: safeContent, masked } = maskContactInfo(trimmedContent);
+  const crisisFlag = type === 'pain' && containsCrisisKeyword(trimmedContent) ? 1 : 0;
+  const safeLang = typeof lang === 'string' ? lang.slice(0, 10) : null;
+  const now = Date.now();
+
+  const baseCode = code.trim().slice(0, MAX_CODE_LEN - 5);
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const finalCode = `${baseCode}-${randomSuffix()}`;
+    try {
+      const result = await env.DB.prepare(
+        `INSERT INTO bubbles (code, type, content, lang, warmth, report_count, hidden, crisis_flag, created_at)
+         VALUES (?, ?, ?, ?, 0, 0, 0, ?, ?)`
+      )
+        .bind(finalCode, type, safeContent, safeLang, crisisFlag, now)
+        .run();
+
+      return json(
+        {
+          id: result.meta.last_row_id,
+          code: finalCode,
+          type,
+          content: safeContent,
+          contactMasked: masked,
+          crisisFlag: !!crisisFlag,
+          createdAt: now,
+        },
+        201
+      );
+    } catch (err) {
+      const msg = String(err && err.message);
+      if (msg.includes('UNIQUE')) continue; // collision on code, retry with a new suffix
+      return json({ error: 'server_error' }, 500);
+    }
+  }
+
+  return json({ error: 'code_collision' }, 409);
+}

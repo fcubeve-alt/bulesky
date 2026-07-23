@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0e27" />
+<meta name="description" content="A borderless anonymous starry sky for whispering pain and wishing on shooting stars." />
+<title>心灵星空</title>
+<link rel="manifest" href="/manifest.json" />
+<link rel="apple-touch-icon" href="/icons/icon.svg" />
+<link rel="icon" href="/icons/icon.svg" />
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<canvas id="bg-stars" aria-hidden="true"></canvas>
+
+<header class="top-bar">
+  <button id="find-icon" class="icon-btn" aria-label="Find my bubble">🔍</button>
+  <button id="coffee-icon" class="icon-btn" aria-label="Buy the sky a coffee">☕</button>
+</header>
+
+<div id="find-panel" class="mini-panel hidden">
+  <button class="mini-close" id="find-close" aria-label="Close">×</button>
+  <label id="find-label" for="find-input"></label>
+  <div class="mini-panel-row">
+    <input id="find-input" type="text" autocomplete="off" />
+    <button id="find-submit" class="btn-primary btn-small"></button>
+  </div>
+  <div id="find-result" class="find-result"></div>
+</div>
+
+<div id="coffee-panel" class="mini-panel hidden">
+  <button class="mini-close" id="coffee-close" aria-label="Close">×</button>
+  <p id="coffee-text"></p>
+  <a id="coffee-link" class="btn-primary btn-small" href="https://ko-fi.com/" target="_blank" rel="noopener noreferrer"></a>
+</div>
+
+<main class="hero">
+  <h1 id="app-title"></h1>
+  <p id="app-subtitle"></p>
+  <div class="entry-buttons">
+    <button id="entry-pain" class="entry-btn entry-pain" data-type="pain"></button>
+    <button id="entry-wish" class="entry-btn entry-wish" data-type="wish"></button>
+  </div>
+</main>
+
+<div id="sky" aria-live="polite"></div>
+<p id="sky-empty" class="sky-empty hidden"></p>
+
+<!-- Compose bottom sheet -->
+<div id="compose-overlay" class="overlay hidden"></div>
+<section id="compose-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="compose-title">
+  <div class="sheet-handle"></div>
+  <button class="mini-close sheet-close" id="compose-close" aria-label="Close">×</button>
+  <h2 id="compose-title"></h2>
+
+  <div id="crisis-banner" class="crisis-banner hidden">
+    <p id="crisis-text"></p>
+  </div>
+
+  <textarea id="compose-content" rows="4" maxlength="500"></textarea>
+  <div id="compose-count" class="char-count">0/500</div>
+
+  <label id="compose-code-label" for="compose-code"></label>
+  <input id="compose-code" type="text" maxlength="25" autocomplete="off" />
+  <p id="compose-code-hint" class="hint"></p>
+
+  <input id="compose-hp" type="text" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+  <div id="compose-error" class="form-error hidden"></div>
+
+  <div class="sheet-actions">
+    <button id="compose-cancel" class="btn-secondary"></button>
+    <button id="compose-submit" class="btn-primary"></button>
+  </div>
+</section>
+
+<!-- Post-submit confirmation -->
+<div id="confirm-overlay" class="overlay hidden"></div>
+<section id="confirm-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-message">
+  <p id="confirm-message"></p>
+  <div class="code-display">
+    <span id="confirm-code"></span>
+    <button id="confirm-copy" class="btn-small btn-secondary"></button>
+  </div>
+  <p id="confirm-hint" class="hint"></p>
+  <button id="confirm-close" class="btn-primary"></button>
+</section>
+
+<!-- Bubble detail overlay -->
+<div id="detail-overlay" class="overlay hidden"></div>
+<section id="detail-sheet" class="sheet detail-sheet hidden" role="dialog" aria-modal="true">
+  <button class="mini-close sheet-close" id="detail-close" aria-label="Close">×</button>
+  <div id="detail-content" class="detail-content"></div>
+  <button id="detail-report" class="link-btn"></button>
+
+  <h3 id="detail-replies-title"></h3>
+  <div id="detail-replies" class="detail-replies"></div>
+
+  <label id="reply-label" for="reply-content"></label>
+  <textarea id="reply-content" rows="3" maxlength="300"></textarea>
+  <div id="reply-error" class="form-error hidden"></div>
+  <button id="reply-submit" class="btn-primary"></button>
+</section>
+
+<!-- iOS "add to home screen" guide -->
+<div id="ios-overlay" class="overlay hidden"></div>
+<section id="ios-modal" class="sheet hidden" role="dialog" aria-modal="true">
+  <h2 id="ios-title"></h2>
+  <p id="ios-body"></p>
+  <button id="ios-close" class="btn-primary"></button>
+</section>
+
+<div id="toast" class="toast hidden" role="status"></div>
+
+<script type="module" src="/js/i18n.js"></script>
+<script type="module" src="/js/starfield.js"></script>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

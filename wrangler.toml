@@ -1,0 +1,9 @@
+name = "bulesky"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bulesky-db"
+# Replace with the ID printed by `wrangler d1 create bulesky-db`.
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"

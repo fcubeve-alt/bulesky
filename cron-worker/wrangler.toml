@@ -1,0 +1,20 @@
+name = "bulesky-cleanup"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Runs daily at 03:00 UTC. Cloudflare Pages Functions can't be triggered by
+# cron, so retention cleanup lives in this small standalone Worker instead —
+# it shares the same D1 database as the Pages project.
+[triggers]
+crons = ["0 3 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bulesky-db"
+# Must match the database_id used in the top-level wrangler.toml.
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[vars]
+# How long content is kept before it's permanently deleted. PRD lists this
+# as "half a year to a year, TBD" — defaults to the lower bound.
+RETENTION_DAYS = "180"
