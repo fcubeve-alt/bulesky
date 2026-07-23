@@ -1,17 +1,18 @@
 import { t, currentLang } from './i18n.js';
-import { initBackgroundStars, createBubbleDrift, bubbleColor, bubbleSize, layoutBubbles } from './starfield.js';
+import { initScene, createLanternField } from './scene.js';
 import { initAmbient } from './ambient.js';
-
-// How much of a bubble's content shows on its face before "…" — full text
-// is always one tap away in the detail view.
-const PREVIEW_CHAR_LIMIT = 20;
 
 const $ = (id) => document.getElementById(id);
 
 const els = {
+  appTitle: $('app-title'),
+  tagline: $('tagline'),
+  tapHint: $('tap-hint'),
   musicIcon: $('music-icon'),
   findIcon: $('find-icon'),
   coffeeIcon: $('coffee-icon'),
+  scene: $('scene'),
+  lanterns: $('lanterns'),
   findPanel: $('find-panel'),
   findClose: $('find-close'),
   findLabel: $('find-label'),
@@ -22,11 +23,14 @@ const els = {
   coffeeClose: $('coffee-close'),
   coffeeText: $('coffee-text'),
   coffeeLink: $('coffee-link'),
-  appTitle: $('app-title'),
+  musicPanel: $('music-panel'),
+  musicClose: $('music-close'),
+  musicNow: $('music-now'),
+  musicToggle: $('music-toggle'),
+  musicNext: $('music-next'),
+  musicNote: $('music-note'),
   entryPain: $('entry-pain'),
   entryWish: $('entry-wish'),
-  sky: $('sky'),
-  skyEmpty: $('sky-empty'),
   composeOverlay: $('compose-overlay'),
   composeSheet: $('compose-sheet'),
   composeClose: $('compose-close'),
@@ -66,7 +70,6 @@ const els = {
   iosBody: $('ios-body'),
   iosClose: $('ios-close'),
   toast: $('toast'),
-  bgStars: $('bg-stars'),
 };
 
 const ERROR_KEYS = {
@@ -78,24 +81,21 @@ const ERROR_KEYS = {
   code_taken: 'errorCodeTaken',
 };
 
-const bubbleDrift = createBubbleDrift();
-
-const state = {
-  composeType: 'pain',
-  composeOpenedAt: 0,
-  detailBubbleId: null,
-  detailBubbleType: 'pain',
-};
+const state = { composeType: 'pain', composeOpenedAt: 0, detailBubbleId: null };
+let lanternField = null;
+const ambient = initAmbient();
 
 function applyText() {
   els.appTitle.textContent = t('appName');
-  els.entryPain.textContent = t('entryPain');
-  els.entryWish.textContent = t('entryWish');
+  els.tagline.textContent = t('tagline');
+  els.tapHint.textContent = t('tapHint');
   els.findLabel.textContent = t('findLabel');
   els.findInput.placeholder = t('codePlaceholder');
   els.findSubmit.textContent = t('findSubmit');
   els.coffeeText.textContent = t('coffeeText');
   els.coffeeLink.textContent = t('coffeeLink');
+  els.entryPain.textContent = t('entryPain');
+  els.entryWish.textContent = t('entryWish');
   els.crisisText.textContent = t('crisisText');
   els.composeCodeLabel.textContent = t('codeLabel');
   els.composeCode.placeholder = t('codePlaceholder');
@@ -110,7 +110,6 @@ function applyText() {
   els.iosTitle.textContent = t('iosTitle');
   els.iosBody.textContent = t('iosBody');
   els.iosClose.textContent = t('iosClose');
-  els.skyEmpty.textContent = t('skyEmpty');
   document.title = t('appName');
 }
 
@@ -121,85 +120,31 @@ function showToast(message, duration = 3200) {
   showToast._timer = setTimeout(() => els.toast.classList.add('hidden'), duration);
 }
 
-function openOverlaySheet(overlay, sheet) {
+function openSheet(overlay, sheet) {
   overlay.classList.remove('hidden');
   sheet.classList.remove('hidden');
 }
-function closeOverlaySheet(overlay, sheet) {
+function closeSheet(overlay, sheet) {
   overlay.classList.add('hidden');
   sheet.classList.add('hidden');
 }
-
 function wireOverlayClose(overlay, sheet) {
-  overlay.addEventListener('click', () => closeOverlaySheet(overlay, sheet));
+  overlay.addEventListener('click', () => closeSheet(overlay, sheet));
 }
 
-// ---------- Sky rendering ----------
+// ---------- Whispers → lanterns ----------
 
-let lastBubbles = [];
-
-async function loadSky() {
+async function loadWhispers() {
   try {
     const res = await fetch('/api/bubbles?limit=80');
     const data = await res.json();
-    lastBubbles = data.bubbles || [];
-    renderSky(lastBubbles);
+    const whispers = data.bubbles || [];
+    lanternField.setWhispers(whispers);
+    // Hide the tap hint once there are lights to tap.
+    els.tapHint.style.opacity = whispers.length ? '1' : '0';
   } catch {
-    renderSky([]);
+    lanternField.setWhispers([]);
   }
-}
-
-function renderSky(bubbles) {
-  els.sky.innerHTML = '';
-  if (!bubbles.length) {
-    els.skyEmpty.classList.remove('hidden');
-    els.sky.style.height = '0';
-    bubbleDrift.setBubbles([]);
-    return;
-  }
-  els.skyEmpty.classList.add('hidden');
-
-  const width = Math.max(280, els.sky.clientWidth || window.innerWidth - 16);
-  const { positions, height } = layoutBubbles(bubbles, width);
-  els.sky.style.position = 'relative';
-  els.sky.style.height = height + 'px';
-
-  const bubbleEls = [];
-  for (const { item, x, y } of positions) {
-    const size = bubbleSize(item.content);
-    const btn = document.createElement('button');
-    btn.className = `bubble type-${item.type}`;
-    btn.style.width = size + 'px';
-    btn.style.height = size + 'px';
-    btn.style.left = `calc(${x}px - ${size / 2}px)`;
-    btn.style.top = y + 'px';
-    const color = bubbleColor(item.type, item.warmth);
-    btn.style.background = `radial-gradient(circle at 35% 30%, ${color}, ${color})`;
-    btn.style.boxShadow = `0 0 ${18 + Math.min(30, item.warmth * 2)}px ${color}`;
-    btn.style.setProperty('--tail-color', color);
-    btn.dataset.id = item.id;
-    btn.setAttribute('aria-label', item.type === 'pain' ? t('entryPain') : t('entryWish'));
-
-    // Depth-of-field illusion: "nearer" bubbles are bigger, sharper, and
-    // brighter; "farther" ones recede into soft focus.
-    const depth = Math.random();
-    btn.dataset.depthScale = (0.88 + depth * 0.24).toFixed(2);
-    btn.style.setProperty('--depth-blur', `${((1 - depth) * 1.1).toFixed(2)}px`);
-    btn.style.opacity = (0.75 + depth * 0.25).toFixed(2);
-
-    const preview = document.createElement('span');
-    preview.className = 'bubble-preview';
-    preview.textContent =
-      item.content.length > PREVIEW_CHAR_LIMIT
-        ? item.content.slice(0, PREVIEW_CHAR_LIMIT) + '…'
-        : item.content;
-    btn.appendChild(preview);
-
-    btn.addEventListener('click', () => openDetail(item.id));
-    els.sky.appendChild(btn);
-    bubbleEls.push(btn);
-  }
-  bubbleDrift.setBubbles(bubbleEls);
 }
 
 // ---------- Compose ----------
@@ -215,32 +160,18 @@ function openCompose(type) {
   els.composeError.classList.add('hidden');
   els.composeHp.value = '';
   els.crisisBanner.classList.toggle('hidden', type !== 'pain');
-  openOverlaySheet(els.composeOverlay, els.composeSheet);
+  openSheet(els.composeOverlay, els.composeSheet);
   els.composeContent.focus();
-}
-
-function closeCompose() {
-  closeOverlaySheet(els.composeOverlay, els.composeSheet);
 }
 
 async function submitCompose() {
   const content = els.composeContent.value.trim();
   const code = els.composeCode.value.trim();
   els.composeError.classList.add('hidden');
-
-  if (els.composeHp.value) return; // honeypot tripped, silently drop
-  if (Date.now() - state.composeOpenedAt < 800) return; // too fast to be human, silently drop
-
-  if (!content) {
-    els.composeError.textContent = t('errorEmptyContent');
-    els.composeError.classList.remove('hidden');
-    return;
-  }
-  if (!code) {
-    els.composeError.textContent = t('errorEmptyCode');
-    els.composeError.classList.remove('hidden');
-    return;
-  }
+  if (els.composeHp.value) return;
+  if (Date.now() - state.composeOpenedAt < 800) return;
+  if (!content) return showError(els.composeError, t('errorEmptyContent'));
+  if (!code) return showError(els.composeError, t('errorEmptyCode'));
 
   els.composeSubmit.disabled = true;
   try {
@@ -250,28 +181,27 @@ async function submitCompose() {
       body: JSON.stringify({ type: state.composeType, content, code, lang: currentLang }),
     });
     const data = await res.json();
-    if (!res.ok) {
-      const key = ERROR_KEYS[data.error] || 'errorGeneric';
-      els.composeError.textContent = t(key);
-      els.composeError.classList.remove('hidden');
-      return;
-    }
-    closeCompose();
+    if (!res.ok) return showError(els.composeError, t(ERROR_KEYS[data.error] || 'errorGeneric'));
+    closeSheet(els.composeOverlay, els.composeSheet);
     showConfirm(data);
-    loadSky();
+    loadWhispers();
   } catch {
-    els.composeError.textContent = t('errorGeneric');
-    els.composeError.classList.remove('hidden');
+    showError(els.composeError, t('errorGeneric'));
   } finally {
     els.composeSubmit.disabled = false;
   }
 }
 
+function showError(el, msg) {
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
 function showConfirm(data) {
-  const baseMsg = state.composeType === 'pain' ? t('toastPain') : t('toastWish');
-  els.confirmMessage.textContent = data.crisisFlag ? `${baseMsg} ${t('toastCrisisExtra')}` : baseMsg;
+  const base = state.composeType === 'pain' ? t('toastPain') : t('toastWish');
+  els.confirmMessage.textContent = data.crisisFlag ? `${base} ${t('toastCrisisExtra')}` : base;
   els.confirmCode.textContent = data.code;
-  openOverlaySheet(els.confirmOverlay, els.confirmSheet);
+  openSheet(els.confirmOverlay, els.confirmSheet);
 }
 
 // ---------- Detail / replies ----------
@@ -280,12 +210,9 @@ async function openDetail(id) {
   try {
     const res = await fetch(`/api/bubbles/${id}`);
     const data = await res.json();
-    if (!res.ok) {
-      showToast(t('errorGeneric'));
-      return;
-    }
+    if (!res.ok) return showToast(t('errorGeneric'));
     renderDetail(data.bubble, data.replies);
-    openOverlaySheet(els.detailOverlay, els.detailSheet);
+    openSheet(els.detailOverlay, els.detailSheet);
   } catch {
     showToast(t('errorGeneric'));
   }
@@ -293,8 +220,6 @@ async function openDetail(id) {
 
 function renderDetail(bubble, replies) {
   state.detailBubbleId = bubble.id;
-  state.detailBubbleType = bubble.type;
-
   els.detailContent.textContent = bubble.content;
   els.detailRepliesTitle.textContent = bubble.type === 'pain' ? t('repliesTitlePain') : t('repliesTitleWish');
   els.replyLabel.textContent = bubble.type === 'pain' ? t('replyLabelPain') : t('replyLabelWish');
@@ -321,11 +246,7 @@ function renderDetail(bubble, replies) {
 async function submitReply() {
   const content = els.replyContent.value.trim();
   els.replyError.classList.add('hidden');
-  if (!content) {
-    els.replyError.textContent = t('errorEmptyContent');
-    els.replyError.classList.remove('hidden');
-    return;
-  }
+  if (!content) return showError(els.replyError, t('errorEmptyContent'));
   els.replySubmit.disabled = true;
   try {
     const res = await fetch(`/api/bubbles/${state.detailBubbleId}/replies`, {
@@ -334,47 +255,40 @@ async function submitReply() {
       body: JSON.stringify({ content, lang: currentLang }),
     });
     const data = await res.json();
-    if (!res.ok) {
-      const key = ERROR_KEYS[data.error] || 'errorGeneric';
-      els.replyError.textContent = t(key);
-      els.replyError.classList.remove('hidden');
-      return;
-    }
+    if (!res.ok) return showError(els.replyError, t(ERROR_KEYS[data.error] || 'errorGeneric'));
     await openDetail(state.detailBubbleId);
+    loadWhispers();
   } catch {
-    els.replyError.textContent = t('errorGeneric');
-    els.replyError.classList.remove('hidden');
+    showError(els.replyError, t('errorGeneric'));
   } finally {
     els.replySubmit.disabled = false;
   }
 }
 
-async function reportContent(targetType, targetId) {
+async function reportBubble() {
   if (!window.confirm(t('reportConfirm'))) return;
   try {
     await fetch('/api/report', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ targetType, targetId }),
+      body: JSON.stringify({ targetType: 'bubble', targetId: state.detailBubbleId }),
     });
     showToast(t('reportedToast'));
-    if (targetType === 'bubble') {
-      closeOverlaySheet(els.detailOverlay, els.detailSheet);
-      loadSky();
-    }
+    closeSheet(els.detailOverlay, els.detailSheet);
+    loadWhispers();
   } catch {
     showToast(t('errorGeneric'));
   }
 }
 
-// ---------- Find my bubble ----------
+// ---------- Find my light (robust query-param endpoint) ----------
 
 async function submitFind() {
   const code = els.findInput.value.trim();
-  els.findResult.innerHTML = '';
+  els.findResult.textContent = '';
   if (!code) return;
   try {
-    const res = await fetch(`/api/bubbles/by-code/${encodeURIComponent(code)}`);
+    const res = await fetch(`/api/bubbles?code=${encodeURIComponent(code)}`);
     const data = await res.json();
     if (!res.ok) {
       els.findResult.textContent = t('findNotFound');
@@ -382,7 +296,7 @@ async function submitFind() {
     }
     els.findPanel.classList.add('hidden');
     renderDetail(data.bubble, data.replies);
-    openOverlaySheet(els.detailOverlay, els.detailSheet);
+    openSheet(els.detailOverlay, els.detailSheet);
   } catch {
     els.findResult.textContent = t('findError');
   }
@@ -394,72 +308,94 @@ function maybeShowIosGuide() {
   const isIos =
     /iphone|ipad|ipod/i.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-  if (!isIos || isStandalone) return;
-  if (localStorage.getItem('bulesky_ios_guide_dismissed')) return;
-  setTimeout(() => openOverlaySheet(els.iosOverlay, els.iosModal), 1200);
+  const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  if (!isIos || standalone || localStorage.getItem('bulesky_ios_guide_dismissed')) return;
+  setTimeout(() => openSheet(els.iosOverlay, els.iosModal), 1400);
+}
+
+// ---------- Music panel ----------
+
+function refreshMusicPanel() {
+  els.musicToggle.textContent = ambient.isPlaying ? t('musicPause') : t('musicPlay');
+  els.musicNext.textContent = t('musicNext');
+  if (ambient.isPlaying) {
+    els.musicNow.textContent = ambient.usingLibrary ? ambient.nowPlaying || '' : t('musicSynth');
+  } else {
+    els.musicNow.textContent = t('musicIdle');
+  }
+  els.musicNote.textContent = ambient.usingLibrary ? '' : t('musicEmptyNote');
+  els.musicNext.style.display = ambient.usingLibrary ? '' : 'none';
 }
 
 // ---------- Wiring ----------
 
 function init() {
   applyText();
-  initBackgroundStars(els.bgStars);
-  loadSky();
+  initScene(els.scene);
+  lanternField = createLanternField(els.lanterns, { onTap: openDetail });
+  loadWhispers();
 
   els.entryPain.addEventListener('click', () => openCompose('pain'));
   els.entryWish.addEventListener('click', () => openCompose('wish'));
-  els.composeClose.addEventListener('click', closeCompose);
-  els.composeCancel.addEventListener('click', closeCompose);
+  els.composeClose.addEventListener('click', () => closeSheet(els.composeOverlay, els.composeSheet));
+  els.composeCancel.addEventListener('click', () => closeSheet(els.composeOverlay, els.composeSheet));
   els.composeSubmit.addEventListener('click', submitCompose);
   els.composeContent.addEventListener('input', () => {
     els.composeCount.textContent = `${els.composeContent.value.length}/500`;
   });
   wireOverlayClose(els.composeOverlay, els.composeSheet);
 
-  els.confirmClose.addEventListener('click', () => closeOverlaySheet(els.confirmOverlay, els.confirmSheet));
+  els.confirmClose.addEventListener('click', () => closeSheet(els.confirmOverlay, els.confirmSheet));
   els.confirmCopy.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(els.confirmCode.textContent);
       showToast(t('copied'));
-    } catch {
-      /* clipboard unavailable, ignore */
-    }
+    } catch { /* ignore */ }
   });
   wireOverlayClose(els.confirmOverlay, els.confirmSheet);
 
-  els.detailClose.addEventListener('click', () => closeOverlaySheet(els.detailOverlay, els.detailSheet));
-  els.detailReport.addEventListener('click', () => reportContent('bubble', state.detailBubbleId));
+  els.detailClose.addEventListener('click', () => closeSheet(els.detailOverlay, els.detailSheet));
+  els.detailReport.addEventListener('click', reportBubble);
   els.replySubmit.addEventListener('click', submitReply);
   wireOverlayClose(els.detailOverlay, els.detailSheet);
 
   els.findIcon.addEventListener('click', () => {
-    els.findResult.innerHTML = '';
+    els.findResult.textContent = '';
     els.findPanel.classList.toggle('hidden');
     els.coffeePanel.classList.add('hidden');
+    els.musicPanel.classList.add('hidden');
   });
   els.findClose.addEventListener('click', () => els.findPanel.classList.add('hidden'));
   els.findSubmit.addEventListener('click', submitFind);
-  els.findInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submitFind();
-  });
+  els.findInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitFind(); });
 
   els.coffeeIcon.addEventListener('click', () => {
     els.coffeePanel.classList.toggle('hidden');
     els.findPanel.classList.add('hidden');
+    els.musicPanel.classList.add('hidden');
   });
   els.coffeeClose.addEventListener('click', () => els.coffeePanel.classList.add('hidden'));
 
-  const ambient = initAmbient();
-  els.musicIcon.addEventListener('click', async () => {
+  els.musicIcon.addEventListener('click', () => {
+    els.musicPanel.classList.toggle('hidden');
+    els.findPanel.classList.add('hidden');
+    els.coffeePanel.classList.add('hidden');
+    refreshMusicPanel();
+  });
+  els.musicClose.addEventListener('click', () => els.musicPanel.classList.add('hidden'));
+  els.musicToggle.addEventListener('click', async () => {
     const playing = await ambient.toggle();
-    els.musicIcon.textContent = playing ? '🔊' : '🔇';
     els.musicIcon.setAttribute('aria-pressed', String(playing));
+    refreshMusicPanel();
+  });
+  els.musicNext.addEventListener('click', () => {
+    ambient.next();
+    setTimeout(refreshMusicPanel, 60);
   });
 
   els.iosClose.addEventListener('click', () => {
     localStorage.setItem('bulesky_ios_guide_dismissed', '1');
-    closeOverlaySheet(els.iosOverlay, els.iosModal);
+    closeSheet(els.iosOverlay, els.iosModal);
   });
   wireOverlayClose(els.iosOverlay, els.iosModal);
 

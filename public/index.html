@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0a0e27" />
-<meta name="description" content="A borderless anonymous starry sky for whispering pain and wishing on shooting stars." />
+<meta name="theme-color" content="#070a18" />
+<meta name="description" content="A borderless, anonymous night lake where whispers drift as lanterns." />
 <title>心灵星空</title>
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
@@ -13,18 +13,33 @@
 </head>
 <body>
 
-<canvas id="bg-stars" aria-hidden="true"></canvas>
-<div id="planet" aria-hidden="true"></div>
+<!-- Landscape layers (back → front) -->
+<div id="sky-bg" aria-hidden="true"></div>
+<canvas id="scene" aria-hidden="true"></canvas>
+<svg id="mountains" aria-hidden="true" viewBox="0 0 1440 320" preserveAspectRatio="none">
+  <path class="mtn mtn-far" d="M0,220 L180,150 L320,205 L470,120 L640,200 L800,140 L980,205 L1140,150 L1300,200 L1440,165 L1440,320 L0,320 Z"/>
+  <path class="mtn mtn-near" d="M0,260 L160,205 L300,255 L460,190 L620,250 L780,200 L960,255 L1120,210 L1300,255 L1440,220 L1440,320 L0,320 Z"/>
+</svg>
+<div id="mist" aria-hidden="true"></div>
 
+<!-- Whispers, as drifting lanterns -->
+<div id="lanterns" aria-live="polite"></div>
+
+<!-- Top bar -->
 <header class="top-bar">
   <span id="app-title" class="brand"></span>
   <div class="top-icons">
-    <button id="music-icon" class="icon-btn" aria-label="Toggle ambient sound" aria-pressed="false">🔇</button>
-    <button id="find-icon" class="icon-btn" aria-label="Find my bubble">🔍</button>
-    <button id="coffee-icon" class="icon-btn" aria-label="Buy the sky a coffee">☕</button>
+    <button id="music-icon" class="icon-btn" aria-label="Toggle music" aria-pressed="false">♪</button>
+    <button id="find-icon" class="icon-btn" aria-label="Find my light">🔍</button>
+    <button id="coffee-icon" class="icon-btn" aria-label="Buy a coffee">☕</button>
   </div>
 </header>
 
+<!-- Poetic invitation -->
+<p id="tagline" class="tagline"></p>
+<p id="tap-hint" class="tap-hint"></p>
+
+<!-- Mini panels -->
 <div id="find-panel" class="mini-panel hidden">
   <button class="mini-close" id="find-close" aria-label="Close">×</button>
   <label id="find-label" for="find-input"></label>
@@ -41,45 +56,43 @@
   <a id="coffee-link" class="btn-primary btn-small" href="https://ko-fi.com/" target="_blank" rel="noopener noreferrer"></a>
 </div>
 
-<div class="sky-dome">
-  <div id="sky" aria-live="polite"></div>
+<div id="music-panel" class="mini-panel hidden">
+  <button class="mini-close" id="music-close" aria-label="Close">×</button>
+  <p id="music-now" class="music-now"></p>
+  <div class="mini-panel-row">
+    <button id="music-toggle" class="btn-primary btn-small"></button>
+    <button id="music-next" class="btn-secondary btn-small"></button>
+  </div>
+  <p id="music-note" class="hint"></p>
 </div>
-<p id="sky-empty" class="sky-empty hidden"></p>
 
+<!-- Bottom invitation -->
 <nav class="bottom-bar">
   <button id="entry-pain" class="bottom-btn" data-type="pain"></button>
   <button id="entry-wish" class="bottom-btn" data-type="wish"></button>
 </nav>
 
-<!-- Compose bottom sheet -->
+<!-- Compose sheet -->
 <div id="compose-overlay" class="overlay hidden"></div>
 <section id="compose-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="compose-title">
   <div class="sheet-handle"></div>
   <button class="mini-close sheet-close" id="compose-close" aria-label="Close">×</button>
   <h2 id="compose-title"></h2>
-
-  <div id="crisis-banner" class="crisis-banner hidden">
-    <p id="crisis-text"></p>
-  </div>
-
+  <div id="crisis-banner" class="crisis-banner hidden"><p id="crisis-text"></p></div>
   <textarea id="compose-content" rows="4" maxlength="500"></textarea>
   <div id="compose-count" class="char-count">0/500</div>
-
   <label id="compose-code-label" for="compose-code"></label>
   <input id="compose-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
   <p id="compose-code-hint" class="hint"></p>
-
   <input id="compose-hp" type="text" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
-
   <div id="compose-error" class="form-error hidden"></div>
-
   <div class="sheet-actions">
     <button id="compose-cancel" class="btn-secondary"></button>
     <button id="compose-submit" class="btn-primary"></button>
   </div>
 </section>
 
-<!-- Post-submit confirmation -->
+<!-- Confirmation -->
 <div id="confirm-overlay" class="overlay hidden"></div>
 <section id="confirm-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-message">
   <p id="confirm-message"></p>
@@ -91,23 +104,21 @@
   <button id="confirm-close" class="btn-primary"></button>
 </section>
 
-<!-- Bubble detail overlay -->
+<!-- Whisper detail -->
 <div id="detail-overlay" class="overlay hidden"></div>
 <section id="detail-sheet" class="sheet detail-sheet hidden" role="dialog" aria-modal="true">
   <button class="mini-close sheet-close" id="detail-close" aria-label="Close">×</button>
   <div id="detail-content" class="detail-content"></div>
   <button id="detail-report" class="link-btn"></button>
-
   <h3 id="detail-replies-title"></h3>
   <div id="detail-replies" class="detail-replies"></div>
-
   <label id="reply-label" for="reply-content"></label>
   <textarea id="reply-content" rows="3" maxlength="300"></textarea>
   <div id="reply-error" class="form-error hidden"></div>
   <button id="reply-submit" class="btn-primary"></button>
 </section>
 
-<!-- iOS "add to home screen" guide -->
+<!-- iOS install guide -->
 <div id="ios-overlay" class="overlay hidden"></div>
 <section id="ios-modal" class="sheet hidden" role="dialog" aria-modal="true">
   <h2 id="ios-title"></h2>
@@ -118,7 +129,7 @@
 <div id="toast" class="toast hidden" role="status"></div>
 
 <script type="module" src="/js/i18n.js"></script>
-<script type="module" src="/js/starfield.js"></script>
+<script type="module" src="/js/scene.js"></script>
 <script type="module" src="/js/ambient.js"></script>
 <script type="module" src="/js/app.js"></script>
 </body>

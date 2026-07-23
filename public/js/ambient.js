@@ -1,58 +1,50 @@
-// Procedural ambient space-pad, built entirely with the Web Audio API —
-// no external audio files. (Note: this sandbox's network policy blocks
-// fetching real audio assets from anywhere but a handful of package
-// registries, so a licensed/found track isn't an option here — this is a
-// deliberately gentle, consonant synth pad instead of one.)
-// Muted until the user explicitly opts in (autoplay policies require a
-// gesture anyway, and staying quiet by default is the polite choice).
+// Ambient sound. Two sources, in priority order:
+//   1. A music LIBRARY: real audio files listed in /music/manifest.json.
+//      Plays a random track, then auto-advances to another random one.
+//      You add your own tracks (see public/music/README.md) — nothing is
+//      bundled, so there's no licensing baggage in the repo.
+//   2. Fallback SYNTH pad (Web Audio) when the library is empty, so the
+//      button always does something even before you've added music.
+//
+// Muted until the user taps the toggle (autoplay policies require a gesture).
 
-// A plain root/fifth/octave drone — the most consonant chord there is,
-// standard in ambient/drone music, impossible to make "clashy".
+// ---------------- Synth fallback ----------------
+
 const CHORD = [
-  { freq: 110, gain: 0.05, pan: -0.25 }, // A2 root
-  { freq: 165, gain: 0.035, pan: 0.25 }, // E3 fifth
-  { freq: 220, gain: 0.03, pan: 0 }, // A3 octave
+  { freq: 110, gain: 0.05, pan: -0.25 },
+  { freq: 165, gain: 0.035, pan: 0.25 },
+  { freq: 220, gain: 0.03, pan: 0 },
 ];
+const TWINKLE_NOTES = [440, 493.88, 587.33, 659.25, 880];
 
-// Notes for the twinkle chimes, all drawn from the same A major-pentatonic
-// family as the drone so anything that plays is harmonically "safe".
-const TWINKLE_NOTES = [440, 493.88, 587.33, 659.25, 880, 987.77];
-
-function startPad(context, destination) {
+function startSynth(context, destination) {
   const filter = context.createBiquadFilter();
   filter.type = 'lowpass';
   filter.frequency.value = 1100;
-  filter.Q.value = 0.3;
-
-  const swell = context.createGain();
-  swell.gain.value = 1;
-  filter.connect(swell);
-  swell.connect(destination);
+  filter.connect(destination);
 
   const lfo = context.createOscillator();
   lfo.type = 'sine';
   lfo.frequency.value = 0.035;
-  const lfoDepth = context.createGain();
-  lfoDepth.gain.value = 0.08; // subtle breathing, not a tremolo
-  lfo.connect(lfoDepth);
-  lfoDepth.connect(swell.gain);
+  const lfoGain = context.createGain();
+  lfoGain.gain.value = 60;
+  lfo.connect(lfoGain);
+  lfoGain.connect(filter.frequency);
   lfo.start();
 
-  const voices = CHORD.map(({ freq, gain: gainValue, pan }) => {
+  const voices = CHORD.map(({ freq, gain: g, pan }) => {
     const osc = context.createOscillator();
     osc.type = 'sine';
     osc.frequency.value = freq;
-    osc.detune.value = (Math.random() - 0.5) * 3; // barely-there chorus, not dissonance
-
+    osc.detune.value = (Math.random() - 0.5) * 3;
     const gain = context.createGain();
-    gain.gain.value = gainValue;
-
+    gain.gain.value = g;
     let node = osc;
     if (context.createStereoPanner) {
-      const panner = context.createStereoPanner();
-      panner.pan.value = pan;
-      osc.connect(panner);
-      node = panner;
+      const p = context.createStereoPanner();
+      p.pan.value = pan;
+      osc.connect(p);
+      node = p;
     }
     node.connect(gain);
     gain.connect(filter);
@@ -60,89 +52,141 @@ function startPad(context, destination) {
     return osc;
   });
 
+  let twinkleTimer = null;
+  function twinkle() {
+    twinkleTimer = setTimeout(() => {
+      const f = TWINKLE_NOTES[Math.floor(Math.random() * TWINKLE_NOTES.length)];
+      const osc = context.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      const gain = context.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(destination);
+      const now = context.currentTime;
+      gain.gain.linearRampToValueAtTime(0.022, now + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
+      osc.start(now);
+      osc.stop(now + 2.3);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+      twinkle();
+    }, 6000 + Math.random() * 8000);
+  }
+  twinkle();
+
   return {
     stop() {
+      clearTimeout(twinkleTimer);
       lfo.stop();
       for (const v of voices) v.stop();
-      // Nodes disconnect themselves once their source has stopped and
-      // nothing references them anymore — no manual teardown needed.
     },
   };
 }
 
-function playTwinkle(context, destination) {
-  const freq = TWINKLE_NOTES[Math.floor(Math.random() * TWINKLE_NOTES.length)];
-  const osc = context.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.value = freq;
-
-  const gain = context.createGain();
-  gain.gain.value = 0;
-
-  osc.connect(gain);
-  gain.connect(destination);
-
-  const now = context.currentTime;
-  gain.gain.linearRampToValueAtTime(0.025, now + 0.15);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
-  osc.start(now);
-  osc.stop(now + 2.3);
-  osc.onended = () => {
-    osc.disconnect();
-    gain.disconnect();
-  };
-}
+// ---------------- Public controller ----------------
 
 export function initAmbient() {
+  let library = [];
+  let libraryLoaded = false;
+  let audio = null;
   let ctx = null;
   let masterGain = null;
-  let pad = null;
-  let twinkleTimer = null;
+  let synth = null;
   let playing = false;
+  let currentTitle = null;
 
-  function ensureContext() {
+  async function loadLibrary() {
+    if (libraryLoaded) return;
+    libraryLoaded = true;
+    try {
+      const res = await fetch('/music/manifest.json', { cache: 'no-cache' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.tracks)) {
+          library = data.tracks.filter((t) => t && t.src);
+        }
+      }
+    } catch {
+      /* no manifest → synth fallback */
+    }
+  }
+
+  function pickTrack() {
+    if (library.length === 0) return null;
+    if (library.length === 1) return library[0];
+    let next;
+    do {
+      next = library[Math.floor(Math.random() * library.length)];
+    } while (next.title === currentTitle);
+    return next;
+  }
+
+  function playRandomTrack() {
+    const track = pickTrack();
+    if (!track) return;
+    if (!audio) {
+      audio = new Audio();
+      audio.addEventListener('ended', () => {
+        if (playing) playRandomTrack();
+      });
+    }
+    currentTitle = track.title || track.src.split('/').pop();
+    audio.src = track.src;
+    audio.volume = 0.55;
+    audio.play().catch(() => {});
+  }
+
+  function startSynthFallback() {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       masterGain = ctx.createGain();
       masterGain.gain.value = 0;
       masterGain.connect(ctx.destination);
     }
-    return ctx;
+    if (ctx.state === 'suspended') ctx.resume();
+    synth = startSynth(ctx, masterGain);
+    masterGain.gain.cancelScheduledValues(ctx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 2.5);
+    currentTitle = null;
   }
 
-  function scheduleTwinkle() {
-    twinkleTimer = setTimeout(() => {
-      if (!playing) return;
-      playTwinkle(ctx, masterGain);
-      scheduleTwinkle();
-    }, 6000 + Math.random() * 8000);
+  function stopAll() {
+    if (audio) {
+      audio.pause();
+    }
+    if (synth) {
+      masterGain.gain.cancelScheduledValues(ctx.currentTime);
+      masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1);
+      const s = synth;
+      setTimeout(() => s.stop(), 1100);
+      synth = null;
+    }
   }
 
   return {
     async toggle() {
-      const context = ensureContext();
-      if (context.state === 'suspended') await context.resume();
-
+      await loadLibrary();
       if (playing) {
         playing = false;
-        clearTimeout(twinkleTimer);
-        masterGain.gain.cancelScheduledValues(context.currentTime);
-        masterGain.gain.linearRampToValueAtTime(0, context.currentTime + 1.2);
-        const stopping = pad;
-        setTimeout(() => stopping && stopping.stop(), 1300);
-        pad = null;
+        stopAll();
         return false;
       }
-
       playing = true;
-      pad = startPad(context, masterGain);
-      masterGain.gain.cancelScheduledValues(context.currentTime);
-      masterGain.gain.linearRampToValueAtTime(0.32, context.currentTime + 2.5);
-      scheduleTwinkle();
+      if (library.length > 0) playRandomTrack();
+      else startSynthFallback();
       return true;
+    },
+    next() {
+      if (playing && library.length > 0) playRandomTrack();
     },
     get isPlaying() {
       return playing;
+    },
+    get usingLibrary() {
+      return library.length > 0;
+    },
+    get nowPlaying() {
+      return currentTitle;
     },
   };
 }

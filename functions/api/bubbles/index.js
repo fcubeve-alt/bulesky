@@ -14,6 +14,30 @@ function json(data, status = 200) {
 
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
+
+  // Owner lookup by passphrase. Served from the main (non-dynamic) route so
+  // it can never be affected by nested dynamic-route resolution — this is
+  // the endpoint the client's "find my bubble" uses.
+  const codeParam = url.searchParams.get('code');
+  if (codeParam !== null) {
+    const code = codeParam.trim().toLowerCase();
+    if (!code) return json({ error: 'empty_code' }, 400);
+    const bubble = await env.DB.prepare(
+      `SELECT id, code, type, content, lang, warmth, hidden, crisis_flag, created_at
+         FROM bubbles WHERE code = ?`
+    )
+      .bind(code)
+      .first();
+    if (!bubble) return json({ error: 'not_found' }, 404);
+    const { results: replies } = await env.DB.prepare(
+      `SELECT id, content, lang, created_at
+         FROM replies WHERE bubble_id = ? AND hidden = 0 ORDER BY created_at ASC`
+    )
+      .bind(bubble.id)
+      .all();
+    return json({ bubble, replies });
+  }
+
   const type = url.searchParams.get('type');
   const limitParam = parseInt(url.searchParams.get('limit') || '', 10);
   const limit = Math.min(
