@@ -5,10 +5,6 @@ const MAX_CODE_LEN = 30;
 const LIST_LIMIT_DEFAULT = 60;
 const LIST_LIMIT_MAX = 120;
 
-function randomSuffix() {
-  return String(Math.floor(1000 + Math.random() * 9000));
-}
-
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -85,36 +81,33 @@ export async function onRequestPost({ request, env }) {
   const safeLang = typeof lang === 'string' ? lang.slice(0, 10) : null;
   const now = Date.now();
 
-  const baseCode = code.trim().slice(0, MAX_CODE_LEN - 5);
+  const finalCode = code.trim();
 
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const finalCode = `${baseCode}-${randomSuffix()}`;
-    try {
-      const result = await env.DB.prepare(
-        `INSERT INTO bubbles (code, type, content, lang, warmth, report_count, hidden, crisis_flag, created_at)
-         VALUES (?, ?, ?, ?, 0, 0, 0, ?, ?)`
-      )
-        .bind(finalCode, type, safeContent, safeLang, crisisFlag, now)
-        .run();
+  try {
+    const result = await env.DB.prepare(
+      `INSERT INTO bubbles (code, type, content, lang, warmth, report_count, hidden, crisis_flag, created_at)
+       VALUES (?, ?, ?, ?, 0, 0, 0, ?, ?)`
+    )
+      .bind(finalCode, type, safeContent, safeLang, crisisFlag, now)
+      .run();
 
-      return json(
-        {
-          id: result.meta.last_row_id,
-          code: finalCode,
-          type,
-          content: safeContent,
-          contactMasked: masked,
-          crisisFlag: !!crisisFlag,
-          createdAt: now,
-        },
-        201
-      );
-    } catch (err) {
-      const msg = String(err && err.message);
-      if (msg.includes('UNIQUE')) continue; // collision on code, retry with a new suffix
-      return json({ error: 'server_error' }, 500);
-    }
+    return json(
+      {
+        id: result.meta.last_row_id,
+        code: finalCode,
+        type,
+        content: safeContent,
+        contactMasked: masked,
+        crisisFlag: !!crisisFlag,
+        createdAt: now,
+      },
+      201
+    );
+  } catch (err) {
+    const msg = String(err && err.message);
+    // The code is the user's own chosen name — on collision, ask them to
+    // pick a different one rather than silently mutating it.
+    if (msg.includes('UNIQUE')) return json({ error: 'code_taken' }, 409);
+    return json({ error: 'server_error' }, 500);
   }
-
-  return json({ error: 'code_collision' }, 409);
 }

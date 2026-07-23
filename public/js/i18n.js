@@ -16,7 +16,7 @@ const DICTS = {
     contentPlaceholderWish: '写下你的心愿，让它化作一颗流星',
     codeLabel: '给这颗气泡起一个专属暗号',
     codePlaceholder: '例如：深夜的猫',
-    codeHint: '系统会自动附加随机数字，避免与他人重复。请记住完整暗号，之后凭它找回这颗气泡。',
+    codeHint: '这是你专属的暗号，之后凭它找回这颗气泡——写点只有你会记得的东西。',
     submit: '发射到星空',
     cancel: '取消',
     crisisText: '如果你正在经历难以承受的痛苦：中国大陆全国心理援助热线 12356（24 小时）。你并不孤单。',
@@ -49,6 +49,7 @@ const DICTS = {
     errorEmptyCode: '请给气泡起一个暗号',
     errorTooLong: '内容有点长，再精简一下吧',
     errorAbusive: '内容包含不当用语，请调整后重试',
+    errorCodeTaken: '这个暗号已经被人用过了，换一个试试？',
     errorGeneric: '出了点小问题，请稍后再试',
     contactMaskedNotice: '为保护双方隐私，联系方式已被隐藏',
     iosTitle: '把心灵星空放进主屏幕',
@@ -66,7 +67,7 @@ const DICTS = {
     contentPlaceholderWish: 'Write your wish and let it become a shooting star',
     codeLabel: 'Give this bubble a private code name',
     codePlaceholder: 'e.g. midnight cat',
-    codeHint: 'A random number will be appended automatically to avoid clashes. Remember the full code — it’s the only way back to this bubble.',
+    codeHint: 'This is your private code — it’s the only way back to this bubble. Make it something only you would think of.',
     submit: 'Send to the sky',
     cancel: 'Cancel',
     crisisText: 'If you’re in crisis: in the US, call or text 988. In the UK/ROI, Samaritans: 116 123. You are not alone.',
@@ -99,6 +100,7 @@ const DICTS = {
     errorEmptyCode: 'Please give this bubble a code name',
     errorTooLong: 'That’s a bit long, please shorten it',
     errorAbusive: 'This contains language we can’t allow — please rephrase',
+    errorCodeTaken: 'That code is already taken — try a different one',
     errorGeneric: 'Something went wrong, please try again',
     contactMaskedNotice: 'Contact info was hidden to protect everyone’s privacy',
     iosTitle: 'Add Starry Mind to your Home Screen',
@@ -116,7 +118,7 @@ const DICTS = {
     contentPlaceholderWish: 'Escribe tu deseo y conviértelo en una estrella fugaz',
     codeLabel: 'Dale a esta burbuja un código secreto',
     codePlaceholder: 'p. ej. gato de medianoche',
-    codeHint: 'Se añadirá un número aleatorio para evitar duplicados. Recuerda el código completo para volver a encontrarla.',
+    codeHint: 'Este es tu código privado — es la única forma de volver a esta burbuja. Elige algo que solo tú recordarías.',
     submit: 'Enviar al cielo',
     cancel: 'Cancelar',
     crisisText: 'Si estás en crisis: en España, llama al 024. Línea internacional: befrienders.org. No estás solo/a.',
@@ -149,6 +151,7 @@ const DICTS = {
     errorEmptyCode: 'Dale un código a esta burbuja',
     errorTooLong: 'Es un poco largo, acórtalo un poco',
     errorAbusive: 'El contenido incluye lenguaje no permitido',
+    errorCodeTaken: 'Ese código ya está en uso — prueba con otro',
     errorGeneric: 'Algo salió mal, inténtalo de nuevo',
     contactMaskedNotice: 'Se ocultó la información de contacto para proteger la privacidad',
     iosTitle: 'Añade Cielo Mental a tu pantalla de inicio',
@@ -166,7 +169,7 @@ const DICTS = {
     contentPlaceholderWish: 'Écris ton vœu, il deviendra une étoile filante',
     codeLabel: 'Donne à cette bulle un code secret',
     codePlaceholder: 'ex. chat de minuit',
-    codeHint: 'Un numéro aléatoire sera ajouté pour éviter les doublons. Retiens le code complet pour la retrouver.',
+    codeHint: 'C’est ton code privé — le seul moyen de retrouver cette bulle. Choisis quelque chose que toi seul(e) devinerais.',
     submit: 'Envoyer vers le ciel',
     cancel: 'Annuler',
     crisisText: 'En cas de crise, en France : 3114 (numéro national de prévention du suicide, 24h/24). Tu n’es pas seul(e).',
@@ -199,6 +202,7 @@ const DICTS = {
     errorEmptyCode: 'Donne un code à cette bulle',
     errorTooLong: "C'est un peu long, raccourcis un peu",
     errorAbusive: 'Le contenu contient un langage non autorisé',
+    errorCodeTaken: 'Ce code est déjà pris — essaie-en un autre',
     errorGeneric: "Une erreur est survenue, réessaie",
     contactMaskedNotice: 'Les coordonnées ont été masquées pour protéger la vie privée',
     iosTitle: 'Ajoute Ciel Intérieur à ton écran d’accueil',
@@ -216,7 +220,7 @@ const DICTS = {
     contentPlaceholderWish: 'اكتب أمنيتك ودعها تتحول إلى نجمة ثاقبة',
     codeLabel: 'أعطِ هذه الفقاعة رمزًا سريًا خاصًا بك',
     codePlaceholder: 'مثال: قطة منتصف الليل',
-    codeHint: 'سيُضاف رقم عشوائي تلقائيًا لتفادي التكرار. تذكّر الرمز كاملاً لتعثر على فقاعتك لاحقًا.',
+    codeHint: 'هذا رمزك الخاص — الطريقة الوحيدة للعثور على فقاعتك لاحقًا. اختر شيئًا لن يخطر إلا ببالك أنت.',
     submit: 'أرسل إلى السماء',
     cancel: 'إلغاء',
     crisisText: 'إذا كنت تمر بأزمة، تواصل مع خط المساعدة النفسية في بلدك. لست وحدك.',
@@ -249,6 +253,7 @@ const DICTS = {
     errorEmptyCode: 'أعطِ هذه الفقاعة رمزًا',
     errorTooLong: 'المحتوى طويل بعض الشيء، اختصره',
     errorAbusive: 'يحتوي المحتوى على لغة غير مسموحة',
+    errorCodeTaken: 'هذا الرمز مُستخدم بالفعل — جرّب رمزًا آخر',
     errorGeneric: 'حدث خطأ ما، حاول مرة أخرى',
     contactMaskedNotice: 'تم إخفاء معلومات التواصل لحماية خصوصية الجميع',
     iosTitle: 'أضف سماء الروح إلى الشاشة الرئيسية',
@@ -266,7 +271,9 @@ export function detectLang() {
   return 'en';
 }
 
-export const currentLang = detectLang();
+// This is a global-first product: default to English regardless of browser
+// locale. detectLang() is kept for a future manual language switcher.
+export const currentLang = 'en';
 
 export function t(key) {
   return (DICTS[currentLang] && DICTS[currentLang][key]) || DICTS.en[key] || key;

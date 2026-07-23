@@ -1,9 +1,15 @@
 import { t, currentLang } from './i18n.js';
-import { initBackgroundStars, bubbleColor, bubbleSize, layoutBubbles } from './starfield.js';
+import { initBackgroundStars, createBubbleDrift, bubbleColor, bubbleSize, layoutBubbles } from './starfield.js';
+import { initAmbient } from './ambient.js';
+
+// How much of a bubble's content shows on its face before "…" — full text
+// is always one tap away in the detail view.
+const PREVIEW_CHAR_LIMIT = 24;
 
 const $ = (id) => document.getElementById(id);
 
 const els = {
+  musicIcon: $('music-icon'),
   findIcon: $('find-icon'),
   coffeeIcon: $('coffee-icon'),
   findPanel: $('find-panel'),
@@ -17,7 +23,6 @@ const els = {
   coffeeText: $('coffee-text'),
   coffeeLink: $('coffee-link'),
   appTitle: $('app-title'),
-  appSubtitle: $('app-subtitle'),
   entryPain: $('entry-pain'),
   entryWish: $('entry-wish'),
   sky: $('sky'),
@@ -70,7 +75,10 @@ const ERROR_KEYS = {
   content_too_long: 'errorTooLong',
   code_too_long: 'errorTooLong',
   blocked_abusive: 'errorAbusive',
+  code_taken: 'errorCodeTaken',
 };
+
+const bubbleDrift = createBubbleDrift();
 
 const state = {
   composeType: 'pain',
@@ -81,7 +89,6 @@ const state = {
 
 function applyText() {
   els.appTitle.textContent = t('appName');
-  els.appSubtitle.textContent = t('appSubtitle');
   els.entryPain.textContent = t('entryPain');
   els.entryWish.textContent = t('entryWish');
   els.findLabel.textContent = t('findLabel');
@@ -147,6 +154,7 @@ function renderSky(bubbles) {
   if (!bubbles.length) {
     els.skyEmpty.classList.remove('hidden');
     els.sky.style.height = '0';
+    bubbleDrift.setBubbles([]);
     return;
   }
   els.skyEmpty.classList.add('hidden');
@@ -156,6 +164,7 @@ function renderSky(bubbles) {
   els.sky.style.position = 'relative';
   els.sky.style.height = height + 'px';
 
+  const bubbleEls = [];
   for (const { item, x, y } of positions) {
     const size = bubbleSize(item.content);
     const btn = document.createElement('button');
@@ -173,12 +182,17 @@ function renderSky(bubbles) {
 
     const preview = document.createElement('span');
     preview.className = 'bubble-preview';
-    preview.textContent = item.content.length > 60 ? item.content.slice(0, 60) + '…' : item.content;
+    preview.textContent =
+      item.content.length > PREVIEW_CHAR_LIMIT
+        ? item.content.slice(0, PREVIEW_CHAR_LIMIT) + '…'
+        : item.content;
     btn.appendChild(preview);
 
     btn.addEventListener('click', () => openDetail(item.id));
     els.sky.appendChild(btn);
+    bubbleEls.push(btn);
   }
+  bubbleDrift.setBubbles(bubbleEls);
 }
 
 // ---------- Compose ----------
@@ -291,14 +305,7 @@ function renderDetail(bubble, replies) {
     for (const r of replies) {
       const item = document.createElement('div');
       item.className = 'reply-item';
-      const text = document.createElement('div');
-      text.textContent = r.content;
-      item.appendChild(text);
-      const reportBtn = document.createElement('button');
-      reportBtn.className = 'link-btn';
-      reportBtn.textContent = t('detailReport');
-      reportBtn.addEventListener('click', () => reportContent('reply', r.id));
-      item.appendChild(reportBtn);
+      item.textContent = r.content;
       els.detailReplies.appendChild(item);
     }
   }
@@ -435,6 +442,13 @@ function init() {
     els.findPanel.classList.add('hidden');
   });
   els.coffeeClose.addEventListener('click', () => els.coffeePanel.classList.add('hidden'));
+
+  const ambient = initAmbient();
+  els.musicIcon.addEventListener('click', async () => {
+    const playing = await ambient.toggle();
+    els.musicIcon.textContent = playing ? '🔊' : '🔇';
+    els.musicIcon.setAttribute('aria-pressed', String(playing));
+  });
 
   els.iosClose.addEventListener('click', () => {
     localStorage.setItem('bulesky_ios_guide_dismissed', '1');

@@ -1,6 +1,6 @@
 // Minimal PWA shell cache. Deliberately does not cache /api/* — bubble
 // content must always come from the network so the shared sky stays live.
-const CACHE_NAME = 'bulesky-shell-v1';
+const CACHE_NAME = 'bulesky-shell-v2';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
@@ -8,6 +8,7 @@ const SHELL_ASSETS = [
   '/js/app.js',
   '/js/i18n.js',
   '/js/starfield.js',
+  '/js/ambient.js',
   '/manifest.json',
   '/icons/icon.svg',
 ];

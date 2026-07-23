@@ -16,8 +16,12 @@
 <canvas id="bg-stars" aria-hidden="true"></canvas>
 
 <header class="top-bar">
-  <button id="find-icon" class="icon-btn" aria-label="Find my bubble">🔍</button>
-  <button id="coffee-icon" class="icon-btn" aria-label="Buy the sky a coffee">☕</button>
+  <span id="app-title" class="brand"></span>
+  <div class="top-icons">
+    <button id="music-icon" class="icon-btn" aria-label="Toggle ambient sound" aria-pressed="false">🔇</button>
+    <button id="find-icon" class="icon-btn" aria-label="Find my bubble">🔍</button>
+    <button id="coffee-icon" class="icon-btn" aria-label="Buy the sky a coffee">☕</button>
+  </div>
 </header>
 
 <div id="find-panel" class="mini-panel hidden">
@@ -36,17 +40,13 @@
   <a id="coffee-link" class="btn-primary btn-small" href="https://ko-fi.com/" target="_blank" rel="noopener noreferrer"></a>
 </div>
 
-<main class="hero">
-  <h1 id="app-title"></h1>
-  <p id="app-subtitle"></p>
-  <div class="entry-buttons">
-    <button id="entry-pain" class="entry-btn entry-pain" data-type="pain"></button>
-    <button id="entry-wish" class="entry-btn entry-wish" data-type="wish"></button>
-  </div>
-</main>
-
 <div id="sky" aria-live="polite"></div>
 <p id="sky-empty" class="sky-empty hidden"></p>
+
+<nav class="bottom-bar">
+  <button id="entry-pain" class="bottom-btn" data-type="pain"></button>
+  <button id="entry-wish" class="bottom-btn" data-type="wish"></button>
+</nav>
 
 <!-- Compose bottom sheet -->
 <div id="compose-overlay" class="overlay hidden"></div>
@@ -116,6 +116,7 @@
 
 <script type="module" src="/js/i18n.js"></script>
 <script type="module" src="/js/starfield.js"></script>
+<script type="module" src="/js/ambient.js"></script>
 <script type="module" src="/js/app.js"></script>
 </body>
 </html>
