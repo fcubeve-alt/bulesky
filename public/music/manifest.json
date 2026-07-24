@@ -1,3 +1,18 @@
 {
-  "tracks": []
+  "tracks": [
+    {
+      "id": "AlbumInADayVol4",
+      "title": "Album In A Day volume 4 - 7 April 2012",
+      "src": "/music/albuminadayvol4.mp3",
+      "source": "https://archive.org/details/AlbumInADayVol4",
+      "license": "http://creativecommons.org/licenses/by-nc-nd/3.0/"
+    },
+    {
+      "id": "zero135a",
+      "title": "Various Artists - Raped By 4 Valentines Day - Compilation With Controlled Bleedi",
+      "src": "/music/zero135a.mp3",
+      "source": "https://archive.org/details/zero135a",
+      "license": "http://creativecommons.org/licenses/by-nd-nc/1.0/"
+    }
+  ]
 }
