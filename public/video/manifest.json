@@ -1,3 +1,18 @@
 {
-  "videos": []
+  "videos": [
+    {
+      "id": "pixabay-280296",
+      "title": "sea of clouds aerial #280296",
+      "src": "/video/sea-of-clouds-aerial-280296.mp4",
+      "source": "https://pixabay.com/videos/id-280296/",
+      "license": "Pixabay License (free, no attribution required)"
+    },
+    {
+      "id": "pixabay-286043",
+      "title": "sea of clouds aerial #286043",
+      "src": "/video/sea-of-clouds-aerial-286043.mp4",
+      "source": "https://pixabay.com/videos/id-286043/",
+      "license": "Pixabay License (free, no attribution required)"
+    }
+  ]
 }
