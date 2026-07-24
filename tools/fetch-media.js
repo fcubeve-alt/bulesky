@@ -85,18 +85,40 @@ function pruneManifest(entries, dir, cap) {
   return trimmed;
 }
 
-// ---------------- Music: Internet Archive (public domain / CC) ----------------
+// ---------------- Music: Internet Archive, public-domain only ----------------
+
+// Only accept genuinely public-domain / CC0 licenses: no attribution burden,
+// no NonCommercial/NoDerivatives restrictions (this is a public, donation-
+// supported site). Anything else is rejected.
+function isPublicDomain(licenseurl) {
+  const u = String(licenseurl || '').toLowerCase();
+  if (!u) return false;
+  if (u.includes('publicdomain') || u.includes('/zero/') || u.includes('mark')) return true;
+  return false;
+}
+
+// Reject off-brand / disturbing titles — this is a gentle, healing space.
+const TITLE_BLOCK = /\b(rape|blood|bleed|death|kill|gore|satan|hell|drug|porn|sex|nsfw|nazi|war|gun|suicide|terror|hate|noise|scream|horror)\b/i;
+
+function titleOk(s) {
+  return s && !TITLE_BLOCK.test(String(s));
+}
 
 async function fetchArchiveAudio(existing) {
   const have = new Set(existing.map((e) => e.id).filter(Boolean));
   const added = [];
-  const subjects = ['ambient', 'meditation', 'nature sounds', 'calm piano'];
-  const subject = subjects[Math.floor(Math.random() * subjects.length)];
+
+  // Curated calm, public-domain collections (classical performances + solo
+  // piano) — far safer and more on-brand than an open "ambient" keyword.
+  const collections = ['musopen', 'DailyPianoPodcast', 'coucou'];
+  const collection = collections[Math.floor(Math.random() * collections.length)];
 
   const search =
     'https://archive.org/advancedsearch.php?q=' +
-    encodeURIComponent(`subject:(${subject}) AND mediatype:audio AND format:(VBR MP3)`) +
-    '&fl[]=identifier&fl[]=title&fl[]=licenseurl&sort[]=downloads+desc&rows=40&output=json';
+    encodeURIComponent(
+      `collection:(${collection}) AND mediatype:audio AND format:(VBR MP3) AND licenseurl:(*publicdomain* OR *creativecommons.org/publicdomain*)`
+    ) +
+    '&fl[]=identifier&fl[]=title&fl[]=licenseurl&sort[]=downloads+desc&rows=50&output=json';
 
   let docs = [];
   try {
@@ -106,17 +128,20 @@ async function fetchArchiveAudio(existing) {
     log('archive search failed:', e.message);
     return added;
   }
-  // Shuffle for variety across runs.
   docs.sort(() => Math.random() - 0.5);
 
   for (const doc of docs) {
-    if (added.length >= 2) break; // a couple new tracks per run
+    if (added.length >= 2) break;
     if (have.has(doc.identifier)) continue;
-    if (!doc.licenseurl) continue; // require an explicit license (CC/PD)
+    if (!isPublicDomain(doc.licenseurl)) continue; // PD/CC0 only
+    if (!titleOk(doc.title) || !titleOk(doc.identifier)) {
+      log('skip (title):', doc.identifier);
+      continue;
+    }
     try {
       const meta = await getJSON(`https://archive.org/metadata/${doc.identifier}`);
       const files = (meta.files || []).filter(
-        (f) => /\.mp3$/i.test(f.name || '') && f.size && Number(f.size) <= MAX_AUDIO_BYTES
+        (f) => /\.mp3$/i.test(f.name || '') && f.size && Number(f.size) <= MAX_AUDIO_BYTES && titleOk(f.name)
       );
       if (!files.length) continue;
       const file = files.sort((a, b) => Number(a.size) - Number(b.size))[Math.floor(files.length / 2)];
@@ -126,7 +151,7 @@ async function fetchArchiveAudio(existing) {
       const bytes = await download(url, dest, MAX_AUDIO_BYTES);
       added.push({
         id: doc.identifier,
-        title: (doc.title || subject).toString().slice(0, 80),
+        title: (doc.title || 'Untitled').toString().slice(0, 80),
         src: `/music/${fname}`,
         source: `https://archive.org/details/${doc.identifier}`,
         license: doc.licenseurl,
