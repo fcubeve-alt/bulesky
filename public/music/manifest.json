@@ -1,36 +1,3 @@
 {
-  "tracks": [
-    {
-      "id": "jamendo-671240",
-      "title": "PEIRE CARDENAL",
-      "artist": "SHAMATRONIC",
-      "src": "/music/jamendo-671240.mp3",
-      "source": "https://www.jamendo.com/track/671240",
-      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
-    },
-    {
-      "id": "jamendo-1439448",
-      "title": "Swansong",
-      "artist": "Dan Falvey",
-      "src": "/music/jamendo-1439448.mp3",
-      "source": "https://www.jamendo.com/track/1439448",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-1550298",
-      "title": "#15 (Gullinburste-2018)",
-      "artist": "Ivan Tregub (BER)",
-      "src": "/music/jamendo-1550298.mp3",
-      "source": "https://www.jamendo.com/track/1550298",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-509674",
-      "title": "Black Samba",
-      "artist": "Juanitos",
-      "src": "/music/jamendo-509674.mp3",
-      "source": "https://www.jamendo.com/track/509674",
-      "license": "http://creativecommons.org/licenses/by-sa/2.0/fr/"
-    }
-  ]
+  "tracks": []
 }

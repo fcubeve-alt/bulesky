@@ -246,7 +246,7 @@ async function fetchJamendoAudio(existing) {
   const added = [];
 
   // Reject upbeat / non-calming genres even if a fuzzy tag matched.
-  const GENRE_BLOCK = /\b(reggae|rock|metal|punk|pop|dance|edm|techno|house|hiphop|hip-hop|rap|funk|disco|dubstep|trap|drum|club|electro)\b/i;
+  const GENRE_BLOCK = /\b(reggae|rock|metal|punk|pop|dance|edm|techno|house|hip-?hop|rap|funk|disco|dubstep|trap|drum|club|electro|samba|salsa|bossa|latin|jazz|swing|ska|blues|soul|gospel|country|tango|flamenco|afro|calypso|march|marching|world)\b/i;
 
   // Try a few calm tags in random order, stopping once we have enough.
   // `vocalinstrumental=instrumental` keeps it wordless; the genre blocklist
