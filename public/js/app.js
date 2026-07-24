@@ -22,6 +22,7 @@ const els = {
   bgClose: $('bg-close'),
   bgNow: $('bg-now'),
   bgNext: $('bg-next'),
+  bgAuto: $('bg-auto'),
   bgNote: $('bg-note'),
   findPanel: $('find-panel'),
   findClose: $('find-close'),
@@ -342,8 +343,10 @@ function refreshMusicPanel() {
 function refreshBgPanel() {
   els.bgNow.textContent = backgrounds.currentTitle;
   els.bgNext.textContent = t('bgNext');
+  els.bgAuto.textContent = backgrounds.autoOn ? t('bgAutoOn') : t('bgAutoOff');
   els.bgNote.textContent = backgrounds.hasVideos ? '' : t('bgEmptyNote');
   els.bgNext.style.display = backgrounds.count > 1 ? '' : 'none';
+  els.bgAuto.style.display = backgrounds.count > 1 ? '' : 'none';
 }
 
 function init() {
@@ -410,6 +413,10 @@ function init() {
   els.bgClose.addEventListener('click', () => els.bgPanel.classList.add('hidden'));
   els.bgNext.addEventListener('click', () => {
     backgrounds.next();
+    refreshBgPanel();
+  });
+  els.bgAuto.addEventListener('click', () => {
+    backgrounds.toggleAuto();
     refreshBgPanel();
   });
 

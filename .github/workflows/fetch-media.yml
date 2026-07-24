@@ -1,0 +1,57 @@
+name: Fetch background media
+
+# Pulls license-safe free media (public-domain ambient music from the
+# Internet Archive; scenery video from Pixabay when PIXABAY_API_KEY is set),
+# commits it into the libraries, and triggers a deploy. Runs on demand and
+# weekly so the sky slowly gains new scenery/music over time.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "17 4 * * 1" # Mondays 04:17 UTC
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/lingxingkong-prd-t1x2mg
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch media
+        env:
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+        run: node tools/fetch-media.js
+
+      - name: Commit new media
+        id: commit
+        run: |
+          git config user.name "bulesky-bot"
+          git config user.email "noreply@anthropic.com"
+          git add public/music public/video
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No new media."
+          else
+            git commit -m "chore: auto-fetch background media"
+            git push origin claude/lingxingkong-prd-t1x2mg
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger deploy
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
+            -d '{"ref":"claude/lingxingkong-prd-t1x2mg"}'

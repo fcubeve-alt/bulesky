@@ -128,40 +128,73 @@ body.has-video #mist { display: none; }
   justify-content: center;
   text-align: center;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 36%, #ffffff 0%, var(--l-core) 42%, var(--l-edge) 92%);
-  box-shadow: 0 0 calc(20px * var(--glow, 1)) calc(6px * var(--glow, 1)) var(--l-halo);
-  animation: flicker 3.8s ease-in-out infinite;
+  /* Spherical shading: bright specular near top-left, darkening to the
+     bottom edge, so each reads as a rounded 3D balloon rather than a flat disc. */
+  background:
+    radial-gradient(circle at 34% 26%, #ffffff 0%, var(--l-core) 30%, var(--l-edge) 74%, var(--l-deep) 100%);
+  box-shadow:
+    0 0 calc(22px * var(--glow, 1)) calc(6px * var(--glow, 1)) var(--l-halo),
+    0 10px 22px rgba(0, 0, 0, 0.34),
+    inset 0 -12px 20px rgba(0, 0, 0, 0.28),
+    inset 0 9px 16px rgba(255, 255, 255, 0.3);
+  animation: sway-bob 5s ease-in-out infinite;
   will-change: transform;
   -webkit-tap-highlight-color: transparent;
-  overflow: hidden;
+  overflow: visible;
+}
+.lantern::before { /* glossy specular highlight */
+  content: "";
+  position: absolute;
+  top: 12%;
+  left: 18%;
+  width: 34%;
+  height: 26%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+  filter: blur(1px);
+  pointer-events: none;
+}
+.lantern::after { /* tiny knot at the bottom, like a balloon */
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--l-deep);
+  border-radius: 2px;
+  pointer-events: none;
 }
 .lantern-text {
-  font-size: 0.62rem;
-  line-height: 1.25;
+  position: relative;
   font-weight: 700;
-  color: rgba(26, 18, 34, 0.9);
+  line-height: 1.22;
+  color: rgba(28, 18, 32, 0.92);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.35);
 }
 .lantern.type-wish {
   --l-core: #ffdd97;
-  --l-edge: #ffab5c;
+  --l-edge: #ff9d4e;
+  --l-deep: #d97a2e;
   --l-halo: rgba(255, 168, 92, 0.5);
 }
 .lantern.type-pain {
-  --l-core: #cfe6ff;
+  --l-core: #d3e8ff;
   --l-edge: #8fb6ff;
+  --l-deep: #5b7fc7;
   --l-halo: rgba(120, 165, 240, 0.45);
 }
-.lantern.type-pain .lantern-text { color: rgba(16, 22, 44, 0.9); }
-.lantern:active { filter: brightness(1.12); }
-@keyframes flicker {
+.lantern.type-pain .lantern-text { color: rgba(16, 22, 44, 0.92); }
+.lantern:active { filter: brightness(1.1); }
+@keyframes sway-bob {
   0%, 100% { filter: brightness(1); }
-  45% { filter: brightness(1.1); }
-  70% { filter: brightness(0.95); }
+  50% { filter: brightness(1.08); }
 }
 
 /* ---- Top bar ---- */

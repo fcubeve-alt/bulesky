@@ -7,11 +7,28 @@
 // is remembered across visits.
 
 const STORAGE_KEY = 'bulesky_bg_index';
+const AUTO_KEY = 'bulesky_bg_auto';
+const ROTATE_MS = 75000; // switch scenery about every 75s when auto-rotating
 
 export function initBackgrounds({ video, scrim, proceduralTitle }) {
   // options[0] is always the procedural scene (src === null).
   let options = [{ title: proceduralTitle, src: null }];
   let index = 0;
+  let autoOn = localStorage.getItem(AUTO_KEY) !== '0'; // default on
+  let timer = null;
+
+  function stopTimer() {
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+  }
+  function armTimer() {
+    stopTimer();
+    if (autoOn && options.length > 1) {
+      timer = setInterval(() => apply(index + 1), ROTATE_MS);
+    }
+  }
 
   function apply(i) {
     index = ((i % options.length) + options.length) % options.length;
@@ -36,6 +53,7 @@ export function initBackgrounds({ video, scrim, proceduralTitle }) {
     } catch {
       /* ignore */
     }
+    armTimer();
   }
 
   // Load the video manifest, then restore the saved choice (default to the
@@ -63,6 +81,19 @@ export function initBackgrounds({ video, scrim, proceduralTitle }) {
   return {
     next() {
       apply(index + 1);
+    },
+    toggleAuto() {
+      autoOn = !autoOn;
+      try {
+        localStorage.setItem(AUTO_KEY, autoOn ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      armTimer();
+      return autoOn;
+    },
+    get autoOn() {
+      return autoOn;
     },
     get currentTitle() {
       return options[index] ? options[index].title : proceduralTitle;

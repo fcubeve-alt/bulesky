@@ -300,16 +300,28 @@ export function createWhisperWorld(viewport, world, { onTap }) {
 
     items = whispers.map((wsp, i) => {
       const warmth = Math.min(1, (wsp.warmth || 0) / WARMTH_CAP);
-      const size = 82 + warmth * 34; // big enough to read a short preview
+      const text = (wsp.content || '').trim();
+
+      // Size reflects how much was written (longer confession = bigger
+      // balloon) plus a nudge for warmth, so the sky has real variety.
+      const lenFactor = Math.min(1, text.length / 140);
+      const base = 62 + lenFactor * 50 + warmth * 20; // ~62–132px
+
+      // Shape variety: mostly round, some tall or wide ellipses.
+      const shape = Math.random();
+      let w = base;
+      let h = base;
+      if (shape < 0.3) h = base * (1.1 + Math.random() * 0.16);
+      else if (shape < 0.5) w = base * (1.12 + Math.random() * 0.16);
 
       const el = document.createElement('button');
       el.className = `lantern type-${wsp.type}`;
-      el.style.width = size + 'px';
-      el.style.height = size + 'px';
+      el.style.width = w + 'px';
+      el.style.height = h + 'px';
+      el.style.fontSize = (0.56 + lenFactor * 0.12).toFixed(3) + 'rem';
       el.style.setProperty('--glow', (0.5 + warmth * 0.5).toFixed(2));
       el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');
 
-      const text = (wsp.content || '').trim();
       const span = document.createElement('span');
       span.className = 'lantern-text';
       span.textContent = text.length > PREVIEW_CHARS ? text.slice(0, PREVIEW_CHARS) + '…' : text;
@@ -325,7 +337,7 @@ export function createWhisperWorld(viewport, world, { onTap }) {
       const slot = worldW / Math.max(1, whispers.length);
       return {
         el,
-        x: i * slot + slot / 2 + rand(-slot * 0.22, slot * 0.22) - size / 2,
+        x: i * slot + slot / 2 + rand(-slot * 0.22, slot * 0.22) - w / 2,
         y: rand(-H * 0.05, H * 1.02), // pre-scattered across full height so the sky looks alive on load
 
         rise: rand(0.1, 0.34),
