@@ -26,20 +26,13 @@ body { position: fixed; inset: 0; }
 
 .hidden { display: none !important; }
 
-/* ---- Landscape ---- */
+/* ---- Background: plain dark fallback shown behind/without a video ---- */
 #sky-bg {
   position: fixed;
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(120% 80% at 74% 22%, rgba(60, 80, 140, 0.35) 0%, rgba(60, 80, 140, 0) 45%),
-    linear-gradient(180deg,
-      #05070f 0%,
-      #0a1230 34%,
-      #122048 52%,
-      #0e1b3e 60%,   /* waterline ~60% */
-      #0a1430 72%,
-      #060a1c 100%);
+    radial-gradient(120% 90% at 50% 18%, #131a38 0%, #0a0e22 45%, #05060f 100%);
 }
 #scene {
   position: fixed;

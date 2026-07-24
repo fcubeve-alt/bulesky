@@ -1,32 +1,3 @@
 {
-  "videos": [
-    {
-      "id": "pixabay-24567",
-      "title": "calm lake #24567",
-      "src": "/video/calm-lake-24567.mp4",
-      "source": "https://pixabay.com/videos/id-24567/",
-      "license": "Pixabay License (free, no attribution required)"
-    },
-    {
-      "id": "pixabay-112237",
-      "title": "calm lake #112237",
-      "src": "/video/calm-lake-112237.mp4",
-      "source": "https://pixabay.com/videos/id-112237/",
-      "license": "Pixabay License (free, no attribution required)"
-    },
-    {
-      "id": "pixabay-244733",
-      "title": "calm lake #244733",
-      "src": "/video/calm-lake-244733.mp4",
-      "source": "https://pixabay.com/videos/id-244733/",
-      "license": "Pixabay License (free, no attribution required)"
-    },
-    {
-      "id": "pixabay-2949",
-      "title": "calm lake #2949",
-      "src": "/video/calm-lake-2949.mp4",
-      "source": "https://pixabay.com/videos/id-2949/",
-      "license": "Pixabay License (free, no attribution required)"
-    }
-  ]
+  "videos": []
 }

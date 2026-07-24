@@ -1,28 +1,3 @@
 {
-  "tracks": [
-    {
-      "id": "jamendo-800972",
-      "title": "SLOW OF LOVE",
-      "artist": "PATROUX",
-      "src": "/music/jamendo-800972.mp3",
-      "source": "https://www.jamendo.com/track/800972",
-      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
-    },
-    {
-      "id": "jamendo-1195819",
-      "title": "The crossroads of change",
-      "artist": "zero-project",
-      "src": "/music/jamendo-1195819.mp3",
-      "source": "https://www.jamendo.com/track/1195819",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-1196203",
-      "title": "Desert queen",
-      "artist": "zero-project",
-      "src": "/music/jamendo-1196203.mp3",
-      "source": "https://www.jamendo.com/track/1196203",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    }
-  ]
+  "tracks": []
 }

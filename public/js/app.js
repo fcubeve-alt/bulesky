@@ -1,5 +1,5 @@
 import { t, currentLang } from './i18n.js';
-import { initScene, createWhisperWorld } from './scene.js';
+import { createWhisperWorld } from './scene.js';
 import { initAmbient } from './ambient.js';
 import { initBackgrounds } from './backgrounds.js';
 
@@ -7,13 +7,10 @@ const $ = (id) => document.getElementById(id);
 
 const els = {
   appTitle: $('app-title'),
-  tagline: $('tagline'),
-  tapHint: $('tap-hint'),
   bgIcon: $('bg-icon'),
   musicIcon: $('music-icon'),
   findIcon: $('find-icon'),
   coffeeIcon: $('coffee-icon'),
-  scene: $('scene'),
   lanterns: $('lanterns'),
   world: $('world'),
   bgVideo: $('bg-video'),
@@ -100,8 +97,6 @@ let backgrounds = null;
 
 function applyText() {
   els.appTitle.textContent = t('appName');
-  els.tagline.textContent = t('tagline');
-  els.tapHint.textContent = t('tapHint');
   els.findLabel.textContent = t('findLabel');
   els.findInput.placeholder = t('codePlaceholder');
   els.findSubmit.textContent = t('findSubmit');
@@ -153,7 +148,6 @@ async function loadWhispers() {
     const data = await res.json();
     const whispers = data.bubbles || [];
     whisperWorld.setWhispers(whispers);
-    els.tapHint.style.opacity = whispers.length ? '1' : '0';
   } catch {
     whisperWorld.setWhispers([]);
   }
@@ -359,16 +353,30 @@ function refreshBgPanel() {
   els.bgAuto.style.display = backgrounds.count > 1 ? '' : 'none';
 }
 
+const MUSIC_OFF_KEY = 'bulesky_music_off';
+
+// Browsers block audible autoplay until a user gesture, so start the music
+// on the very first tap/click/key anywhere — unless the user has turned it
+// off before (remembered). Feels like autoplay without fighting the policy.
+function armMusicAutostart() {
+  if (localStorage.getItem(MUSIC_OFF_KEY) === '1') return;
+  const start = async () => {
+    window.removeEventListener('pointerdown', start);
+    window.removeEventListener('keydown', start);
+    if (ambient.isPlaying) return;
+    const playing = await ambient.toggle();
+    els.musicIcon.setAttribute('aria-pressed', String(playing));
+  };
+  window.addEventListener('pointerdown', start, { once: false });
+  window.addEventListener('keydown', start, { once: false });
+}
+
 function init() {
   applyText();
-  initScene(els.scene);
-  backgrounds = initBackgrounds({
-    video: els.bgVideo,
-    scrim: els.bgScrim,
-    proceduralTitle: t('bgProcedural'),
-  });
+  backgrounds = initBackgrounds({ video: els.bgVideo, scrim: els.bgScrim });
   whisperWorld = createWhisperWorld(els.lanterns, els.world, { onTap: openDetail });
   loadWhispers();
+  armMusicAutostart();
 
   els.entryPain.addEventListener('click', () => openCompose('pain'));
   els.entryWish.addEventListener('click', () => openCompose('wish'));
@@ -441,6 +449,8 @@ function init() {
   els.musicToggle.addEventListener('click', async () => {
     const playing = await ambient.toggle();
     els.musicIcon.setAttribute('aria-pressed', String(playing));
+    // Remember the choice so autostart respects a deliberate pause next visit.
+    localStorage.setItem(MUSIC_OFF_KEY, playing ? '0' : '1');
     refreshMusicPanel();
   });
   els.musicNext.addEventListener('click', () => {

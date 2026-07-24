@@ -174,11 +174,25 @@ async function fetchPixabayVideo(existing) {
   }
   const have = new Set(existing.map((e) => e.id).filter(Boolean));
   const added = [];
-  const queries = ['calm lake', 'misty mountains', 'snow forest', 'night sky stars', 'aurora'];
+  // Wide, expansive, high/aerial vistas — not close-ups of a single tree or
+  // animal. The whispers rise from below into an open sky, so the backdrop
+  // should feel vast: starfields, seas of cloud, oceans, grasslands, valleys.
+  const queries = [
+    'starry night sky',
+    'milky way galaxy',
+    'sea of clouds aerial',
+    'ocean aerial drone',
+    'grassland aerial',
+    'mountain valley aerial',
+    'river valley aerial',
+    'northern lights sky',
+    'clouds timelapse sky',
+    'green hills drone',
+  ];
   const q = queries[Math.floor(Math.random() * queries.length)];
   const url =
     `https://pixabay.com/api/videos/?key=${encodeURIComponent(key)}` +
-    `&q=${encodeURIComponent(q)}&category=nature&per_page=30&safesearch=true`;
+    `&q=${encodeURIComponent(q)}&per_page=40&safesearch=true&order=popular`;
 
   let hits = [];
   try {
@@ -239,11 +253,13 @@ async function fetchJamendoAudio(existing) {
   // (checked against musicinfo) drops anything upbeat that slips through.
   // (We avoid speed=low — too few tracks carry tempo metadata, so combining
   //  it with the other filters returned zero.)
-  const tagPool = ['ambient', 'piano', 'meditation', 'relaxation', 'calm'];
-  const tagsToTry = tagPool.sort(() => Math.random() - 0.5).slice(0, 3);
+  // Emotional, cinematic, classical-leaning instrumental (piano, strings,
+  // cello/violin) that fits a melancholic, healing scene.
+  const tagPool = ['classical', 'cinematic', 'piano', 'strings', 'emotional', 'orchestral', 'ambient'];
+  const tagsToTry = tagPool.sort(() => Math.random() - 0.5).slice(0, 4);
 
   for (const tag of tagsToTry) {
-    if (added.length >= 3) break;
+    if (added.length >= 4) break;
     const url =
       `https://api.jamendo.com/v3.0/tracks/?client_id=${encodeURIComponent(key)}` +
       `&format=json&limit=50&fuzzytags=${encodeURIComponent(tag)}` +
@@ -262,7 +278,7 @@ async function fetchJamendoAudio(existing) {
     results.sort(() => Math.random() - 0.5);
 
     for (const tr of results) {
-      if (added.length >= 3) break;
+      if (added.length >= 4) break;
       const id = `jamendo-${tr.id}`;
       if (have.has(id)) continue;
       have.add(id);

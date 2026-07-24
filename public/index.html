@@ -13,16 +13,10 @@
 </head>
 <body>
 
-<!-- Landscape layers (back → front) -->
+<!-- Background: looping scenery video over a plain dark fallback -->
 <video id="bg-video" class="hidden" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>
 <div id="bg-scrim" class="hidden" aria-hidden="true"></div>
 <div id="sky-bg" aria-hidden="true"></div>
-<canvas id="scene" aria-hidden="true"></canvas>
-<svg id="mountains" aria-hidden="true" viewBox="0 0 1440 320" preserveAspectRatio="none">
-  <path class="mtn mtn-far" d="M0,220 L180,150 L320,205 L470,120 L640,200 L800,140 L980,205 L1140,150 L1300,200 L1440,165 L1440,320 L0,320 Z"/>
-  <path class="mtn mtn-near" d="M0,260 L160,205 L300,255 L460,190 L620,250 L780,200 L960,255 L1120,210 L1300,255 L1440,220 L1440,320 L0,320 Z"/>
-</svg>
-<div id="mist" aria-hidden="true"></div>
 
 <!-- Whispers, as drifting lanterns (world pans horizontally when crowded) -->
 <div id="lanterns" aria-live="polite"><div id="world"></div></div>
@@ -37,10 +31,6 @@
     <button id="coffee-icon" class="icon-btn" aria-label="Buy a coffee">☕</button>
   </div>
 </header>
-
-<!-- Poetic invitation -->
-<p id="tagline" class="tagline"></p>
-<p id="tap-hint" class="tap-hint"></p>
 
 <!-- Mini panels -->
 <div id="find-panel" class="mini-panel hidden">
