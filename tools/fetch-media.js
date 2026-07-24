@@ -230,13 +230,15 @@ async function fetchJamendoAudio(existing) {
   }
   const have = new Set(existing.map((e) => e.id).filter(Boolean));
   const added = [];
-  const tags = ['ambient', 'calm', 'meditation', 'piano', 'relaxation'];
+  const tags = ['ambient', 'meditation', 'relaxation', 'soundscape', 'newage'];
   const tag = tags[Math.floor(Math.random() * tags.length)];
 
+  // speed=low + instrumental strongly favours slow, calm, wordless music.
   const url =
     `https://api.jamendo.com/v3.0/tracks/?client_id=${encodeURIComponent(key)}` +
-    `&format=json&limit=40&fuzzytags=${encodeURIComponent(tag)}` +
-    `&audioformat=mp31&order=popularity_total&include=licenses&ccnc=false&ccnd=false`;
+    `&format=json&limit=50&fuzzytags=${encodeURIComponent(tag)}` +
+    `&speed=low&vocalinstrumental=instrumental` +
+    `&audioformat=mp31&order=popularity_total&include=musicinfo+licenses&ccnc=false&ccnd=false`;
 
   let results = [];
   try {
@@ -248,12 +250,20 @@ async function fetchJamendoAudio(existing) {
   }
   results.sort(() => Math.random() - 0.5);
 
+  // Reject upbeat / non-calming genres even if a fuzzy tag matched.
+  const GENRE_BLOCK = /\b(reggae|rock|metal|punk|pop|dance|edm|techno|house|hiphop|hip-hop|rap|funk|disco|dubstep|trap|drum|club|electro)\b/i;
+
   for (const tr of results) {
     if (added.length >= 3) break;
     const id = `jamendo-${tr.id}`;
     if (have.has(id)) continue;
     if (!titleOk(tr.name) || !titleOk(tr.artist_name)) {
       log('skip (title):', tr.id);
+      continue;
+    }
+    const genres = ((tr.musicinfo && tr.musicinfo.tags && tr.musicinfo.tags.genres) || []).join(' ');
+    if (GENRE_BLOCK.test(genres) || GENRE_BLOCK.test(tr.name)) {
+      log('skip (genre):', tr.id, genres);
       continue;
     }
     const dl = tr.audiodownload_allowed && tr.audiodownload ? tr.audiodownload : tr.audio;
