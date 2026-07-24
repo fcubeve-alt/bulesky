@@ -1,6 +1,20 @@
 {
   "videos": [
     {
+      "id": "pixabay-126925",
+      "title": "night sky stars #126925",
+      "src": "/video/night-sky-stars-126925.mp4",
+      "source": "https://pixabay.com/videos/id-126925/",
+      "license": "Pixabay License (free, no attribution required)"
+    },
+    {
+      "id": "pixabay-183967",
+      "title": "night sky stars #183967",
+      "src": "/video/night-sky-stars-183967.mp4",
+      "source": "https://pixabay.com/videos/id-183967/",
+      "license": "Pixabay License (free, no attribution required)"
+    },
+    {
       "id": "pixabay-142949",
       "title": "snow forest #142949",
       "src": "/video/snow-forest-142949.mp4",

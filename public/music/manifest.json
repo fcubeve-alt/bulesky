@@ -1,3 +1,28 @@
 {
-  "tracks": []
+  "tracks": [
+    {
+      "id": "jamendo-800964",
+      "title": "MELANCOLIA",
+      "artist": "PATROUX",
+      "src": "/music/jamendo-800964.mp3",
+      "source": "https://www.jamendo.com/track/800964",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-800959",
+      "title": "COSMIC REGGAE",
+      "artist": "PATROUX",
+      "src": "/music/jamendo-800959.mp3",
+      "source": "https://www.jamendo.com/track/800959",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-913498",
+      "title": "Salam",
+      "artist": "Laurent Danis",
+      "src": "/music/jamendo-913498.mp3",
+      "source": "https://www.jamendo.com/track/913498",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    }
+  ]
 }
