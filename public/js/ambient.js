@@ -94,6 +94,7 @@ export function initAmbient() {
   let synth = null;
   let playing = false;
   let currentTitle = null;
+  let currentTrack = null;
 
   async function loadLibrary() {
     if (libraryLoaded) return;
@@ -130,10 +131,20 @@ export function initAmbient() {
         if (playing) playRandomTrack();
       });
     }
+    currentTrack = track;
     currentTitle = track.title || track.src.split('/').pop();
     audio.src = track.src;
     audio.volume = 0.55;
     audio.play().catch(() => {});
+  }
+
+  // Short license label from a Creative Commons URL, for attribution.
+  function licenseShort(url) {
+    const u = String(url || '').toLowerCase();
+    if (!u) return '';
+    if (u.includes('publicdomain') || u.includes('/zero/')) return 'Public Domain';
+    const m = u.match(/licenses\/(by(?:-[a-z]+)*)/);
+    return m ? 'CC ' + m[1].toUpperCase() : 'CC';
   }
 
   function startSynthFallback() {
@@ -187,6 +198,17 @@ export function initAmbient() {
     },
     get nowPlaying() {
       return currentTitle;
+    },
+    get nowCredit() {
+      if (!currentTrack) return '';
+      const parts = [];
+      if (currentTrack.artist) parts.push(currentTrack.artist);
+      const lic = licenseShort(currentTrack.license);
+      if (lic) parts.push(lic);
+      return parts.join(' · ');
+    },
+    get nowSource() {
+      return currentTrack ? currentTrack.source || '' : '';
     },
   };
 }

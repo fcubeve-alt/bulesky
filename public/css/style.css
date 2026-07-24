@@ -338,7 +338,8 @@ body.has-video #mist { display: none; }
 }
 .find-result { margin-top: 10px; font-size: 0.86rem; color: var(--ink-soft); }
 #coffee-text, .music-now { margin: 4px 0 10px; font-size: 0.86rem; color: var(--ink-soft); }
-.music-now { font-weight: 600; color: var(--ink); }
+.music-now { font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+.music-credit { display: block; color: var(--ink-soft); text-decoration: underline; margin: 0 2px 8px; }
 
 /* ---- Sheets ---- */
 .overlay {

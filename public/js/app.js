@@ -37,6 +37,7 @@ const els = {
   musicPanel: $('music-panel'),
   musicClose: $('music-close'),
   musicNow: $('music-now'),
+  musicCredit: $('music-credit'),
   musicToggle: $('music-toggle'),
   musicNext: $('music-next'),
   musicNote: $('music-note'),
@@ -333,6 +334,15 @@ function refreshMusicPanel() {
     els.musicNow.textContent = ambient.usingLibrary ? ambient.nowPlaying || '' : t('musicSynth');
   } else {
     els.musicNow.textContent = t('musicIdle');
+  }
+  // Attribution (required for CC-BY tracks): show artist · license, linked to source.
+  const credit = ambient.isPlaying && ambient.usingLibrary ? ambient.nowCredit : '';
+  if (credit) {
+    els.musicCredit.textContent = credit;
+    els.musicCredit.href = ambient.nowSource || '#';
+    els.musicCredit.style.display = '';
+  } else {
+    els.musicCredit.style.display = 'none';
   }
   els.musicNote.textContent = ambient.usingLibrary ? '' : t('musicEmptyNote');
   els.musicNext.style.display = ambient.usingLibrary ? '' : 'none';

@@ -23,6 +23,15 @@ tracks, it falls back to a soft synthesized pad.
    a random track, then auto-advances to another random one; the in-app
    music panel has a "next" button to skip.
 
+## Automatic music (Jamendo)
+
+If a `JAMENDO_CLIENT_ID` secret is set, the fetch-media workflow pulls calm
+Creative-Commons tracks from Jamendo automatically — filtered to licenses
+that allow commercial use and streaming (CC-BY / CC-BY-SA; NonCommercial and
+NoDerivatives are excluded), with a disturbing-word title blocklist. The
+app shows the required attribution (artist · license, linked to the source)
+in the music panel. Get a free client id at https://devportal.jamendo.com.
+
 ## Note on uploading without editing files
 
 If you'd rather upload/change tracks from a web admin page (no git), that

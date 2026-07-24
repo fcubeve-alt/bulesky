@@ -28,6 +28,7 @@ jobs:
       - name: Fetch media
         env:
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          JAMENDO_CLIENT_ID: ${{ secrets.JAMENDO_CLIENT_ID }}
         run: node tools/fetch-media.js
 
       - name: Commit new media

@@ -216,6 +216,68 @@ async function fetchPixabayVideo(existing) {
   return added;
 }
 
+// ---------------- Music: Jamendo (Creative Commons, needs client id) ----------------
+
+// Only accept licenses that allow commercial use and derivatives/streaming —
+// i.e. CC-BY or CC-BY-SA. We exclude NonCommercial (NC) and NoDerivatives
+// (ND) via the API filters below. These require attribution, which the app
+// displays in the music panel.
+async function fetchJamendoAudio(existing) {
+  const key = process.env.JAMENDO_CLIENT_ID;
+  if (!key) {
+    log('JAMENDO_CLIENT_ID not set → skipping Jamendo music.');
+    return [];
+  }
+  const have = new Set(existing.map((e) => e.id).filter(Boolean));
+  const added = [];
+  const tags = ['ambient', 'calm', 'meditation', 'piano', 'relaxation'];
+  const tag = tags[Math.floor(Math.random() * tags.length)];
+
+  const url =
+    `https://api.jamendo.com/v3.0/tracks/?client_id=${encodeURIComponent(key)}` +
+    `&format=json&limit=40&fuzzytags=${encodeURIComponent(tag)}` +
+    `&audioformat=mp31&order=popularity_total&include=licenses&ccnc=false&ccnd=false`;
+
+  let results = [];
+  try {
+    const j = await getJSON(url);
+    results = j.results || [];
+  } catch (e) {
+    log('jamendo search failed:', e.message);
+    return added;
+  }
+  results.sort(() => Math.random() - 0.5);
+
+  for (const tr of results) {
+    if (added.length >= 3) break;
+    const id = `jamendo-${tr.id}`;
+    if (have.has(id)) continue;
+    if (!titleOk(tr.name) || !titleOk(tr.artist_name)) {
+      log('skip (title):', tr.id);
+      continue;
+    }
+    const dl = tr.audiodownload_allowed && tr.audiodownload ? tr.audiodownload : tr.audio;
+    if (!dl) continue;
+    try {
+      const fname = `jamendo-${tr.id}.mp3`;
+      const dest = path.join(MUSIC_DIR, fname);
+      const bytes = await download(dl, dest, MAX_AUDIO_BYTES);
+      added.push({
+        id,
+        title: (tr.name || 'Untitled').toString().slice(0, 80),
+        artist: (tr.artist_name || '').toString().slice(0, 60),
+        src: `/music/${fname}`,
+        source: tr.shareurl || `https://www.jamendo.com/track/${tr.id}`,
+        license: tr.license_ccurl || 'https://creativecommons.org/licenses/by/3.0/',
+      });
+      log(`+ music(jamendo): ${fname} (${(bytes / 1e6).toFixed(1)} MB) — ${tr.name} / ${tr.artist_name}`);
+    } catch (e) {
+      log('jamendo item skipped:', tr.id, e.message);
+    }
+  }
+  return added;
+}
+
 // ---------------- Main ----------------
 
 (async () => {
@@ -228,7 +290,13 @@ async function fetchPixabayVideo(existing) {
   let music = readManifest(musicFile, 'tracks');
   let videos = readManifest(videoFile, 'videos');
 
-  const newMusic = await fetchArchiveAudio(music).catch((e) => (log('music error', e.message), []));
+  // Prefer Jamendo (curated CC music via API); top up with Internet Archive
+  // public-domain if Jamendo isn't configured or returns too few.
+  let newMusic = await fetchJamendoAudio(music).catch((e) => (log('jamendo error', e.message), []));
+  if (newMusic.length < 2) {
+    const arch = await fetchArchiveAudio([...music, ...newMusic]).catch((e) => (log('archive error', e.message), []));
+    newMusic = [...newMusic, ...arch];
+  }
   const newVideos = await fetchPixabayVideo(videos).catch((e) => (log('video error', e.message), []));
 
   // Newest first, then prune to caps (and delete dropped files).
