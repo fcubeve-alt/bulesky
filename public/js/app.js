@@ -39,6 +39,7 @@ const els = {
   musicToggle: $('music-toggle'),
   musicNext: $('music-next'),
   musicNote: $('music-note'),
+  nowPlaying: $('now-playing'),
   entryPain: $('entry-pain'),
   entryWish: $('entry-wish'),
   composeOverlay: $('compose-overlay'),
@@ -93,8 +94,22 @@ const ERROR_KEYS = {
 
 const state = { composeType: 'pain', composeOpenedAt: 0, detailBubbleId: null };
 let whisperWorld = null;
-const ambient = initAmbient();
 let backgrounds = null;
+
+// Subtle "now playing" strip above the bottom bar. Updates on every track
+// change (including auto-advance), and hides when music is off or on synth.
+function updateNowPlaying() {
+  const show = ambient.isPlaying && ambient.usingLibrary && ambient.nowPlaying;
+  if (show) {
+    const artist = ambient.nowArtist ? ` — ${ambient.nowArtist}` : '';
+    els.nowPlaying.textContent = `🎵 ${ambient.nowPlaying}${artist}`;
+    els.nowPlaying.classList.remove('hidden');
+  } else {
+    els.nowPlaying.classList.add('hidden');
+  }
+}
+
+const ambient = initAmbient({ onChange: () => updateNowPlaying() });
 
 function applyText() {
   els.appTitle.textContent = t('appName');

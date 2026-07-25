@@ -35,6 +35,14 @@ license, linked to the source) in the music panel. It accumulates a library
 (up to 40 tracks) over repeated runs rather than overwriting. Get a free
 client id at https://devportal.jamendo.com.
 
+## Automatic music (ccMixter)
+
+A second English CC source, **ccMixter**, is queried automatically — no API key
+needed. Same rules: attribution-only licenses (CC-BY / CC-BY-SA / public
+domain; NonCommercial, NoDerivatives and sampling licenses excluded),
+disturbing-word title blocklist, English-ish titles. Attribution shows in the
+music panel and a subtle "now playing" strip at the bottom of the screen.
+
 ## Note on uploading without editing files
 
 If you'd rather upload/change tracks from a web admin page (no git), that

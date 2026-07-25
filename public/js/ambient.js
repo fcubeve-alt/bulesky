@@ -85,7 +85,8 @@ function startSynth(context, destination) {
 
 // ---------------- Public controller ----------------
 
-export function initAmbient() {
+export function initAmbient(opts = {}) {
+  const onChange = typeof opts.onChange === 'function' ? opts.onChange : () => {};
   let library = [];
   let libraryLoaded = false;
   let audio = null;
@@ -136,6 +137,7 @@ export function initAmbient() {
     audio.src = track.src;
     audio.volume = 0.55;
     audio.play().catch(() => {});
+    onChange();
   }
 
   // Short license label from a Creative Commons URL, for attribution.
@@ -159,6 +161,8 @@ export function initAmbient() {
     masterGain.gain.cancelScheduledValues(ctx.currentTime);
     masterGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 2.5);
     currentTitle = null;
+    currentTrack = null;
+    onChange();
   }
 
   function stopSynth() {
@@ -194,6 +198,7 @@ export function initAmbient() {
       if (playing) {
         playing = false;
         stopAll();
+        onChange();
         return false;
       }
       playing = true;
@@ -223,6 +228,9 @@ export function initAmbient() {
     },
     get nowPlaying() {
       return currentTitle;
+    },
+    get nowArtist() {
+      return currentTrack ? currentTrack.artist || '' : '';
     },
     get nowCredit() {
       if (!currentTrack) return '';

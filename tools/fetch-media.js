@@ -396,6 +396,76 @@ async function fetchJamendoAudio(existing) {
   return added;
 }
 
+// ---------------- Music: ccMixter (Creative Commons, no key) ----------------
+
+// ccMixter is a Creative-Commons music community with a public JSON query API
+// (no key). We restrict to attribution-only licenses (CC-BY / CC-BY-SA / PD —
+// no NonCommercial, no NoDerivatives) and English-ish, on-brand titles.
+async function fetchCCMixterAudio(existing) {
+  const have = new Set(existing.map((e) => e.id).filter(Boolean));
+  const added = [];
+
+  const tags = ['acoustic', 'mellow', 'folk', 'vocals', 'singer', 'calm'];
+  const tag = tags[Math.floor(Math.random() * tags.length)];
+  // lic=by asks the API for attribution licenses; we still re-check per item.
+  const url =
+    `https://ccmixter.org/api/query?f=json&sort=rank&limit=40` +
+    `&lic=by&tags=${encodeURIComponent(tag)}`;
+
+  let rows = [];
+  try {
+    rows = await getJSON(url);
+  } catch (e) {
+    log('ccmixter search failed:', e.message);
+    return added;
+  }
+  if (!Array.isArray(rows)) return added;
+  rows.sort(() => Math.random() - 0.5);
+
+  for (const up of rows) {
+    if (added.length >= 2) break;
+    const id = `ccmixter-${up.upload_id}`;
+    if (have.has(id)) continue;
+    const name = String(up.upload_name || '');
+    const artist = String(up.user_name || '');
+    if (!titleOk(name) || !titleOk(artist)) {
+      log('skip (title):', up.upload_id);
+      continue;
+    }
+    if (/[^\x00-\x7F]/.test(name)) continue; // English-ish only
+    const lic = String(up.license_url || '').toLowerCase();
+    const okLic =
+      (lic.includes('/by/') || lic.includes('/by-sa/') || lic.includes('publicdomain') || lic.includes('/zero/')) &&
+      !lic.includes('/by-nc') &&
+      !lic.includes('/by-nd') &&
+      !lic.includes('sampling');
+    if (!okLic) {
+      log('skip (license):', up.upload_id, lic);
+      continue;
+    }
+    const files = up.files || [];
+    const mp3 = files.find((f) => /\.mp3$/i.test(f.download_url || f.file_name || ''));
+    if (!mp3 || !mp3.download_url) continue;
+    try {
+      const fname = `ccmixter-${up.upload_id}.mp3`;
+      const dest = path.join(MUSIC_DIR, fname);
+      const bytes = await download(mp3.download_url, dest, MAX_AUDIO_BYTES);
+      added.push({
+        id,
+        title: name.slice(0, 80),
+        artist: artist.slice(0, 60),
+        src: `/music/${fname}`,
+        source: up.file_page_url || up.upload_url || `http://ccmixter.org/files/${artist}/${up.upload_id}`,
+        license: up.license_url || 'https://creativecommons.org/licenses/by/3.0/',
+      });
+      log(`+ music(ccmixter): ${fname} (${(bytes / 1e6).toFixed(1)} MB) — ${name} / ${artist}`);
+    } catch (e) {
+      log('ccmixter item skipped:', up.upload_id, e.message);
+    }
+  }
+  return added;
+}
+
 // ---------------- Main ----------------
 
 (async () => {
@@ -408,9 +478,11 @@ async function fetchJamendoAudio(existing) {
   let music = readManifest(musicFile, 'tracks');
   let videos = readManifest(videoFile, 'videos');
 
-  // Prefer Jamendo (curated CC music via API); top up with Internet Archive
-  // public-domain if Jamendo isn't configured or returns too few.
-  let newMusic = await fetchJamendoAudio(music).catch((e) => (log('jamendo error', e.message), []));
+  // English CC vocal songs from Jamendo + ccMixter (both attribution-only).
+  // Top up with Internet Archive public-domain if the two return too few.
+  const jam = await fetchJamendoAudio(music).catch((e) => (log('jamendo error', e.message), []));
+  const ccm = await fetchCCMixterAudio([...music, ...jam]).catch((e) => (log('ccmixter error', e.message), []));
+  let newMusic = [...jam, ...ccm];
   if (newMusic.length < 2) {
     const arch = await fetchArchiveAudio([...music, ...newMusic]).catch((e) => (log('archive error', e.message), []));
     newMusic = [...newMusic, ...arch];
