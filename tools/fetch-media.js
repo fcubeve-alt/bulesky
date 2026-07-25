@@ -193,45 +193,88 @@ async function fetchArchiveAudio(existing) {
 // NOTE: modern neo-classical (Einaudi, Yann Tiersen, Max Richter, …) is NOT
 // here — those composers are living and their works/recordings are under
 // copyright, so they can't be streamed free on a public site.
+// Each piece carries:
+//   q       – a plain search string (recall: cast a wide net on the Archive)
+//   groups  – ordered precision buckets. groups[0]=composer, groups[1]=form;
+//             any later buckets pin the exact work. A "strong" match satisfies
+//             every bucket (the exact piece); a "weak" match satisfies just
+//             composer+form (a piece from the right set, e.g. some Chopin
+//             nocturne) and is only used as a fallback when no strong match
+//             surfaces — far better than dropping the piece entirely.
 const CLASSICAL = [
   { id: 'classical-chopin-nocturne-op9-no2', title: 'Nocturne in E-flat major, Op. 9 No. 2', composer: 'Frédéric Chopin',
-    groups: [['chopin'], ['nocturne'], ['op. 9', 'op 9', 'opus 9', 'e-flat', 'e flat', 'eb ']] },
+    q: 'chopin nocturne op 9 e-flat',
+    groups: [['chopin'], ['nocturne'], ['op. 9', 'op 9', 'opus 9', 'e-flat', 'e flat', 'no. 2', 'no 2']] },
   { id: 'classical-chopin-nocturne-cs-minor', title: 'Nocturne in C-sharp minor, B. 49 (Lento con gran espressione)', composer: 'Frédéric Chopin',
-    groups: [['chopin'], ['nocturne', 'lento'], ['c-sharp', 'c sharp', 'c# ', 'posth', 'b. 49', 'b.49', 'b 49']] },
+    q: 'chopin nocturne c sharp minor posthumous',
+    groups: [['chopin'], ['nocturne', 'lento'], ['c-sharp', 'c sharp', 'c# ', 'posth', 'b. 49', 'b.49', 'b 49', 'no. 20', 'no 20']] },
   { id: 'classical-chopin-prelude-op28-no4', title: 'Prelude in E minor, Op. 28 No. 4', composer: 'Frédéric Chopin',
+    q: 'chopin prelude op 28 e minor',
     groups: [['chopin'], ['prelude', 'preludes', 'préludes'], ['op. 28', 'op 28', 'e minor', 'no. 4', 'no 4']] },
   { id: 'classical-chopin-raindrop', title: 'Prelude in D-flat major, Op. 28 No. 15 (Raindrop)', composer: 'Frédéric Chopin',
-    groups: [['chopin'], ['prelude', 'preludes', 'préludes', 'raindrop'], ['raindrop', 'no. 15', 'no 15', 'd-flat', 'd flat', 'op. 28']] },
+    q: 'chopin raindrop prelude op 28',
+    groups: [['chopin'], ['prelude', 'preludes', 'préludes', 'raindrop'], ['raindrop', 'no. 15', 'no 15', 'd-flat', 'd flat']] },
   { id: 'classical-bach-cello-suite-1-prelude', title: 'Cello Suite No. 1 in G major, BWV 1007 — Prélude', composer: 'J. S. Bach',
+    q: 'bach cello suite 1 prelude bwv 1007',
     groups: [['bach'], ['cello'], ['1007', 'suite no. 1', 'suite no 1', 'prelude', 'prélude', 'g major']] },
   { id: 'classical-bach-chaconne', title: 'Partita No. 2 in D minor, BWV 1004 — Chaconne', composer: 'J. S. Bach',
-    groups: [['bach'], ['chaconne', 'ciaccona', '1004']] },
+    q: 'bach chaconne partita 2 bwv 1004',
+    groups: [['bach'], ['chaconne', 'ciaccona', '1004', 'partita']] },
   { id: 'classical-bach-violin-sonata-3-adagio', title: 'Violin Sonata No. 3 in C, BWV 1005 — Adagio', composer: 'J. S. Bach',
-    groups: [['bach'], ['adagio'], ['1005', 'sonata no. 3', 'sonata no 3', 'violin']] },
+    q: 'bach violin sonata adagio bwv 1005',
+    groups: [['bach'], ['adagio', 'largo'], ['1005', 'sonata no. 3', 'sonata no 3', 'violin']] },
   { id: 'classical-bach-air-g-string', title: 'Air on the G String (Orchestral Suite No. 3, BWV 1068)', composer: 'J. S. Bach',
+    q: 'bach air on the g string bwv 1068',
     groups: [['bach'], ['air'], ['g string', 'g-string', '1068', 'suite no. 3', 'suite no 3']] },
   { id: 'classical-beethoven-moonlight-1', title: 'Piano Sonata No. 14 "Moonlight", Op. 27 No. 2 — Adagio sostenuto', composer: 'Ludwig van Beethoven',
-    groups: [['beethoven'], ['moonlight', 'mondschein', 'op. 27', 'op 27', 'sonata no. 14', 'sonata no 14'], ['adagio', 'moonlight', 'mondschein', '1st', 'i.', 'movement 1', 'first']] },
+    q: 'beethoven moonlight sonata op 27',
+    groups: [['beethoven'], ['moonlight', 'mondschein', 'op. 27', 'op 27', 'sonata no. 14', 'sonata no 14']] },
   { id: 'classical-elgar-cello-concerto-1', title: 'Cello Concerto in E minor, Op. 85 — I. Adagio', composer: 'Edward Elgar',
-    groups: [['elgar'], ['cello'], ['concerto'], ['op. 85', 'op 85', 'e minor', 'adagio']] },
+    q: 'elgar cello concerto e minor op 85',
+    groups: [['elgar'], ['cello'], ['concerto'], ['op. 85', 'op 85', 'e minor', 'adagio', 'moderato']] },
   { id: 'classical-saint-saens-swan', title: 'The Swan (Le Cygne), from The Carnival of the Animals', composer: 'Camille Saint-Saëns',
+    q: 'saint-saens the swan le cygne carnival of the animals',
     groups: [['saint', 'saëns', 'saens'], ['swan', 'cygne']] },
   { id: 'classical-satie-gymnopedie-1', title: 'Gymnopédie No. 1', composer: 'Erik Satie',
-    groups: [['satie'], ['gymnopedie', 'gymnopédie', 'gymnopedies', 'gymnopédies'], ['no. 1', 'no 1', 'first', '1', 'i.']] },
+    q: 'satie gymnopedie no 1',
+    groups: [['satie'], ['gymnopedie', 'gymnopédie', 'gymnopedies', 'gymnopédies'], ['no. 1', 'no 1', 'first', ' 1', 'i.']] },
   { id: 'classical-satie-gnossienne-1', title: 'Gnossienne No. 1', composer: 'Erik Satie',
-    groups: [['satie'], ['gnossienne', 'gnossiennes'], ['no. 1', 'no 1', 'first', '1', 'i.']] },
+    q: 'satie gnossienne no 1',
+    groups: [['satie'], ['gnossienne', 'gnossiennes'], ['no. 1', 'no 1', 'first', ' 1', 'i.']] },
   { id: 'classical-tchaikovsky-october', title: 'The Seasons, Op. 37a — October (Autumn Song)', composer: 'Pyotr Ilyich Tchaikovsky',
-    groups: [['tchaikovsky', 'chaikovsky', 'čajkovskij'], ['october', 'autumn', 'seasons']] },
+    q: 'tchaikovsky the seasons october autumn song',
+    groups: [['tchaikovsky', 'chaikovsky', 'tschaikowsky', 'čajkovskij'], ['october', 'autumn', 'seasons']] },
   { id: 'classical-debussy-clair-de-lune', title: 'Clair de Lune (Suite bergamasque)', composer: 'Claude Debussy',
+    q: 'debussy clair de lune',
     groups: [['debussy'], ['clair de lune', 'clair de', 'clair-de-lune']] },
   { id: 'classical-debussy-arabesque-1', title: 'Arabesque No. 1', composer: 'Claude Debussy',
-    groups: [['debussy'], ['arabesque', 'arabesques'], ['no. 1', 'no 1', 'first', 'premiere', 'première', '1', 'l. 66']] },
+    q: 'debussy arabesque no 1',
+    groups: [['debussy'], ['arabesque', 'arabesques'], ['no. 1', 'no 1', 'first', 'premiere', 'première', ' 1', 'l. 66']] },
 ];
 
-function matchesPiece(piece, doc) {
+// Accept genuinely reusable licenses for classical: public domain / CC0, or
+// attribution-only CC (BY / BY-SA) — the app renders the required artist ·
+// license credit. NonCommercial, NoDerivatives and sampling licenses are out.
+function licenseOkForClassical(url) {
+  const u = String(url || '').toLowerCase();
+  if (!u) return false;
+  if (isPublicDomain(u)) return true;
+  const cc = u.includes('creativecommons.org/licenses/');
+  return cc && (u.includes('/by/') || u.includes('/by-sa/')) &&
+    !u.includes('-nc') && !u.includes('-nd') && !u.includes('sampling');
+}
+
+function hay(doc) {
   const creator = Array.isArray(doc.creator) ? doc.creator.join(' ') : doc.creator || '';
-  const hay = `${doc.title || ''} ${doc.identifier || ''} ${creator}`.toLowerCase();
-  return piece.groups.every((alts) => alts.some((tok) => hay.includes(tok)));
+  return `${doc.title || ''} ${doc.identifier || ''} ${creator}`.toLowerCase();
+}
+function bucketHit(alts, h) { return alts.some((tok) => h.includes(tok)); }
+// tier 2 = every bucket (exact work); tier 1 = composer + form only.
+function matchTier(piece, doc) {
+  const h = hay(doc);
+  if (piece.groups.every((alts) => bucketHit(alts, h))) return 2;
+  if (bucketHit(piece.groups[0], h) && piece.groups[1] && bucketHit(piece.groups[1], h)) return 1;
+  return 0;
 }
 
 async function fetchCuratedClassical(existing) {
@@ -241,15 +284,13 @@ async function fetchCuratedClassical(existing) {
 
   for (const piece of wanted) {
     if (added.length >= CLASSICAL_PER_RUN) break;
-    // Search by the piece's most distinctive tokens (first token of each
-    // group), restricted to public-domain audio with an actual MP3 rendition.
-    const terms = piece.groups.map((alts) => alts[0]).join(' ');
+    // Wide search (no license/format filters in the query — the Archive's Solr
+    // doesn't handle leading-wildcard licenseurl filters, which silently
+    // returned nothing before). We filter by license and match in code below.
     const search =
       'https://archive.org/advancedsearch.php?q=' +
-      encodeURIComponent(
-        `mediatype:audio AND format:(VBR MP3) AND licenseurl:(*publicdomain* OR *creativecommons.org/publicdomain*) AND (${terms})`
-      ) +
-      '&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=licenseurl&sort[]=downloads+desc&rows=40&output=json';
+      encodeURIComponent(`mediatype:audio AND (${piece.q})`) +
+      '&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=licenseurl&sort[]=downloads+desc&rows=100&output=json';
 
     let docs = [];
     try {
@@ -260,12 +301,16 @@ async function fetchCuratedClassical(existing) {
       continue;
     }
 
+    // Rank license-OK candidates: exact-work matches first, then composer+form.
+    const candidates = docs
+      .filter((d) => licenseOkForClassical(d.licenseurl) && titleOk(d.title) && titleOk(d.identifier))
+      .map((d) => ({ d, tier: matchTier(piece, d) }))
+      .filter((c) => c.tier > 0)
+      .sort((a, b) => b.tier - a.tier);
+
     let done = false;
-    for (const doc of docs) {
+    for (const { d: doc, tier } of candidates) {
       if (done) break;
-      if (!isPublicDomain(doc.licenseurl)) continue;
-      if (!matchesPiece(piece, doc)) continue;
-      if (!titleOk(doc.title) || !titleOk(doc.identifier)) continue;
       try {
         const meta = await getJSON(`https://archive.org/metadata/${doc.identifier}`);
         const files = (meta.files || []).filter(
@@ -288,13 +333,13 @@ async function fetchCuratedClassical(existing) {
           license: doc.licenseurl,
           pinned: true,
         });
-        log(`+ classical: ${fname} (${(bytes / 1e6).toFixed(1)} MB) ← ${doc.identifier}`);
+        log(`+ classical[t${tier}]: ${fname} (${(bytes / 1e6).toFixed(1)} MB) ← ${doc.identifier}`);
         done = true;
       } catch (e) {
         log('classical item skipped:', doc.identifier, e.message);
       }
     }
-    if (!done) log('classical: no public-domain match found this run for', piece.id);
+    if (!done) log('classical: no license-clear match found this run for', piece.id, `(candidates: ${candidates.length})`);
   }
   return added;
 }
