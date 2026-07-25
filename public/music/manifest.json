@@ -1,22 +1,6 @@
 {
   "tracks": [
     {
-      "id": "jamendo-1174821",
-      "title": "Adventure",
-      "artist": "madelyn munsell",
-      "src": "/music/jamendo-1174821.mp3",
-      "source": "https://www.jamendo.com/track/1174821",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-26736",
-      "title": "Struttin'",
-      "artist": "Tryad",
-      "src": "/music/jamendo-26736.mp3",
-      "source": "https://www.jamendo.com/track/26736",
-      "license": "http://creativecommons.org/licenses/by-sa/2.5/"
-    },
-    {
       "id": "jamendo-26737",
       "title": "Breathe",
       "artist": "Tryad",
@@ -31,14 +15,6 @@
       "src": "/music/jamendo-26742.mp3",
       "source": "https://www.jamendo.com/track/26742",
       "license": "http://creativecommons.org/licenses/by-sa/2.5/"
-    },
-    {
-      "id": "jamendo-1165007",
-      "title": "Our World",
-      "artist": "Modern Pitch",
-      "src": "/music/jamendo-1165007.mp3",
-      "source": "https://www.jamendo.com/track/1165007",
-      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
     },
     {
       "id": "jamendo-1215808",
@@ -73,14 +49,6 @@
       "license": "http://creativecommons.org/licenses/by/3.0/"
     },
     {
-      "id": "jamendo-1658274",
-      "title": "As I Am",
-      "artist": "Josh Woodward",
-      "src": "/music/jamendo-1658274.mp3",
-      "source": "https://www.jamendo.com/track/1658274",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
       "id": "jamendo-1480061",
       "title": "Forbidden World",
       "artist": "Caroline",
@@ -105,27 +73,11 @@
       "license": "http://creativecommons.org/licenses/by-sa/3.0/"
     },
     {
-      "id": "jamendo-215758",
-      "title": "Home Improvement",
-      "artist": "Josh Woodward",
-      "src": "/music/jamendo-215758.mp3",
-      "source": "https://www.jamendo.com/track/215758",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
       "id": "jamendo-1204670",
       "title": "Deeper For You",
       "artist": "Melanie Ungar",
       "src": "/music/jamendo-1204670.mp3",
       "source": "https://www.jamendo.com/track/1204670",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-162030",
-      "title": "I'm Letting Go",
-      "artist": "Josh Woodward",
-      "src": "/music/jamendo-162030.mp3",
-      "source": "https://www.jamendo.com/track/162030",
       "license": "http://creativecommons.org/licenses/by/3.0/"
     },
     {

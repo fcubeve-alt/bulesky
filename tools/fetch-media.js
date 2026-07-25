@@ -330,10 +330,15 @@ async function fetchJamendoAudio(existing) {
     return true;
   }
 
-  // The owner now wants SONGS WITH VOICE — mellow, emotional, empathetic
-  // singer-songwriter / acoustic / folk ballads (no famous copyrighted hits;
-  // those can't be used for free). `vocalinstrumental=vocal` requires singing.
-  const tagPool = ['acoustic', 'folk', 'ballad', 'singer-songwriter', 'emotional', 'mellow', 'indie', 'love'];
+  // Core vibe: a late-night "confession hollow" — quiet, melancholic, healing.
+  // NOT upbeat folk-rock or bright pop (that breaks the "gazing at the stars,
+  // pouring your heart out" mood). Tags lean sad/slow/soft; a tempo filter
+  // (below) additionally rejects fast tracks even if a tag slipped through.
+  const tagPool = [
+    'sad', 'melancholic', 'melancholy', 'emotional', 'mellow', 'slow',
+    'ambient', 'dreamy', 'lonely', 'soft', 'piano', 'ballad',
+    'introspective', 'calm', 'soothing', 'healing',
+  ];
   const tagsToTry = tagPool.sort(() => Math.random() - 0.5).slice(0, 5);
 
   for (const tag of tagsToTry) {
@@ -373,6 +378,12 @@ async function fetchJamendoAudio(existing) {
         log('skip (non-english):', tr.id, tr.name, (tr.musicinfo && tr.musicinfo.lang) || '?');
         continue;
       }
+      // Reject upbeat tempos — the space is for quiet, unhurried listening.
+      const speed = String((tr.musicinfo && tr.musicinfo.speed) || '').toLowerCase();
+      if (speed === 'high' || speed === 'veryhigh') {
+        log('skip (too upbeat):', tr.id, tr.name, speed);
+        continue;
+      }
       const dl = tr.audiodownload_allowed && tr.audiodownload ? tr.audiodownload : tr.audio;
       if (!dl) continue;
       try {
@@ -405,7 +416,7 @@ async function fetchCCMixterAudio(existing) {
   const have = new Set(existing.map((e) => e.id).filter(Boolean));
   const added = [];
 
-  const tags = ['acoustic', 'mellow', 'folk', 'vocals', 'singer', 'calm'];
+  const tags = ['mellow', 'calm', 'ambient', 'downtempo', 'sad', 'slow', 'dreamy', 'soft'];
   const tag = tags[Math.floor(Math.random() * tags.length)];
   // lic=by asks the API for attribution licenses; we still re-check per item.
   const url =
