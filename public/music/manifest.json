@@ -1,6 +1,38 @@
 {
   "tracks": [
     {
+      "id": "jamendo-1174821",
+      "title": "Adventure",
+      "artist": "madelyn munsell",
+      "src": "/music/jamendo-1174821.mp3",
+      "source": "https://www.jamendo.com/track/1174821",
+      "license": "http://creativecommons.org/licenses/by/3.0/"
+    },
+    {
+      "id": "jamendo-26736",
+      "title": "Struttin'",
+      "artist": "Tryad",
+      "src": "/music/jamendo-26736.mp3",
+      "source": "https://www.jamendo.com/track/26736",
+      "license": "http://creativecommons.org/licenses/by-sa/2.5/"
+    },
+    {
+      "id": "jamendo-26737",
+      "title": "Breathe",
+      "artist": "Tryad",
+      "src": "/music/jamendo-26737.mp3",
+      "source": "https://www.jamendo.com/track/26737",
+      "license": "http://creativecommons.org/licenses/by-sa/2.5/"
+    },
+    {
+      "id": "jamendo-26742",
+      "title": "Beauty",
+      "artist": "Tryad",
+      "src": "/music/jamendo-26742.mp3",
+      "source": "https://www.jamendo.com/track/26742",
+      "license": "http://creativecommons.org/licenses/by-sa/2.5/"
+    },
+    {
       "id": "jamendo-1165007",
       "title": "Our World",
       "artist": "Modern Pitch",
