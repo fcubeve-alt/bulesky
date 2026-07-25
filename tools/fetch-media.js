@@ -367,7 +367,17 @@ async function fetchCuratedClassical(existing) {
         log('classical item skipped:', doc.identifier, e.message);
       }
     }
-    if (!done) log('classical: no license-clear match found this run for', piece.id, `(candidates: ${candidates.length})`);
+    if (!done) {
+      // Diagnostics: understand *why* nothing usable came back, without another
+      // blind round-trip. Split the failure into raw-hits / token-match /
+      // license, and dump a few token-matching docs' license+collection.
+      const matched = docs.map((d) => ({ d, tier: matchTier(piece, d) })).filter((c) => c.tier > 0);
+      const sample = matched.slice(0, 4).map(({ d }) => {
+        const col = Array.isArray(d.collection) ? d.collection.join('/') : d.collection || '-';
+        return `["${String(d.title || '').slice(0, 40)}" lic=${d.licenseurl || 'none'} col=${col}]`;
+      }).join(' ');
+      log(`classical: no usable match for ${piece.id} — raw=${docs.length} tokenMatch=${matched.length} licenseOk=${docs.filter(licenseAcceptable).length} candidates=${candidates.length} :: ${sample}`);
+    }
   }
   return added;
 }
