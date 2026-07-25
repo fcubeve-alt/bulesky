@@ -1,6 +1,38 @@
 {
   "tracks": [
     {
+      "id": "jamendo-570077",
+      "title": "Sand dunes",
+      "artist": "K4MMERER",
+      "src": "/music/jamendo-570077.mp3",
+      "source": "https://www.jamendo.com/track/570077",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-1083525",
+      "title": "Happy Birthday",
+      "artist": "Jason Silver",
+      "src": "/music/jamendo-1083525.mp3",
+      "source": "https://www.jamendo.com/track/1083525",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-1403220",
+      "title": "Baby Go",
+      "artist": "eve",
+      "src": "/music/jamendo-1403220.mp3",
+      "source": "https://www.jamendo.com/track/1403220",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-382",
+      "title": "Soon and Very Soon (Negro Spiritual)",
+      "artist": "Les Petits Chanteurs de Montigny",
+      "src": "/music/jamendo-382.mp3",
+      "source": "https://www.jamendo.com/track/382",
+      "license": "http://creativecommons.org/licenses/by-sa/2.0/"
+    },
+    {
       "id": "jamendo-520420",
       "title": "Air Nostalgie",
       "artist": "Hari Harahani",
