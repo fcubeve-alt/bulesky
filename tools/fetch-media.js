@@ -20,10 +20,15 @@ const ROOT = path.resolve(__dirname, '..');
 const VIDEO_DIR = path.join(ROOT, 'public', 'video');
 const MUSIC_DIR = path.join(ROOT, 'public', 'music');
 
-const MAX_VIDEOS = 4;
-const MAX_AUDIO = 6;
-const MAX_VIDEO_BYTES = 18 * 1024 * 1024;
-const MAX_AUDIO_BYTES = 9 * 1024 * 1024;
+// Accumulate a large curated library over many runs (don't overwrite good
+// clips). We only prune once these caps are exceeded; the owner curates by
+// asking to remove specific items.
+const MAX_VIDEOS = 40;
+const MAX_AUDIO = 40;
+const MAX_VIDEO_BYTES = 24 * 1024 * 1024; // Cloudflare Pages per-file limit is 25 MB
+const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
+const VIDEOS_PER_RUN = 4;
+const AUDIO_PER_RUN = 4;
 
 const UA = 'bulesky-media-fetcher/1.0 (starry-mind; contact: repo owner)';
 
@@ -164,7 +169,26 @@ async function fetchArchiveAudio(existing) {
   return added;
 }
 
-// ---------------- Video: Pixabay (needs free API key) ----------------
+// ---------------- Video ----------------
+
+// Motion-forward, expansive, high/aerial footage — real moving shots (drone
+// flyovers, flowing water, moving clouds/timelapses), not near-static clips.
+const VIDEO_QUERIES = [
+  'drone flyover mountains',
+  'flying over clouds',
+  'aerial ocean waves',
+  'river flowing aerial',
+  'timelapse clouds moving',
+  'aerial coastline sunset',
+  'flying over forest river',
+  'milky way timelapse',
+  'northern lights timelapse',
+  'aerial green valley',
+  'waterfall aerial drone',
+  'city lights timelapse night',
+  'grassland wind waves aerial',
+  'sea of clouds mountains drone',
+];
 
 async function fetchPixabayVideo(existing) {
   const key = process.env.PIXABAY_API_KEY;
@@ -177,19 +201,7 @@ async function fetchPixabayVideo(existing) {
   // Wide, expansive, high/aerial vistas — not close-ups of a single tree or
   // animal. The whispers rise from below into an open sky, so the backdrop
   // should feel vast: starfields, seas of cloud, oceans, grasslands, valleys.
-  const queries = [
-    'starry night sky',
-    'milky way galaxy',
-    'sea of clouds aerial',
-    'ocean aerial drone',
-    'grassland aerial',
-    'mountain valley aerial',
-    'river valley aerial',
-    'northern lights sky',
-    'clouds timelapse sky',
-    'green hills drone',
-  ];
-  const q = queries[Math.floor(Math.random() * queries.length)];
+  const q = VIDEO_QUERIES[Math.floor(Math.random() * VIDEO_QUERIES.length)];
   const url =
     `https://pixabay.com/api/videos/?key=${encodeURIComponent(key)}` +
     `&q=${encodeURIComponent(q)}&per_page=40&safesearch=true&order=popular`;
@@ -208,8 +220,8 @@ async function fetchPixabayVideo(existing) {
     if (added.length >= 2) break;
     const id = `pixabay-${hit.id}`;
     if (have.has(id)) continue;
-    // Prefer the "small" rendition to stay within size/repo limits.
-    const v = (hit.videos && (hit.videos.small || hit.videos.tiny || hit.videos.medium)) || null;
+    // Prefer a mid "small"/"medium" rendition (real footage, reasonable size).
+    const v = (hit.videos && (hit.videos.small || hit.videos.medium || hit.videos.tiny)) || null;
     if (!v || !v.url) continue;
     try {
       const fname = `${slugify(q)}-${hit.id}.mp4`;
@@ -222,9 +234,65 @@ async function fetchPixabayVideo(existing) {
         source: hit.pageURL || 'https://pixabay.com',
         license: 'Pixabay License (free, no attribution required)',
       });
-      log(`+ video: ${fname} (${(bytes / 1e6).toFixed(1)} MB)`);
+      log(`+ video(pixabay): ${fname} (${(bytes / 1e6).toFixed(1)} MB)`);
     } catch (e) {
       log('pixabay item skipped:', hit.id, e.message);
+    }
+  }
+  return added;
+}
+
+// ---------------- Video: Pexels (second source, needs free API key) ----------------
+
+async function fetchPexelsVideo(existing) {
+  const key = process.env.PEXELS_API_KEY;
+  if (!key) {
+    log('PEXELS_API_KEY not set → skipping Pexels video.');
+    return [];
+  }
+  const have = new Set(existing.map((e) => e.id).filter(Boolean));
+  const added = [];
+  const q = VIDEO_QUERIES[Math.floor(Math.random() * VIDEO_QUERIES.length)];
+  const url =
+    `https://api.pexels.com/videos/search?query=${encodeURIComponent(q)}` +
+    `&per_page=30&orientation=portrait&size=medium`;
+
+  let vids = [];
+  try {
+    const res = await fetch(url, { headers: { authorization: key, 'user-agent': UA } });
+    if (!res.ok) throw new Error(`GET pexels → ${res.status}`);
+    const j = await res.json();
+    vids = j.videos || [];
+  } catch (e) {
+    log('pexels search failed:', e.message);
+    return added;
+  }
+  vids.sort(() => Math.random() - 0.5);
+
+  for (const vid of vids) {
+    if (added.length >= 2) break;
+    const id = `pexels-${vid.id}`;
+    if (have.has(id)) continue;
+    // Pick an HD-ish .mp4 file within the size budget (prefer ~720p width).
+    const files = (vid.video_files || [])
+      .filter((f) => f.file_type === 'video/mp4' && f.link)
+      .sort((a, b) => (a.width || 0) - (b.width || 0));
+    const pick = files.find((f) => (f.width || 0) >= 640) || files[files.length - 1];
+    if (!pick) continue;
+    try {
+      const fname = `${slugify(q)}-pexels-${vid.id}.mp4`;
+      const dest = path.join(VIDEO_DIR, fname);
+      const bytes = await download(pick.link, dest, MAX_VIDEO_BYTES);
+      added.push({
+        id,
+        title: `${q} #${vid.id}`,
+        src: `/video/${fname}`,
+        source: vid.url || 'https://www.pexels.com',
+        license: 'Pexels License (free, no attribution required)',
+      });
+      log(`+ video(pexels): ${fname} (${(bytes / 1e6).toFixed(1)} MB)`);
+    } catch (e) {
+      log('pexels item skipped:', vid.id, e.message);
     }
   }
   return added;
@@ -245,25 +313,23 @@ async function fetchJamendoAudio(existing) {
   const have = new Set(existing.map((e) => e.id).filter(Boolean));
   const added = [];
 
-  // Reject upbeat / non-calming genres even if a fuzzy tag matched.
-  const GENRE_BLOCK = /\b(reggae|rock|metal|punk|pop|dance|edm|techno|house|hip-?hop|rap|funk|disco|dubstep|trap|drum|club|electro|samba|salsa|bossa|latin|jazz|swing|ska|blues|soul|gospel|country|tango|flamenco|afro|calypso|march|marching|world)\b/i;
+  // Reject energetic / danceable genres even if a fuzzy tag matched. (We now
+  // ALLOW gentler vocal genres — folk, acoustic, soul ballads — so those are
+  // no longer blocked; only clearly upbeat/energetic styles are.)
+  const GENRE_BLOCK = /\b(reggae|rock|metal|punk|edm|techno|trance|house|hip-?hop|rap|dance|disco|dubstep|trap|hardstyle|club|electro|samba|salsa|ska|funk|swing|march|marching)\b/i;
 
-  // Try a few calm tags in random order, stopping once we have enough.
-  // `vocalinstrumental=instrumental` keeps it wordless; the genre blocklist
-  // (checked against musicinfo) drops anything upbeat that slips through.
-  // (We avoid speed=low — too few tracks carry tempo metadata, so combining
-  //  it with the other filters returned zero.)
-  // Emotional, cinematic, classical-leaning instrumental (piano, strings,
-  // cello/violin) that fits a melancholic, healing scene.
-  const tagPool = ['classical', 'cinematic', 'piano', 'strings', 'emotional', 'orchestral', 'ambient'];
-  const tagsToTry = tagPool.sort(() => Math.random() - 0.5).slice(0, 4);
+  // The owner now wants SONGS WITH VOICE — mellow, emotional, empathetic
+  // singer-songwriter / acoustic / folk ballads (no famous copyrighted hits;
+  // those can't be used for free). `vocalinstrumental=vocal` requires singing.
+  const tagPool = ['acoustic', 'folk', 'ballad', 'singer-songwriter', 'emotional', 'mellow', 'indie', 'love'];
+  const tagsToTry = tagPool.sort(() => Math.random() - 0.5).slice(0, 5);
 
   for (const tag of tagsToTry) {
-    if (added.length >= 4) break;
+    if (added.length >= AUDIO_PER_RUN) break;
     const url =
       `https://api.jamendo.com/v3.0/tracks/?client_id=${encodeURIComponent(key)}` +
       `&format=json&limit=50&fuzzytags=${encodeURIComponent(tag)}` +
-      `&vocalinstrumental=instrumental` +
+      `&vocalinstrumental=vocal` +
       `&audioformat=mp31&order=popularity_total&include=musicinfo+licenses&ccnc=false&ccnd=false`;
 
     let results = [];
@@ -278,7 +344,7 @@ async function fetchJamendoAudio(existing) {
     results.sort(() => Math.random() - 0.5);
 
     for (const tr of results) {
-      if (added.length >= 4) break;
+      if (added.length >= AUDIO_PER_RUN) break;
       const id = `jamendo-${tr.id}`;
       if (have.has(id)) continue;
       have.add(id);
@@ -333,7 +399,10 @@ async function fetchJamendoAudio(existing) {
     const arch = await fetchArchiveAudio([...music, ...newMusic]).catch((e) => (log('archive error', e.message), []));
     newMusic = [...newMusic, ...arch];
   }
-  const newVideos = await fetchPixabayVideo(videos).catch((e) => (log('video error', e.message), []));
+  // Two video sources — combine so we accumulate faster and vary the look.
+  const pix = await fetchPixabayVideo(videos).catch((e) => (log('pixabay video error', e.message), []));
+  const pex = await fetchPexelsVideo([...videos, ...pix]).catch((e) => (log('pexels video error', e.message), []));
+  const newVideos = [...pix, ...pex];
 
   // Newest first, then prune to caps (and delete dropped files).
   music = pruneManifest([...newMusic, ...music], MUSIC_DIR, MAX_AUDIO);

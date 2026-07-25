@@ -25,12 +25,15 @@ tracks, it falls back to a soft synthesized pad.
 
 ## Automatic music (Jamendo)
 
-If a `JAMENDO_CLIENT_ID` secret is set, the fetch-media workflow pulls calm
-Creative-Commons tracks from Jamendo automatically — filtered to licenses
-that allow commercial use and streaming (CC-BY / CC-BY-SA; NonCommercial and
-NoDerivatives are excluded), with a disturbing-word title blocklist. The
-app shows the required attribution (artist · license, linked to the source)
-in the music panel. Get a free client id at https://devportal.jamendo.com.
+If a `JAMENDO_CLIENT_ID` secret is set, the fetch-media workflow pulls
+Creative-Commons **vocal songs** from Jamendo automatically — mellow,
+emotional singer-songwriter / acoustic / folk ballads (`vocalinstrumental=vocal`,
+energetic genres blocked). Famous copyrighted hits can't be used for free, so
+these are independent CC-BY / CC-BY-SA artists (NonCommercial and
+NoDerivatives excluded). The app shows the required attribution (artist ·
+license, linked to the source) in the music panel. It accumulates a library
+(up to 40 tracks) over repeated runs rather than overwriting. Get a free
+client id at https://devportal.jamendo.com.
 
 ## Note on uploading without editing files
 

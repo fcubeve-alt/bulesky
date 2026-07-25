@@ -13,8 +13,10 @@
 </head>
 <body>
 
-<!-- Background: looping scenery video over a plain dark fallback -->
-<video id="bg-video" class="hidden" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>
+<!-- Background: a crossfade playlist of scenery videos over a dark fallback.
+     Two stacked layers alternate so clips dissolve into one another. -->
+<video id="bg-video-a" class="bg-video hidden" muted playsinline autoplay preload="auto" aria-hidden="true"></video>
+<video id="bg-video-b" class="bg-video hidden" muted playsinline autoplay preload="auto" aria-hidden="true"></video>
 <div id="bg-scrim" class="hidden" aria-hidden="true"></div>
 <div id="sky-bg" aria-hidden="true"></div>
 

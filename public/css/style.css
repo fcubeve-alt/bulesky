@@ -71,7 +71,9 @@ body { position: fixed; inset: 0; }
 }
 
 /* ---- Video background + fallback layers ---- */
-#bg-video {
+/* Two stacked layers crossfade between playlist clips. Both sit at z-index 0
+   and 1; the active one fades to opacity 1 (.bg-show), the other to 0. */
+.bg-video {
   position: fixed;
   inset: 0;
   width: 100%;
@@ -79,6 +81,13 @@ body { position: fixed; inset: 0; }
   object-fit: cover;
   z-index: 0;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.6s ease-in-out;
+  will-change: opacity;
+}
+.bg-video.bg-show {
+  opacity: 1;
+  z-index: 1;
 }
 #bg-scrim {
   position: fixed;

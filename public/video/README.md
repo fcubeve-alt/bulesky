@@ -1,8 +1,22 @@
 # Background videos
 
-The background switcher (🏔️ icon) cycles through the procedural night-lake
-scene plus any scenery videos listed here. Until you add videos, it shows the
-painted lake scene.
+The background plays a **continuous crossfade playlist**: each clip in
+`manifest.json` plays once, then dissolves into the next (1 → 2 → 3 → … →
+loop) with no jarring loop jump. Until any videos exist it shows a plain dark
+sky. The 🏔️ panel can skip to the next clip or pause auto-advance.
+
+## Where the clips come from (automatic)
+
+`tools/fetch-media.js` (run by the **Fetch background media** GitHub Action)
+pulls license-safe, expansive/aerial, real-motion footage and curates it here
+over time — it **accumulates** a library (up to 40 clips) instead of
+overwriting good ones. Sources:
+
+- **Pixabay** — needs `PIXABAY_API_KEY` (free). Pixabay License, no attribution.
+- **Pexels** — needs `PEXELS_API_KEY` (free). Pexels License, no attribution.
+
+Add each as a GitHub Actions secret, then run the workflow (it can run several
+times to build the library up). Bad clips can be removed on request.
 
 ## How to add background videos
 

@@ -13,7 +13,8 @@ const els = {
   coffeeIcon: $('coffee-icon'),
   lanterns: $('lanterns'),
   world: $('world'),
-  bgVideo: $('bg-video'),
+  bgVideoA: $('bg-video-a'),
+  bgVideoB: $('bg-video-b'),
   bgScrim: $('bg-scrim'),
   bgPanel: $('bg-panel'),
   bgClose: $('bg-close'),
@@ -373,7 +374,7 @@ function armMusicAutostart() {
 
 function init() {
   applyText();
-  backgrounds = initBackgrounds({ video: els.bgVideo, scrim: els.bgScrim });
+  backgrounds = initBackgrounds({ videoA: els.bgVideoA, videoB: els.bgVideoB, scrim: els.bgScrim });
   whisperWorld = createWhisperWorld(els.lanterns, els.world, { onTap: openDetail });
   loadWhispers();
   armMusicAutostart();
