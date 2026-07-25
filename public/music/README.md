@@ -45,10 +45,13 @@ Saint-Saëns' *The Swan*, Satie's *Gymnopédie/Gnossienne No. 1*, Tchaikovsky's
 `CLASSICAL` in `tools/fetch-media.js`.
 
 These **compositions** are public domain, but a **recording** has its own
-copyright, so the tool downloads only public-domain recordings (mostly the
-Musopen project's PD performances hosted on the Internet Archive). Matching is
-strict per piece to avoid grabbing the wrong work, and these tracks are
-`pinned` so the auto-fetch cap never evicts them. No API key is needed.
+copyright, so the tool only downloads recordings under a clear reusable license
+— public domain / CC0, or attribution-only Creative Commons (CC-BY / CC-BY-SA),
+whose credit the app shows in the music panel (mostly PD performances hosted on
+the Internet Archive). For each piece it prefers an exact-work match and falls
+back to another recording from the same set (e.g. a different Chopin nocturne)
+only if the exact one isn't found. These tracks are `pinned` so the auto-fetch
+cap never evicts them. No API key is needed.
 
 Modern **neo-classical** (Ludovico Einaudi's *Nuvole Bianche*, Yann Tiersen's
 *Comptine d'un autre été*, Max Richter's *On the Nature of Daylight*) is
