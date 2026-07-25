@@ -161,30 +161,55 @@ export function initAmbient() {
     currentTitle = null;
   }
 
-  function stopAll() {
-    if (audio) {
-      audio.pause();
-    }
+  function stopSynth() {
     if (synth) {
       masterGain.gain.cancelScheduledValues(ctx.currentTime);
-      masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1);
+      masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.6);
       const s = synth;
-      setTimeout(() => s.stop(), 1100);
+      setTimeout(() => s.stop(), 650);
       synth = null;
     }
   }
 
+  function stopAll() {
+    if (audio) audio.pause();
+    stopSynth();
+  }
+
+  function beginPlayback() {
+    if (library.length > 0) playRandomTrack();
+    else startSynthFallback();
+  }
+
   return {
-    async toggle() {
-      await loadLibrary();
+    // Preload the manifest at startup so the first user gesture can start a
+    // real track synchronously. Mobile browsers (iOS especially) block
+    // audio.play() that runs *after* an awaited fetch, so we must not await
+    // inside the tap handler.
+    preload() {
+      loadLibrary();
+    },
+    // Synchronous on purpose — playback must begin within the user gesture.
+    toggle() {
       if (playing) {
         playing = false;
         stopAll();
         return false;
       }
       playing = true;
-      if (library.length > 0) playRandomTrack();
-      else startSynthFallback();
+      if (libraryLoaded) {
+        beginPlayback();
+      } else {
+        // Manifest hasn't landed yet: start the soft synth right now (allowed
+        // in-gesture), then swap to a real track the moment it arrives.
+        startSynthFallback();
+        loadLibrary().then(() => {
+          if (playing && library.length > 0) {
+            stopSynth();
+            playRandomTrack();
+          }
+        });
+      }
       return true;
     },
     next() {

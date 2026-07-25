@@ -318,6 +318,18 @@ async function fetchJamendoAudio(existing) {
   // no longer blocked; only clearly upbeat/energetic styles are.)
   const GENRE_BLOCK = /\b(reggae|rock|metal|punk|edm|techno|trance|house|hip-?hop|rap|dance|disco|dubstep|trap|hardstyle|club|electro|samba|salsa|ska|funk|swing|march|marching)\b/i;
 
+  // The owner wants ENGLISH songs only (foreign-language lyrics are hard to
+  // connect with). Best-effort: Jamendo's musicinfo carries a sung-language
+  // code; when it says a non-English language, reject. When it's missing, fall
+  // back to a script heuristic (non-ASCII letters in the title ⇒ likely not
+  // English). Neither is perfect, so the owner can still flag stragglers.
+  function englishOk(tr) {
+    const lang = String((tr.musicinfo && tr.musicinfo.lang) || '').toLowerCase();
+    if (lang && !lang.startsWith('en')) return false; // known non-English
+    if (/[^\x00-\x7F]/.test(tr.name || '')) return false; // accented/non-latin title
+    return true;
+  }
+
   // The owner now wants SONGS WITH VOICE — mellow, emotional, empathetic
   // singer-songwriter / acoustic / folk ballads (no famous copyrighted hits;
   // those can't be used for free). `vocalinstrumental=vocal` requires singing.
@@ -355,6 +367,10 @@ async function fetchJamendoAudio(existing) {
       const genres = ((tr.musicinfo && tr.musicinfo.tags && tr.musicinfo.tags.genres) || []).join(' ');
       if (GENRE_BLOCK.test(genres) || GENRE_BLOCK.test(tr.name)) {
         log('skip (genre):', tr.id, genres);
+        continue;
+      }
+      if (!englishOk(tr)) {
+        log('skip (non-english):', tr.id, tr.name, (tr.musicinfo && tr.musicinfo.lang) || '?');
         continue;
       }
       const dl = tr.audiodownload_allowed && tr.audiodownload ? tr.audiodownload : tr.audio;

@@ -377,6 +377,7 @@ function init() {
   backgrounds = initBackgrounds({ videoA: els.bgVideoA, videoB: els.bgVideoB, scrim: els.bgScrim });
   whisperWorld = createWhisperWorld(els.lanterns, els.world, { onTap: openDetail });
   loadWhispers();
+  ambient.preload(); // fetch the music manifest early so first-tap playback is instant
   armMusicAutostart();
 
   els.entryPain.addEventListener('click', () => openCompose('pain'));
