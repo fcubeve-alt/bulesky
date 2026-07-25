@@ -1,6 +1,78 @@
 {
   "tracks": [
     {
+      "id": "classical-chopin-prelude-op28-no4",
+      "title": "Prelude in E minor, Op. 28 No. 4",
+      "artist": "Frédéric Chopin",
+      "src": "/music/classical-chopin-prelude-op28-no4.mp3",
+      "source": "https://archive.org/details/78_prelude-in-e-minor_leopold-stokowski-philadelphia-symphony-orchestra-chopin_gbia0111504b",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
+      "id": "classical-chopin-raindrop",
+      "title": "Prelude in D-flat major, Op. 28 No. 15 (Raindrop)",
+      "artist": "Frédéric Chopin",
+      "src": "/music/classical-chopin-raindrop.mp3",
+      "source": "https://archive.org/details/78_prelude-in-d-flat-major-op-28-no-15-raindrop_alfred-cortot-chopin_gbia7003095b",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
+      "id": "classical-bach-cello-suite-1-prelude",
+      "title": "Cello Suite No. 1 in G major, BWV 1007 — Prélude",
+      "artist": "J. S. Bach",
+      "src": "/music/classical-bach-cello-suite-1-prelude.mp3",
+      "source": "https://archive.org/details/lp_suites-for-unaccompanied-violoncello-no-1_pablo-casals-johann-sebastian-bach",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
+      "id": "classical-bach-air-g-string",
+      "title": "Air on the G String (Orchestral Suite No. 3, BWV 1068)",
+      "artist": "J. S. Bach",
+      "src": "/music/classical-bach-air-g-string.mp3",
+      "source": "https://archive.org/details/78_air-on-the-g-string_bach_gbia0012890a",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
+      "id": "classical-beethoven-moonlight-1",
+      "title": "Piano Sonata No. 14 \"Moonlight\", Op. 27 No. 2 — Adagio sostenuto",
+      "artist": "Ludwig van Beethoven",
+      "src": "/music/classical-beethoven-moonlight-1.mp3",
+      "source": "https://archive.org/details/lp_moonlight-sonata_ludwig-van-beethoven-frdric-chopin-alexand",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
+      "id": "classical-elgar-cello-concerto-1",
+      "title": "Cello Concerto in E minor, Op. 85 — I. Adagio",
+      "artist": "Edward Elgar",
+      "src": "/music/classical-elgar-cello-concerto-1.mp3",
+      "source": "https://archive.org/details/lp_cello-concerto-cello-encores-bach-sa_sir-edward-elgar-jacqueline-du-pre-sir",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
+      "id": "classical-saint-saens-swan",
+      "title": "The Swan (Le Cygne), from The Carnival of the Animals",
+      "artist": "Camille Saint-Saëns",
+      "src": "/music/classical-saint-saens-swan.mp3",
+      "source": "https://archive.org/details/78_the-swan-le-cygne_mischa-elman-carroll-hollister-saint-sans_gbia0451299a",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
+      "id": "classical-satie-gymnopedie-1",
+      "title": "Gymnopédie No. 1",
+      "artist": "Erik Satie",
+      "src": "/music/classical-satie-gymnopedie-1.mp3",
+      "source": "https://archive.org/details/78_gymnopdie-no-1_boston-symphony-orchestra-erik-satie-serge-koussevitzky_gbia0295164b",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
       "id": "classical-chopin-nocturne-op9-no2",
       "title": "Nocturne in E-flat major, Op. 9 No. 2",
       "artist": "Frédéric Chopin",
@@ -17,6 +89,38 @@
       "source": "https://archive.org/details/chaconne-d-moll-heifetz",
       "license": "http://creativecommons.org/publicdomain/mark/1.0/",
       "pinned": true
+    },
+    {
+      "id": "jamendo-1224349",
+      "title": "Road to Olympus",
+      "artist": "PeerGynt Lobogris",
+      "src": "/music/jamendo-1224349.mp3",
+      "source": "https://www.jamendo.com/track/1224349",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-1195824",
+      "title": "Path to innocence",
+      "artist": "zero-project",
+      "src": "/music/jamendo-1195824.mp3",
+      "source": "https://www.jamendo.com/track/1195824",
+      "license": "http://creativecommons.org/licenses/by/3.0/"
+    },
+    {
+      "id": "jamendo-135529",
+      "title": "Versace",
+      "artist": "WALIBI",
+      "src": "/music/jamendo-135529.mp3",
+      "source": "https://www.jamendo.com/track/135529",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-99776",
+      "title": "Precious",
+      "artist": "DJ Answer",
+      "src": "/music/jamendo-99776.mp3",
+      "source": "https://www.jamendo.com/track/99776",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
     },
     {
       "id": "jamendo-2185500",
@@ -304,30 +408,6 @@
       "artist": "madelyn munsell",
       "src": "/music/jamendo-1174820.mp3",
       "source": "https://www.jamendo.com/track/1174820",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-1174819",
-      "title": "Lets Restart",
-      "artist": "madelyn munsell",
-      "src": "/music/jamendo-1174819.mp3",
-      "source": "https://www.jamendo.com/track/1174819",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-383172",
-      "title": "hymn",
-      "artist": "Guillaume Robbe",
-      "src": "/music/jamendo-383172.mp3",
-      "source": "https://www.jamendo.com/track/383172",
-      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
-    },
-    {
-      "id": "jamendo-801977",
-      "title": "That's what I'll always love",
-      "artist": "Razvan Veina",
-      "src": "/music/jamendo-801977.mp3",
-      "source": "https://www.jamendo.com/track/801977",
       "license": "http://creativecommons.org/licenses/by/3.0/"
     }
   ]
