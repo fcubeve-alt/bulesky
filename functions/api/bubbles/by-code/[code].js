@@ -5,31 +5,22 @@ function json(data, status = 200) {
   });
 }
 
-// Owner retrieval: exact-match lookup by the passphrase the user chose at
-// creation time. Content is already publicly browsable, so this endpoint
-// isn't an access-control gate — it's a convenience shortcut back to "my"
-// bubble and its replies.
+// Owner retrieval by NAME: a name is a personal handle, so this lists every
+// whisper posted under it (newest first). Content is already publicly
+// browsable — this is a convenience shortcut back to "my" whispers, not an
+// access-control gate. Kept in sync with GET /api/bubbles?code=.
 export async function onRequestGet({ params, env }) {
   const code = (params.code || '').toString().trim().toLowerCase();
   if (!code) return json({ error: 'empty_code' }, 400);
 
-  const bubble = await env.DB.prepare(
-    `SELECT id, code, type, content, lang, warmth, hidden, crisis_flag, created_at
-       FROM bubbles WHERE code = ?`
+  const { results } = await env.DB.prepare(
+    `SELECT id, type, content, lang, warmth, crisis_flag, created_at
+       FROM bubbles WHERE code = ? AND hidden = 0 ORDER BY created_at DESC`
   )
     .bind(code)
-    .first();
-
-  if (!bubble) return json({ error: 'not_found' }, 404);
-
-  const { results: replies } = await env.DB.prepare(
-    `SELECT id, content, lang, created_at
-       FROM replies
-      WHERE bubble_id = ? AND hidden = 0
-      ORDER BY created_at ASC`
-  )
-    .bind(bubble.id)
     .all();
 
-  return json({ bubble, replies });
+  if (!results || results.length === 0) return json({ error: 'not_found', bubbles: [] }, 404);
+
+  return json({ bubbles: results });
 }

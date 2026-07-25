@@ -15,27 +15,22 @@ function json(data, status = 200) {
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
 
-  // Owner lookup by passphrase. Served from the main (non-dynamic) route so
-  // it can never be affected by nested dynamic-route resolution — this is
-  // the endpoint the client's "find my bubble" uses.
+  // Owner lookup by NAME. A name is a personal handle, not a per-post secret:
+  // one person can post many whispers under the same name, so this returns the
+  // whole list (newest first). Served from the main (non-dynamic) route so it
+  // can never be affected by nested dynamic-route resolution.
   const codeParam = url.searchParams.get('code');
   if (codeParam !== null) {
     const code = codeParam.trim().toLowerCase();
     if (!code) return json({ error: 'empty_code' }, 400);
-    const bubble = await env.DB.prepare(
-      `SELECT id, code, type, content, lang, warmth, hidden, crisis_flag, created_at
-         FROM bubbles WHERE code = ?`
+    const { results } = await env.DB.prepare(
+      `SELECT id, type, content, lang, warmth, crisis_flag, created_at
+         FROM bubbles WHERE code = ? AND hidden = 0 ORDER BY created_at DESC`
     )
       .bind(code)
-      .first();
-    if (!bubble) return json({ error: 'not_found' }, 404);
-    const { results: replies } = await env.DB.prepare(
-      `SELECT id, content, lang, created_at
-         FROM replies WHERE bubble_id = ? AND hidden = 0 ORDER BY created_at ASC`
-    )
-      .bind(bubble.id)
       .all();
-    return json({ bubble, replies });
+    if (!results || results.length === 0) return json({ error: 'not_found', bubbles: [] }, 404);
+    return json({ bubbles: results });
   }
 
   const type = url.searchParams.get('type');
@@ -131,11 +126,9 @@ export async function onRequestPost({ request, env }) {
       },
       201
     );
-  } catch (err) {
-    const msg = String(err && err.message);
-    // The code is the user's own chosen name — on collision, ask them to
-    // pick a different one rather than silently mutating it.
-    if (msg.includes('UNIQUE')) return json({ error: 'code_taken' }, 409);
+  } catch {
+    // A name is a personal handle now, shared across a person's own whispers —
+    // duplicates are expected and fine, so there is no uniqueness error.
     return json({ error: 'server_error' }, 500);
   }
 }

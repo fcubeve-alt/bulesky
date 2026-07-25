@@ -29,7 +29,8 @@
   <div class="top-icons">
     <button id="bg-icon" class="icon-btn" aria-label="Switch background">🏔️</button>
     <button id="music-icon" class="icon-btn" aria-label="Toggle music" aria-pressed="false">♪</button>
-    <button id="find-icon" class="icon-btn" aria-label="Find my light">🔍</button>
+    <button id="find-icon" class="icon-btn" aria-label="Find my whispers">🔍</button>
+    <button id="share-icon" class="icon-btn" aria-label="Scan to open">▦</button>
     <button id="coffee-icon" class="icon-btn" aria-label="Buy a coffee">☕</button>
   </div>
 </header>
@@ -43,6 +44,16 @@
     <button id="find-submit" class="btn-primary btn-small"></button>
   </div>
   <div id="find-result" class="find-result"></div>
+</div>
+
+<div id="share-panel" class="mini-panel hidden">
+  <button class="mini-close" id="share-close" aria-label="Close">×</button>
+  <p id="share-title" class="music-now"></p>
+  <img id="share-qr" class="share-qr" src="/qr.png" alt="QR code" width="180" height="180" />
+  <p id="share-hint" class="hint"></p>
+  <div class="mini-panel-row">
+    <button id="share-copy" class="btn-primary btn-small"></button>
+  </div>
 </div>
 
 <div id="coffee-panel" class="mini-panel hidden">

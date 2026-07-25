@@ -32,6 +32,12 @@ const els = {
   coffeeClose: $('coffee-close'),
   coffeeText: $('coffee-text'),
   coffeeLink: $('coffee-link'),
+  shareIcon: $('share-icon'),
+  sharePanel: $('share-panel'),
+  shareClose: $('share-close'),
+  shareTitle: $('share-title'),
+  shareHint: $('share-hint'),
+  shareCopy: $('share-copy'),
   musicPanel: $('music-panel'),
   musicClose: $('music-close'),
   musicNow: $('music-now'),
@@ -118,6 +124,9 @@ function applyText() {
   els.findSubmit.textContent = t('findSubmit');
   els.coffeeText.textContent = t('coffeeText');
   els.coffeeLink.textContent = t('coffeeLink');
+  els.shareTitle.textContent = t('shareTitle');
+  els.shareHint.textContent = t('shareHint');
+  els.shareCopy.textContent = t('copyLink');
   els.entryPain.textContent = t('entryPain');
   els.entryWish.textContent = t('entryWish');
   els.crisisText.textContent = t('crisisText');
@@ -307,20 +316,40 @@ async function reportBubble() {
 
 async function submitFind() {
   const code = els.findInput.value.trim();
-  els.findResult.textContent = '';
+  els.findResult.innerHTML = '';
   if (!code) return;
   try {
     const res = await fetch(`/api/bubbles?code=${encodeURIComponent(code)}`);
     const data = await res.json();
-    if (!res.ok) {
+    if (!res.ok || !data.bubbles || data.bubbles.length === 0) {
       els.findResult.textContent = t('findNotFound');
       return;
     }
-    els.findPanel.classList.add('hidden');
-    renderDetail(data.bubble, data.replies);
-    openSheet(els.detailOverlay, els.detailSheet);
+    renderFindResults(data.bubbles);
   } catch {
     els.findResult.textContent = t('findError');
+  }
+}
+
+// A name can hold many whispers, so show them as a tappable list; tapping one
+// opens its full detail (with replies).
+function renderFindResults(bubbles) {
+  els.findResult.innerHTML = '';
+  const title = document.createElement('p');
+  title.className = 'find-results-title';
+  title.textContent = `${t('findResultsTitle')} · ${bubbles.length}`;
+  els.findResult.appendChild(title);
+  for (const b of bubbles) {
+    const row = document.createElement('button');
+    row.className = 'find-result-row';
+    const icon = b.type === 'wish' ? '✦ ' : '❁ ';
+    const text = (b.content || '').trim();
+    row.textContent = icon + text.slice(0, 42) + (text.length > 42 ? '…' : '');
+    row.addEventListener('click', () => {
+      els.findPanel.classList.add('hidden');
+      openDetail(b.id);
+    });
+    els.findResult.appendChild(row);
   }
 }
 
@@ -333,6 +362,16 @@ function maybeShowIosGuide() {
   const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   if (!isIos || standalone || localStorage.getItem('bulesky_ios_guide_dismissed')) return;
   setTimeout(() => openSheet(els.iosOverlay, els.iosModal), 1400);
+}
+
+// ---------- First-visit hint ----------
+
+// Tell first-time visitors that a single tap starts the music (browsers block
+// audible autoplay until a gesture, so we nudge them). Shown once, ever.
+function maybeShowFirstHint() {
+  if (localStorage.getItem('bulesky_first_hint')) return;
+  localStorage.setItem('bulesky_first_hint', '1');
+  setTimeout(() => showToast(t('firstHint'), 5200), 900);
 }
 
 // ---------- Music panel ----------
@@ -420,11 +459,12 @@ function init() {
   wireOverlayClose(els.detailOverlay, els.detailSheet);
 
   els.findIcon.addEventListener('click', () => {
-    els.findResult.textContent = '';
+    els.findResult.innerHTML = '';
     els.findPanel.classList.toggle('hidden');
     els.coffeePanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
     els.bgPanel.classList.add('hidden');
+    els.sharePanel.classList.add('hidden');
   });
   els.findClose.addEventListener('click', () => els.findPanel.classList.add('hidden'));
   els.findSubmit.addEventListener('click', submitFind);
@@ -435,8 +475,24 @@ function init() {
     els.findPanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
     els.bgPanel.classList.add('hidden');
+    els.sharePanel.classList.add('hidden');
   });
   els.coffeeClose.addEventListener('click', () => els.coffeePanel.classList.add('hidden'));
+
+  els.shareIcon.addEventListener('click', () => {
+    els.sharePanel.classList.toggle('hidden');
+    els.findPanel.classList.add('hidden');
+    els.coffeePanel.classList.add('hidden');
+    els.musicPanel.classList.add('hidden');
+    els.bgPanel.classList.add('hidden');
+  });
+  els.shareClose.addEventListener('click', () => els.sharePanel.classList.add('hidden'));
+  els.shareCopy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showToast(t('linkCopied'));
+    } catch { /* ignore */ }
+  });
 
   els.bgIcon.addEventListener('click', () => {
     els.bgPanel.classList.toggle('hidden');
@@ -482,6 +538,7 @@ function init() {
   wireOverlayClose(els.iosOverlay, els.iosModal);
 
   maybeShowIosGuide();
+  maybeShowFirstHint();
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});

@@ -367,7 +367,34 @@ body.has-video #mist { display: none; }
   line-height: 1;
   padding: 6px;
 }
-.find-result { margin-top: 10px; font-size: 0.86rem; color: var(--ink-soft); }
+.find-result { margin-top: 10px; font-size: 0.86rem; color: var(--ink-soft); max-height: 46vh; overflow-y: auto; }
+.find-results-title { margin: 2px 0 8px; font-size: 0.78rem; color: var(--ink-soft); opacity: 0.8; }
+.find-result-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  color: var(--ink);
+  padding: 9px 11px;
+  margin-bottom: 7px;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+.find-result-row:active { background: rgba(255, 255, 255, 0.12); }
+.share-qr {
+  display: block;
+  width: 180px;
+  height: 180px;
+  max-width: 100%;
+  margin: 6px auto 10px;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px;
+}
 #coffee-text, .music-now { margin: 4px 0 10px; font-size: 0.86rem; color: var(--ink-soft); }
 .music-now { font-weight: 600; color: var(--ink); margin-bottom: 2px; }
 .music-credit { display: block; color: var(--ink-soft); text-decoration: underline; margin: 0 2px 8px; }
