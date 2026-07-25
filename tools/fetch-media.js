@@ -27,8 +27,12 @@ const MAX_VIDEOS = 40;
 const MAX_AUDIO = 40;
 const MAX_VIDEO_BYTES = 24 * 1024 * 1024; // Cloudflare Pages per-file limit is 25 MB
 const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
+// Curated classical pieces can be longer (a Chaconne runs ~14 min), so give
+// them a larger budget — still under the 25 MB Cloudflare Pages per-file cap.
+const CLASSICAL_MAX_BYTES = 22 * 1024 * 1024;
 const VIDEOS_PER_RUN = 4;
 const AUDIO_PER_RUN = 4;
+const CLASSICAL_PER_RUN = 8;
 
 const UA = 'bulesky-media-fetcher/1.0 (starry-mind; contact: repo owner)';
 
@@ -72,7 +76,9 @@ function readManifest(file, key) {
   return [];
 }
 
-// Keep only entries whose files still exist, newest first, capped.
+// Keep only entries whose files still exist, newest first, capped. Entries
+// flagged `pinned` (curated classical) are always kept and never counted
+// toward the cap, so an active auto-fetch stream can't slowly evict them.
 function pruneManifest(entries, dir, cap) {
   const kept = entries.filter((e) => {
     const p = path.join(dir, path.basename(e.src));
@@ -81,9 +87,11 @@ function pruneManifest(entries, dir, cap) {
   // De-dupe by src.
   const seen = new Set();
   const unique = kept.filter((e) => (seen.has(e.src) ? false : seen.add(e.src)));
-  const trimmed = unique.slice(0, cap);
-  // Delete files that fell out of the cap.
-  for (const e of unique.slice(cap)) {
+  const pinned = unique.filter((e) => e.pinned);
+  const rest = unique.filter((e) => !e.pinned);
+  const trimmed = [...pinned, ...rest.slice(0, cap)];
+  // Delete files that fell out of the cap (pinned entries are exempt).
+  for (const e of rest.slice(cap)) {
     const p = path.join(dir, path.basename(e.src));
     try { fs.unlinkSync(p); } catch { /* ignore */ }
   }
@@ -165,6 +173,128 @@ async function fetchArchiveAudio(existing) {
     } catch (e) {
       log('archive item skipped:', doc.identifier, e.message);
     }
+  }
+  return added;
+}
+
+// ---------- Music: curated classical, public-domain (Internet Archive) --------
+
+// A hand-picked list of calm, on-brand standard-repertoire pieces the owner
+// asked for. All are pre-20th-century COMPOSITIONS in the public domain; we
+// still fetch only PUBLIC-DOMAIN RECORDINGS of them (mostly the Musopen
+// project's PD performances hosted on the Internet Archive), because a
+// recording carries its own copyright even when the music itself is PD.
+//
+// Matching is deliberately strict: for each piece, every `groups` bucket must
+// be satisfied by at least one of its alternative tokens appearing in the
+// candidate's title/identifier/creator. That keeps us from grabbing the wrong
+// nocturne. `pinned` protects them from the auto-prune cap.
+//
+// NOTE: modern neo-classical (Einaudi, Yann Tiersen, Max Richter, …) is NOT
+// here — those composers are living and their works/recordings are under
+// copyright, so they can't be streamed free on a public site.
+const CLASSICAL = [
+  { id: 'classical-chopin-nocturne-op9-no2', title: 'Nocturne in E-flat major, Op. 9 No. 2', composer: 'Frédéric Chopin',
+    groups: [['chopin'], ['nocturne'], ['op. 9', 'op 9', 'opus 9', 'e-flat', 'e flat', 'eb ']] },
+  { id: 'classical-chopin-nocturne-cs-minor', title: 'Nocturne in C-sharp minor, B. 49 (Lento con gran espressione)', composer: 'Frédéric Chopin',
+    groups: [['chopin'], ['nocturne', 'lento'], ['c-sharp', 'c sharp', 'c# ', 'posth', 'b. 49', 'b.49', 'b 49']] },
+  { id: 'classical-chopin-prelude-op28-no4', title: 'Prelude in E minor, Op. 28 No. 4', composer: 'Frédéric Chopin',
+    groups: [['chopin'], ['prelude', 'preludes', 'préludes'], ['op. 28', 'op 28', 'e minor', 'no. 4', 'no 4']] },
+  { id: 'classical-chopin-raindrop', title: 'Prelude in D-flat major, Op. 28 No. 15 (Raindrop)', composer: 'Frédéric Chopin',
+    groups: [['chopin'], ['prelude', 'preludes', 'préludes', 'raindrop'], ['raindrop', 'no. 15', 'no 15', 'd-flat', 'd flat', 'op. 28']] },
+  { id: 'classical-bach-cello-suite-1-prelude', title: 'Cello Suite No. 1 in G major, BWV 1007 — Prélude', composer: 'J. S. Bach',
+    groups: [['bach'], ['cello'], ['1007', 'suite no. 1', 'suite no 1', 'prelude', 'prélude', 'g major']] },
+  { id: 'classical-bach-chaconne', title: 'Partita No. 2 in D minor, BWV 1004 — Chaconne', composer: 'J. S. Bach',
+    groups: [['bach'], ['chaconne', 'ciaccona', '1004']] },
+  { id: 'classical-bach-violin-sonata-3-adagio', title: 'Violin Sonata No. 3 in C, BWV 1005 — Adagio', composer: 'J. S. Bach',
+    groups: [['bach'], ['adagio'], ['1005', 'sonata no. 3', 'sonata no 3', 'violin']] },
+  { id: 'classical-bach-air-g-string', title: 'Air on the G String (Orchestral Suite No. 3, BWV 1068)', composer: 'J. S. Bach',
+    groups: [['bach'], ['air'], ['g string', 'g-string', '1068', 'suite no. 3', 'suite no 3']] },
+  { id: 'classical-beethoven-moonlight-1', title: 'Piano Sonata No. 14 "Moonlight", Op. 27 No. 2 — Adagio sostenuto', composer: 'Ludwig van Beethoven',
+    groups: [['beethoven'], ['moonlight', 'mondschein', 'op. 27', 'op 27', 'sonata no. 14', 'sonata no 14'], ['adagio', 'moonlight', 'mondschein', '1st', 'i.', 'movement 1', 'first']] },
+  { id: 'classical-elgar-cello-concerto-1', title: 'Cello Concerto in E minor, Op. 85 — I. Adagio', composer: 'Edward Elgar',
+    groups: [['elgar'], ['cello'], ['concerto'], ['op. 85', 'op 85', 'e minor', 'adagio']] },
+  { id: 'classical-saint-saens-swan', title: 'The Swan (Le Cygne), from The Carnival of the Animals', composer: 'Camille Saint-Saëns',
+    groups: [['saint', 'saëns', 'saens'], ['swan', 'cygne']] },
+  { id: 'classical-satie-gymnopedie-1', title: 'Gymnopédie No. 1', composer: 'Erik Satie',
+    groups: [['satie'], ['gymnopedie', 'gymnopédie', 'gymnopedies', 'gymnopédies'], ['no. 1', 'no 1', 'first', '1', 'i.']] },
+  { id: 'classical-satie-gnossienne-1', title: 'Gnossienne No. 1', composer: 'Erik Satie',
+    groups: [['satie'], ['gnossienne', 'gnossiennes'], ['no. 1', 'no 1', 'first', '1', 'i.']] },
+  { id: 'classical-tchaikovsky-october', title: 'The Seasons, Op. 37a — October (Autumn Song)', composer: 'Pyotr Ilyich Tchaikovsky',
+    groups: [['tchaikovsky', 'chaikovsky', 'čajkovskij'], ['october', 'autumn', 'seasons']] },
+  { id: 'classical-debussy-clair-de-lune', title: 'Clair de Lune (Suite bergamasque)', composer: 'Claude Debussy',
+    groups: [['debussy'], ['clair de lune', 'clair de', 'clair-de-lune']] },
+  { id: 'classical-debussy-arabesque-1', title: 'Arabesque No. 1', composer: 'Claude Debussy',
+    groups: [['debussy'], ['arabesque', 'arabesques'], ['no. 1', 'no 1', 'first', 'premiere', 'première', '1', 'l. 66']] },
+];
+
+function matchesPiece(piece, doc) {
+  const creator = Array.isArray(doc.creator) ? doc.creator.join(' ') : doc.creator || '';
+  const hay = `${doc.title || ''} ${doc.identifier || ''} ${creator}`.toLowerCase();
+  return piece.groups.every((alts) => alts.some((tok) => hay.includes(tok)));
+}
+
+async function fetchCuratedClassical(existing) {
+  const have = new Set(existing.map((e) => e.id).filter(Boolean));
+  const added = [];
+  const wanted = CLASSICAL.filter((p) => !have.has(p.id));
+
+  for (const piece of wanted) {
+    if (added.length >= CLASSICAL_PER_RUN) break;
+    // Search by the piece's most distinctive tokens (first token of each
+    // group), restricted to public-domain audio with an actual MP3 rendition.
+    const terms = piece.groups.map((alts) => alts[0]).join(' ');
+    const search =
+      'https://archive.org/advancedsearch.php?q=' +
+      encodeURIComponent(
+        `mediatype:audio AND format:(VBR MP3) AND licenseurl:(*publicdomain* OR *creativecommons.org/publicdomain*) AND (${terms})`
+      ) +
+      '&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=licenseurl&sort[]=downloads+desc&rows=40&output=json';
+
+    let docs = [];
+    try {
+      const j = await getJSON(search);
+      docs = (j.response && j.response.docs) || [];
+    } catch (e) {
+      log('classical search failed:', piece.id, e.message);
+      continue;
+    }
+
+    let done = false;
+    for (const doc of docs) {
+      if (done) break;
+      if (!isPublicDomain(doc.licenseurl)) continue;
+      if (!matchesPiece(piece, doc)) continue;
+      if (!titleOk(doc.title) || !titleOk(doc.identifier)) continue;
+      try {
+        const meta = await getJSON(`https://archive.org/metadata/${doc.identifier}`);
+        const files = (meta.files || []).filter(
+          (f) => /\.mp3$/i.test(f.name || '') && f.size && Number(f.size) <= CLASSICAL_MAX_BYTES && titleOk(f.name)
+        );
+        if (!files.length) continue;
+        // Prefer the largest MP3 within budget — usually the full performance
+        // rather than a short excerpt/sample.
+        const file = files.sort((a, b) => Number(b.size) - Number(a.size))[0];
+        const url = `https://archive.org/download/${doc.identifier}/${encodeURIComponent(file.name)}`;
+        const fname = `${piece.id}.mp3`;
+        const dest = path.join(MUSIC_DIR, fname);
+        const bytes = await download(url, dest, CLASSICAL_MAX_BYTES);
+        added.push({
+          id: piece.id,
+          title: piece.title,
+          artist: piece.composer,
+          src: `/music/${fname}`,
+          source: `https://archive.org/details/${doc.identifier}`,
+          license: doc.licenseurl,
+          pinned: true,
+        });
+        log(`+ classical: ${fname} (${(bytes / 1e6).toFixed(1)} MB) ← ${doc.identifier}`);
+        done = true;
+      } catch (e) {
+        log('classical item skipped:', doc.identifier, e.message);
+      }
+    }
+    if (!done) log('classical: no public-domain match found this run for', piece.id);
   }
   return added;
 }
@@ -489,12 +619,15 @@ async function fetchCCMixterAudio(existing) {
   let music = readManifest(musicFile, 'tracks');
   let videos = readManifest(videoFile, 'videos');
 
+  // Curated public-domain classical (owner's request) first — these are
+  // pinned, so they persist across future runs.
+  const classical = await fetchCuratedClassical(music).catch((e) => (log('classical error', e.message), []));
   // English CC vocal songs from Jamendo + ccMixter (both attribution-only).
   // Top up with Internet Archive public-domain if the two return too few.
-  const jam = await fetchJamendoAudio(music).catch((e) => (log('jamendo error', e.message), []));
-  const ccm = await fetchCCMixterAudio([...music, ...jam]).catch((e) => (log('ccmixter error', e.message), []));
-  let newMusic = [...jam, ...ccm];
-  if (newMusic.length < 2) {
+  const jam = await fetchJamendoAudio([...music, ...classical]).catch((e) => (log('jamendo error', e.message), []));
+  const ccm = await fetchCCMixterAudio([...music, ...classical, ...jam]).catch((e) => (log('ccmixter error', e.message), []));
+  let newMusic = [...classical, ...jam, ...ccm];
+  if (jam.length + ccm.length < 2) {
     const arch = await fetchArchiveAudio([...music, ...newMusic]).catch((e) => (log('archive error', e.message), []));
     newMusic = [...newMusic, ...arch];
   }
