@@ -1,6 +1,56 @@
 {
   "tracks": [
     {
+      "id": "classical-chopin-nocturne-op9-no2",
+      "title": "Nocturne in E-flat major, Op. 9 No. 2",
+      "artist": "Frédéric Chopin",
+      "src": "/music/classical-chopin-nocturne-op9-no2.mp3",
+      "source": "https://archive.org/details/a-5800-godowsky-chopin-nocturne",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
+      "id": "classical-bach-chaconne",
+      "title": "Partita No. 2 in D minor, BWV 1004 — Chaconne",
+      "artist": "J. S. Bach",
+      "src": "/music/classical-bach-chaconne.mp3",
+      "source": "https://archive.org/details/chaconne-d-moll-heifetz",
+      "license": "http://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
+      "id": "jamendo-1711840",
+      "title": "Song Of My Life",
+      "artist": "Eliot Feldman",
+      "src": "/music/jamendo-1711840.mp3",
+      "source": "https://www.jamendo.com/track/1711840",
+      "license": "http://creativecommons.org/licenses/by/3.0/"
+    },
+    {
+      "id": "jamendo-334008",
+      "title": "The Other Side Of Love",
+      "artist": "Lip Service",
+      "src": "/music/jamendo-334008.mp3",
+      "source": "https://www.jamendo.com/track/334008",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-26739",
+      "title": "Listen",
+      "artist": "Tryad",
+      "src": "/music/jamendo-26739.mp3",
+      "source": "https://www.jamendo.com/track/26739",
+      "license": "http://creativecommons.org/licenses/by-sa/2.5/"
+    },
+    {
+      "id": "jamendo-1381522",
+      "title": "Uncharted Lands",
+      "artist": "Finn Anderson",
+      "src": "/music/jamendo-1381522.mp3",
+      "source": "https://www.jamendo.com/track/1381522",
+      "license": "http://creativecommons.org/licenses/by/3.0/"
+    },
+    {
       "id": "jamendo-570077",
       "title": "Sand dunes",
       "artist": "K4MMERER",
