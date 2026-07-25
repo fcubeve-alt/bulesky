@@ -264,11 +264,16 @@ function licenseOkForClassical(url) {
     !u.includes('-nc') && !u.includes('-nd') && !u.includes('sampling');
 }
 
-// Internet Archive collections that are, by their own charter, entirely public
-// domain — so an item's membership alone clears it even when the per-item
-// licenseurl field is blank (most Archive uploads leave it empty, which is why
-// a license-only filter finds almost nothing for standard repertoire).
-const PD_COLLECTIONS = ['musopen'];
+// Internet Archive collections whose membership alone clears an item even when
+// its per-item licenseurl field is blank (most uploads leave it empty, which is
+// why a license-only filter found almost nothing for standard repertoire). The
+// run-log diagnostics showed the actual homes of these recordings:
+//   musopen            – the all-public-domain Musopen project
+//   78rpm / georgeblood – digitized pre-1928 78rpm discs, public domain in the US
+//   unlockedrecordings  – Boston Public Library recordings released openly
+// Deliberately excluded: opensource_audio (unvetted user uploads of unknown
+// provenance) — appears often but isn't a reliable public-domain guarantee.
+const PD_COLLECTIONS = ['musopen', '78rpm', 'georgeblood', 'unlockedrecordings'];
 function inPdCollection(doc) {
   const c = doc.collection;
   const arr = Array.isArray(c) ? c : c ? [c] : [];
