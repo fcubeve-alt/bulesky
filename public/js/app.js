@@ -112,7 +112,7 @@ function updateNowPlaying() {
 const ambient = initAmbient({ onChange: () => updateNowPlaying() });
 
 function applyText() {
-  els.appTitle.textContent = t('appName');
+  els.appTitle.textContent = 'Are you alright?'; // fixed signature brand (CSS uppercases it)
   els.findLabel.textContent = t('findLabel');
   els.findInput.placeholder = t('codePlaceholder');
   els.findSubmit.textContent = t('findSubmit');
