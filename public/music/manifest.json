@@ -19,6 +19,38 @@
       "pinned": true
     },
     {
+      "id": "jamendo-1941486",
+      "title": "On the other Side",
+      "artist": "1st Contact",
+      "src": "/music/jamendo-1941486.mp3",
+      "source": "https://www.jamendo.com/track/1941486",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-1195291",
+      "title": "See me sink see me rise",
+      "artist": "Simon van Gend",
+      "src": "/music/jamendo-1195291.mp3",
+      "source": "https://www.jamendo.com/track/1195291",
+      "license": "http://creativecommons.org/licenses/by/3.0/"
+    },
+    {
+      "id": "jamendo-34646",
+      "title": "Papillons",
+      "artist": "WhiteRoom",
+      "src": "/music/jamendo-34646.mp3",
+      "source": "https://www.jamendo.com/track/34646",
+      "license": "http://creativecommons.org/licenses/by-sa/2.5/"
+    },
+    {
+      "id": "jamendo-1483588",
+      "title": "Who",
+      "artist": "Seth Power",
+      "src": "/music/jamendo-1483588.mp3",
+      "source": "https://www.jamendo.com/track/1483588",
+      "license": "http://creativecommons.org/licenses/by/3.0/"
+    },
+    {
       "id": "jamendo-1711840",
       "title": "Song Of My Life",
       "artist": "Eliot Feldman",
