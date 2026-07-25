@@ -1,6 +1,20 @@
 {
   "videos": [
     {
+      "id": "pixabay-234007",
+      "title": "waterfall aerial drone #234007",
+      "src": "/video/waterfall-aerial-drone-234007.mp4",
+      "source": "https://pixabay.com/videos/id-234007/",
+      "license": "Pixabay License (free, no attribution required)"
+    },
+    {
+      "id": "pixabay-286427",
+      "title": "waterfall aerial drone #286427",
+      "src": "/video/waterfall-aerial-drone-286427.mp4",
+      "source": "https://pixabay.com/videos/id-286427/",
+      "license": "Pixabay License (free, no attribution required)"
+    },
+    {
       "id": "pixabay-197941",
       "title": "aerial coastline sunset #197941",
       "src": "/video/aerial-coastline-sunset-197941.mp4",
