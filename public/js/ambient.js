@@ -180,6 +180,21 @@ export function initAmbient(opts = {}) {
     stopSynth();
   }
 
+  // Silence output without forgetting that the user wants music on. Used when
+  // the page is hidden/closed (mobile backgrounding, tab close) so audio never
+  // keeps playing behind a closed page; resume() brings it back on return.
+  function suspend() {
+    if (!playing) return;
+    if (audio) audio.pause();
+    if (ctx && ctx.state === 'running') ctx.suspend();
+  }
+
+  function resume() {
+    if (!playing) return;
+    if (audio && audio.paused) audio.play().catch(() => {});
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+  }
+
   function beginPlayback() {
     if (library.length > 0) playRandomTrack();
     else startSynthFallback();
@@ -220,6 +235,9 @@ export function initAmbient(opts = {}) {
     next() {
       if (playing && library.length > 0) playRandomTrack();
     },
+    // Pause/resume actual audio output without changing the "playing" intent.
+    suspend,
+    resume,
     get isPlaying() {
       return playing;
     },

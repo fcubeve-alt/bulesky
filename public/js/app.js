@@ -434,6 +434,16 @@ function init() {
   ambient.preload(); // fetch the music manifest early so first-tap playback is instant
   armMusicAutostart();
 
+  // Stop the music the moment the page is hidden or closed (swiping the tab
+  // away, backgrounding the browser, locking the phone). Mobile browsers keep
+  // media playing behind a closed page otherwise; resume when the user comes
+  // back if music was on.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) ambient.suspend();
+    else ambient.resume();
+  });
+  window.addEventListener('pagehide', () => ambient.suspend());
+
   els.entryPain.addEventListener('click', () => openCompose('pain'));
   els.entryWish.addEventListener('click', () => openCompose('wish'));
   els.composeClose.addEventListener('click', () => closeSheet(els.composeOverlay, els.composeSheet));

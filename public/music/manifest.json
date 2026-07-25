@@ -183,14 +183,6 @@
       "src": "/music/jamendo-801977.mp3",
       "source": "https://www.jamendo.com/track/801977",
       "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-513472",
-      "title": "Ambigram",
-      "artist": "Vulturius",
-      "src": "/music/jamendo-513472.mp3",
-      "source": "https://www.jamendo.com/track/513472",
-      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
     }
   ]
 }

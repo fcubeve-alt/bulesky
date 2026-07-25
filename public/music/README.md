@@ -35,6 +35,27 @@ license, linked to the source) in the music panel. It accumulates a library
 (up to 40 tracks) over repeated runs rather than overwriting. Get a free
 client id at https://devportal.jamendo.com.
 
+## Curated classical (public domain, Internet Archive)
+
+The fetch-media tool also pulls a hand-picked list of calm standard-repertoire
+pieces — Chopin nocturnes/preludes, Bach (cello suite prelude, Chaconne, Air on
+the G String), Beethoven's *Moonlight* 1st movement, Elgar's cello concerto,
+Saint-Saëns' *The Swan*, Satie's *Gymnopédie/Gnossienne No. 1*, Tchaikovsky's
+*October*, Debussy's *Clair de Lune* / *Arabesque No. 1*. The list lives in
+`CLASSICAL` in `tools/fetch-media.js`.
+
+These **compositions** are public domain, but a **recording** has its own
+copyright, so the tool downloads only public-domain recordings (mostly the
+Musopen project's PD performances hosted on the Internet Archive). Matching is
+strict per piece to avoid grabbing the wrong work, and these tracks are
+`pinned` so the auto-fetch cap never evicts them. No API key is needed.
+
+Modern **neo-classical** (Ludovico Einaudi's *Nuvole Bianche*, Yann Tiersen's
+*Comptine d'un autre été*, Max Richter's *On the Nature of Daylight*) is
+intentionally **not** included: those composers are living and both the works
+and their recordings are under copyright, so they can't be streamed for free on
+a public site. They'd need a paid/licensed source.
+
 ## Automatic music (ccMixter)
 
 A second English CC source, **ccMixter**, is queried automatically — no API key
