@@ -264,6 +264,33 @@ function licenseOkForClassical(url) {
     !u.includes('-nc') && !u.includes('-nd') && !u.includes('sampling');
 }
 
+// Internet Archive collections that are, by their own charter, entirely public
+// domain — so an item's membership alone clears it even when the per-item
+// licenseurl field is blank (most Archive uploads leave it empty, which is why
+// a license-only filter finds almost nothing for standard repertoire).
+const PD_COLLECTIONS = ['musopen'];
+function inPdCollection(doc) {
+  const c = doc.collection;
+  const arr = Array.isArray(c) ? c : c ? [c] : [];
+  return arr.some((x) => PD_COLLECTIONS.includes(String(x).toLowerCase()));
+}
+// A recording is usable if it has a clear reusable license OR it lives in a
+// known public-domain collection.
+function licenseAcceptable(doc) {
+  return licenseOkForClassical(doc.licenseurl) || inPdCollection(doc);
+}
+
+const PD_MARK = 'https://creativecommons.org/publicdomain/mark/1.0/';
+
+async function searchArchiveDocs(qstr) {
+  const url =
+    'https://archive.org/advancedsearch.php?q=' +
+    encodeURIComponent(qstr) +
+    '&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=licenseurl&fl[]=collection&sort[]=downloads+desc&rows=100&output=json';
+  const j = await getJSON(url);
+  return (j.response && j.response.docs) || [];
+}
+
 function hay(doc) {
   const creator = Array.isArray(doc.creator) ? doc.creator.join(' ') : doc.creator || '';
   return `${doc.title || ''} ${doc.identifier || ''} ${creator}`.toLowerCase();
@@ -284,26 +311,27 @@ async function fetchCuratedClassical(existing) {
 
   for (const piece of wanted) {
     if (added.length >= CLASSICAL_PER_RUN) break;
-    // Wide search (no license/format filters in the query — the Archive's Solr
-    // doesn't handle leading-wildcard licenseurl filters, which silently
-    // returned nothing before). We filter by license and match in code below.
-    const search =
-      'https://archive.org/advancedsearch.php?q=' +
-      encodeURIComponent(`mediatype:audio AND (${piece.q})`) +
-      '&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=licenseurl&sort[]=downloads+desc&rows=100&output=json';
-
+    // Two wide searches (no license/format filters in the query — the Archive's
+    // Solr doesn't handle leading-wildcard licenseurl filters, which silently
+    // returned nothing before): the open corpus, plus the all-public-domain
+    // Musopen collection (whose items usually leave licenseurl blank and so were
+    // otherwise dropped). We filter by license/collection and match in code.
     let docs = [];
     try {
-      const j = await getJSON(search);
-      docs = (j.response && j.response.docs) || [];
+      const [open, musopen] = await Promise.all([
+        searchArchiveDocs(`mediatype:audio AND (${piece.q})`),
+        searchArchiveDocs(`collection:(musopen) AND (${piece.q})`).catch(() => []),
+      ]);
+      const seen = new Set();
+      docs = [...open, ...musopen].filter((d) => d.identifier && !seen.has(d.identifier) && seen.add(d.identifier));
     } catch (e) {
       log('classical search failed:', piece.id, e.message);
       continue;
     }
 
-    // Rank license-OK candidates: exact-work matches first, then composer+form.
+    // Rank usable candidates: exact-work matches first, then composer+form.
     const candidates = docs
-      .filter((d) => licenseOkForClassical(d.licenseurl) && titleOk(d.title) && titleOk(d.identifier))
+      .filter((d) => licenseAcceptable(d) && titleOk(d.title) && titleOk(d.identifier))
       .map((d) => ({ d, tier: matchTier(piece, d) }))
       .filter((c) => c.tier > 0)
       .sort((a, b) => b.tier - a.tier);
@@ -330,7 +358,7 @@ async function fetchCuratedClassical(existing) {
           artist: piece.composer,
           src: `/music/${fname}`,
           source: `https://archive.org/details/${doc.identifier}`,
-          license: doc.licenseurl,
+          license: doc.licenseurl || PD_MARK,
           pinned: true,
         });
         log(`+ classical[t${tier}]: ${fname} (${(bytes / 1e6).toFixed(1)} MB) ← ${doc.identifier}`);

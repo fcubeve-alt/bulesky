@@ -47,8 +47,9 @@ Saint-Saëns' *The Swan*, Satie's *Gymnopédie/Gnossienne No. 1*, Tchaikovsky's
 These **compositions** are public domain, but a **recording** has its own
 copyright, so the tool only downloads recordings under a clear reusable license
 — public domain / CC0, or attribution-only Creative Commons (CC-BY / CC-BY-SA),
-whose credit the app shows in the music panel (mostly PD performances hosted on
-the Internet Archive). For each piece it prefers an exact-work match and falls
+whose credit the app shows in the music panel — plus anything in the Internet
+Archive's all-public-domain **Musopen** collection, which usually leaves the
+per-item license blank. For each piece it prefers an exact-work match and falls
 back to another recording from the same set (e.g. a different Chopin nocturne)
 only if the exact one isn't found. These tracks are `pinned` so the auto-fetch
 cap never evicts them. No API key is needed.
