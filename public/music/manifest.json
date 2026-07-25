@@ -1,6 +1,33 @@
 {
   "tracks": [
     {
+      "id": "classical-tchaikovsky-october",
+      "title": "The Seasons, Op. 37a — October (Autumn Song)",
+      "artist": "Pyotr Ilyich Tchaikovsky",
+      "src": "/music/classical-tchaikovsky-october.mp3",
+      "source": "https://archive.org/details/lp_the-seasons_pyotr-ilyich-tchaikovsky-lev-oborin",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
+      "id": "classical-debussy-clair-de-lune",
+      "title": "Clair de Lune (Suite bergamasque)",
+      "artist": "Claude Debussy",
+      "src": "/music/classical-debussy-clair-de-lune.mp3",
+      "source": "https://archive.org/details/SuiteBergamasque-ClairDeLunedebussy",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
+      "id": "classical-debussy-arabesque-1",
+      "title": "Arabesque No. 1",
+      "artist": "Claude Debussy",
+      "src": "/music/classical-debussy-arabesque-1.mp3",
+      "source": "https://archive.org/details/lp_childrens-corner-arabesque-no-1-est_claude-debussy-ramon-coll",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true
+    },
+    {
       "id": "classical-chopin-prelude-op28-no4",
       "title": "Prelude in E minor, Op. 28 No. 4",
       "artist": "Frédéric Chopin",
@@ -89,6 +116,38 @@
       "source": "https://archive.org/details/chaconne-d-moll-heifetz",
       "license": "http://creativecommons.org/publicdomain/mark/1.0/",
       "pinned": true
+    },
+    {
+      "id": "jamendo-1571345",
+      "title": "Molly",
+      "artist": "ALLIIOP",
+      "src": "/music/jamendo-1571345.mp3",
+      "source": "https://www.jamendo.com/track/1571345",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-204419",
+      "title": "Ring Spiral",
+      "artist": "Dj Lohphlo",
+      "src": "/music/jamendo-204419.mp3",
+      "source": "https://www.jamendo.com/track/204419",
+      "license": "http://creativecommons.org/licenses/by-sa/2.0/uk/"
+    },
+    {
+      "id": "jamendo-1533251",
+      "title": "So High",
+      "artist": "Caroline",
+      "src": "/music/jamendo-1533251.mp3",
+      "source": "https://www.jamendo.com/track/1533251",
+      "license": "http://creativecommons.org/licenses/by/3.0/"
+    },
+    {
+      "id": "jamendo-711500",
+      "title": "kreata",
+      "artist": "dirty lil' trollops",
+      "src": "/music/jamendo-711500.mp3",
+      "source": "https://www.jamendo.com/track/711500",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
     },
     {
       "id": "jamendo-1224349",
@@ -377,38 +436,6 @@
       "src": "/music/jamendo-347847.mp3",
       "source": "https://www.jamendo.com/track/347847",
       "license": "http://creativecommons.org/licenses/by-sa/3.0/"
-    },
-    {
-      "id": "jamendo-337998",
-      "title": "beautiful",
-      "artist": "Hiroumi",
-      "src": "/music/jamendo-337998.mp3",
-      "source": "https://www.jamendo.com/track/337998",
-      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
-    },
-    {
-      "id": "jamendo-1204670",
-      "title": "Deeper For You",
-      "artist": "Melanie Ungar",
-      "src": "/music/jamendo-1204670.mp3",
-      "source": "https://www.jamendo.com/track/1204670",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-1215804",
-      "title": "Take it",
-      "artist": "Manhat10",
-      "src": "/music/jamendo-1215804.mp3",
-      "source": "https://www.jamendo.com/track/1215804",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-1174820",
-      "title": "Street Signs and White Lies",
-      "artist": "madelyn munsell",
-      "src": "/music/jamendo-1174820.mp3",
-      "source": "https://www.jamendo.com/track/1174820",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
     }
   ]
 }
