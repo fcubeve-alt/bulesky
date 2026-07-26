@@ -145,6 +145,38 @@
       "pinned": true
     },
     {
+      "id": "jamendo-1234660",
+      "title": "Yes or No",
+      "artist": "studyBreak",
+      "src": "/music/jamendo-1234660.mp3",
+      "source": "https://www.jamendo.com/track/1234660",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-1234661",
+      "title": "Waves",
+      "artist": "studyBreak",
+      "src": "/music/jamendo-1234661.mp3",
+      "source": "https://www.jamendo.com/track/1234661",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-620941",
+      "title": "Satellites",
+      "artist": "Emorej",
+      "src": "/music/jamendo-620941.mp3",
+      "source": "https://www.jamendo.com/track/620941",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-621361",
+      "title": "The Storm",
+      "artist": "Emorej",
+      "src": "/music/jamendo-621361.mp3",
+      "source": "https://www.jamendo.com/track/621361",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
       "id": "jamendo-1816224",
       "title": "If I Let You Go",
       "artist": "Townhouse Woods",
@@ -431,30 +463,6 @@
       "src": "/music/jamendo-1576908.mp3",
       "source": "https://www.jamendo.com/track/1576908",
       "license": "http://creativecommons.org/licenses/by-sa/3.0/"
-    },
-    {
-      "id": "jamendo-26737",
-      "title": "Breathe",
-      "artist": "Tryad",
-      "src": "/music/jamendo-26737.mp3",
-      "source": "https://www.jamendo.com/track/26737",
-      "license": "http://creativecommons.org/licenses/by-sa/2.5/"
-    },
-    {
-      "id": "jamendo-26742",
-      "title": "Beauty",
-      "artist": "Tryad",
-      "src": "/music/jamendo-26742.mp3",
-      "source": "https://www.jamendo.com/track/26742",
-      "license": "http://creativecommons.org/licenses/by-sa/2.5/"
-    },
-    {
-      "id": "jamendo-1215808",
-      "title": "Dreams",
-      "artist": "Manhat10",
-      "src": "/music/jamendo-1215808.mp3",
-      "source": "https://www.jamendo.com/track/1215808",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
     }
   ]
 }
