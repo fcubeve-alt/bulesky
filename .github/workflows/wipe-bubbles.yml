@@ -1,0 +1,41 @@
+name: Wipe published bubbles (one-off, manual)
+
+# One-off maintenance job: clears all published whispers/replies from the
+# live D1 database so the app can launch with a clean slate. Runs ONLY when
+# manually dispatched — never on push — so it can't wipe real user data by
+# accident. Delete this workflow file after running it once.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  wipe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+
+      - name: Wipe bubbles + replies from remote D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          echo "Counts BEFORE:"
+          npx wrangler d1 execute bulesky-db --remote \
+            --command "SELECT (SELECT COUNT(*) FROM bubbles) AS bubbles, (SELECT COUNT(*) FROM replies) AS replies;"
+
+          npx wrangler d1 execute bulesky-db --remote --command "DELETE FROM replies;"
+          npx wrangler d1 execute bulesky-db --remote --command "DELETE FROM bubbles;"
+          # Reset AUTOINCREMENT counters so the first new whisper starts at id 1.
+          npx wrangler d1 execute bulesky-db --remote \
+            --command "DELETE FROM sqlite_sequence WHERE name IN ('bubbles','replies');" || true
+
+          echo "Counts AFTER:"
+          npx wrangler d1 execute bulesky-db --remote \
+            --command "SELECT (SELECT COUNT(*) FROM bubbles) AS bubbles, (SELECT COUNT(*) FROM replies) AS replies;"
