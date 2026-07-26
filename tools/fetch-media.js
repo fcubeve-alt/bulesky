@@ -252,6 +252,40 @@ const CLASSICAL = [
   { id: 'classical-debussy-arabesque-1', title: 'Arabesque No. 1', composer: 'Claude Debussy',
     q: 'debussy arabesque no 1',
     groups: [['debussy'], ['arabesque', 'arabesques'], ['no. 1', 'no 1', 'first', 'premiere', 'première', ' 1', 'l. 66']] },
+
+  // ---- Famous, instantly-recognizable pieces (many featured in films). All
+  // pre-20th-century public-domain compositions; recordings still filtered to
+  // PD/CC and biased toward clean Musopen performances. ----
+  { id: 'classical-beethoven-fur-elise', title: 'Für Elise (Bagatelle No. 25 in A minor, WoO 59)', composer: 'Ludwig van Beethoven',
+    q: 'beethoven fur elise bagatelle woo 59',
+    groups: [['beethoven'], ['fur elise', 'für elise', 'fuer elise', 'elise', 'bagatelle', 'woo 59', 'woo59']] },
+  { id: 'classical-beethoven-sym7-allegretto', title: 'Symphony No. 7 in A, Op. 92 — II. Allegretto', composer: 'Ludwig van Beethoven',
+    q: 'beethoven symphony no 7 allegretto op 92',
+    groups: [['beethoven'], ['symphony'], ['no. 7', 'no 7', 'symphony 7', '7th', 'op. 92', 'op 92'], ['allegretto', 'ii.', ' ii ', '2nd', 'second', 'movement 2']] },
+  { id: 'classical-pachelbel-canon', title: 'Canon in D major', composer: 'Johann Pachelbel',
+    q: 'pachelbel canon in d',
+    groups: [['pachelbel'], ['canon', 'kanon']] },
+  { id: 'classical-debussy-reverie', title: 'Rêverie, L. 68', composer: 'Claude Debussy',
+    q: 'debussy reverie',
+    groups: [['debussy'], ['reverie', 'rêverie', 'reverie l', 'l. 68']] },
+  { id: 'classical-massenet-meditation-thais', title: 'Méditation from Thaïs', composer: 'Jules Massenet',
+    q: 'massenet meditation thais',
+    groups: [['massenet'], ['meditation', 'méditation'], ['thais', 'thaïs']] },
+  { id: 'classical-vivaldi-winter-largo', title: 'The Four Seasons — Winter, II. Largo', composer: 'Antonio Vivaldi',
+    q: 'vivaldi four seasons winter largo',
+    groups: [['vivaldi'], ['winter', 'inverno', 'four seasons', 'quattro stagioni', 'seasons'], ['largo', 'ii.', ' ii ', 'second', '2nd']] },
+  { id: 'classical-mozart-pc21-andante', title: 'Piano Concerto No. 21 in C, K. 467 — II. Andante (Elvira Madigan)', composer: 'Wolfgang Amadeus Mozart',
+    q: 'mozart piano concerto 21 andante k 467 elvira madigan',
+    groups: [['mozart'], ['concerto'], ['21', 'k. 467', 'k 467', 'k.467'], ['andante', 'elvira', 'ii.', 'second']] },
+  { id: 'classical-schubert-serenade', title: 'Serenade (Ständchen), D. 957', composer: 'Franz Schubert',
+    q: 'schubert serenade standchen schwanengesang',
+    groups: [['schubert'], ['serenade', 'ständchen', 'standchen', 'staendchen', 'schwanengesang']] },
+  { id: 'classical-grieg-morning-mood', title: 'Peer Gynt Suite No. 1 — Morning Mood', composer: 'Edvard Grieg',
+    q: 'grieg morning mood peer gynt morgenstimmung',
+    groups: [['grieg'], ['morning', 'morgenstimmung'], ['peer gynt', 'peer', 'mood', 'op. 46', 'op 46']] },
+  { id: 'classical-puccini-o-mio-babbino', title: 'O mio babbino caro (Gianni Schicchi)', composer: 'Giacomo Puccini',
+    q: 'puccini o mio babbino caro gianni schicchi',
+    groups: [['puccini'], ['babbino', 'o mio babbino', 'gianni schicchi']] },
 ];
 
 // Accept genuinely reusable licenses for classical: public domain / CC0, or
@@ -285,6 +319,20 @@ function inPdCollection(doc) {
 // known public-domain collection.
 function licenseAcceptable(doc) {
   return licenseOkForClassical(doc.licenseurl) || inPdCollection(doc);
+}
+
+// Prefer CLEAN modern recordings over noisy historical transfers. The 78rpm /
+// George Blood digitizations are genuinely public domain but often carry heavy
+// surface hiss / crackle (the owner rejected several for exactly that), so they
+// rank last — used only if nothing cleaner matches.
+function sourceScore(doc) {
+  const c = (Array.isArray(doc.collection) ? doc.collection : doc.collection ? [doc.collection] : []).map((x) =>
+    String(x).toLowerCase()
+  );
+  if (c.includes('musopen')) return 3; // modern, studio-clean PD performances
+  if (licenseOkForClassical(doc.licenseurl)) return 2; // explicit CC/PD license
+  if (c.includes('unlockedrecordings')) return 1;
+  return 0; // 78rpm / georgeblood — old, often noisy transfers: last resort
 }
 
 const PD_MARK = 'https://creativecommons.org/publicdomain/mark/1.0/';
@@ -341,7 +389,8 @@ async function fetchCuratedClassical(existing) {
       .filter((d) => licenseAcceptable(d) && titleOk(d.title) && titleOk(d.identifier))
       .map((d) => ({ d, tier: matchTier(piece, d) }))
       .filter((c) => c.tier > 0)
-      .sort((a, b) => b.tier - a.tier);
+      // Exact-work first, then cleanest recording source (avoid noisy transfers).
+      .sort((a, b) => b.tier - a.tier || sourceScore(b.d) - sourceScore(a.d));
 
     let done = false;
     for (const { d: doc, tier } of candidates) {
