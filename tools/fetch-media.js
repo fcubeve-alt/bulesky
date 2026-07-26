@@ -122,6 +122,9 @@ const BLOCKED_IDS = new Set([
   'jamendo-204419', // Ring Spiral
   'jamendo-2185500', // Beyond earth
   'jamendo-99776', // Precious
+  'jamendo-570077', // Sand dunes
+  'classical-debussy-reverie', // Rêverie, L. 68
+  'classical-chopin-nocturne-op9-no2', // Nocturne in E-flat major, Op. 9 No. 2
 ]);
 
 function titleOk(s) {
@@ -213,9 +216,6 @@ async function fetchArchiveAudio(existing) {
 //             nocturne) and is only used as a fallback when no strong match
 //             surfaces — far better than dropping the piece entirely.
 const CLASSICAL = [
-  { id: 'classical-chopin-nocturne-op9-no2', title: 'Nocturne in E-flat major, Op. 9 No. 2', composer: 'Frédéric Chopin',
-    q: 'chopin nocturne op 9 e-flat',
-    groups: [['chopin'], ['nocturne'], ['op. 9', 'op 9', 'opus 9', 'e-flat', 'e flat', 'no. 2', 'no 2']] },
   { id: 'classical-chopin-nocturne-cs-minor', title: 'Nocturne in C-sharp minor, B. 49 (Lento con gran espressione)', composer: 'Frédéric Chopin',
     q: 'chopin nocturne c sharp minor posthumous',
     groups: [['chopin'], ['nocturne', 'lento'], ['c-sharp', 'c sharp', 'c# ', 'posth', 'b. 49', 'b.49', 'b 49', 'no. 20', 'no 20']] },
@@ -265,9 +265,6 @@ const CLASSICAL = [
   { id: 'classical-pachelbel-canon', title: 'Canon in D major', composer: 'Johann Pachelbel',
     q: 'pachelbel canon in d',
     groups: [['pachelbel'], ['canon', 'kanon']] },
-  { id: 'classical-debussy-reverie', title: 'Rêverie, L. 68', composer: 'Claude Debussy',
-    q: 'debussy reverie',
-    groups: [['debussy'], ['reverie', 'rêverie', 'reverie l', 'l. 68']] },
   { id: 'classical-massenet-meditation-thais', title: 'Méditation from Thaïs', composer: 'Jules Massenet',
     q: 'massenet meditation thais',
     groups: [['massenet'], ['meditation', 'méditation'], ['thais', 'thaïs']] },

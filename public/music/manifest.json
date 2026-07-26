@@ -28,15 +28,6 @@
       "pinned": true
     },
     {
-      "id": "classical-debussy-reverie",
-      "title": "Rêverie, L. 68",
-      "artist": "Claude Debussy",
-      "src": "/music/classical-debussy-reverie.mp3",
-      "source": "https://archive.org/details/78_reverie_erroll-garner-debussy_gbia0072450a",
-      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "pinned": true
-    },
-    {
       "id": "classical-massenet-meditation-thais",
       "title": "Méditation from Thaïs",
       "artist": "Jules Massenet",
@@ -141,15 +132,6 @@
       "artist": "Camille Saint-Saëns",
       "src": "/music/classical-saint-saens-swan.mp3",
       "source": "https://archive.org/details/78_the-swan-le-cygne_mischa-elman-carroll-hollister-saint-sans_gbia0451299a",
-      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "pinned": true
-    },
-    {
-      "id": "classical-chopin-nocturne-op9-no2",
-      "title": "Nocturne in E-flat major, Op. 9 No. 2",
-      "artist": "Frédéric Chopin",
-      "src": "/music/classical-chopin-nocturne-op9-no2.mp3",
-      "source": "https://archive.org/details/a-5800-godowsky-chopin-nocturne",
       "license": "https://creativecommons.org/publicdomain/mark/1.0/",
       "pinned": true
     },
@@ -361,14 +343,6 @@
       "src": "/music/jamendo-1381522.mp3",
       "source": "https://www.jamendo.com/track/1381522",
       "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-570077",
-      "title": "Sand dunes",
-      "artist": "K4MMERER",
-      "src": "/music/jamendo-570077.mp3",
-      "source": "https://www.jamendo.com/track/570077",
-      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
     },
     {
       "id": "jamendo-1083525",
