@@ -20,6 +20,20 @@ jobs:
 
       - run: npm install
 
+      - name: Resolve D1 database_id and wire it into wrangler.toml
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          DB_ID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="bulesky-db") | .uuid')
+          if [ -z "$DB_ID" ]; then
+            echo "Could not resolve bulesky-db's database_id" >&2
+            exit 1
+          fi
+          echo "Using D1 database_id=$DB_ID"
+          sed -i "s/REPLACE_WITH_YOUR_D1_DATABASE_ID/${DB_ID}/" wrangler.toml
+
       - name: Wipe bubbles + replies from remote D1
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
