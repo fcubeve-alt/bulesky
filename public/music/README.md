@@ -23,6 +23,17 @@ tracks, it falls back to a soft synthesized pad.
    a random track, then auto-advances to another random one; the in-app
    music panel has a "next" button to skip.
 
+### Highlight playback (only the good part)
+
+To avoid long intros and filler, the player skips into each track (about 22%
+in, capped at 40s) and plays only an ~80-second slice before fading to the
+next one. For a specific song you can pin the exact hook with `start`/`end`
+(seconds) in the manifest — those win over the automatic slice:
+
+```json
+{ "title": "Silent Night", "src": "/music/silent-night.mp3", "start": 46, "end": 118 }
+```
+
 ## Automatic music (Jamendo)
 
 If a `JAMENDO_CLIENT_ID` secret is set, the fetch-media workflow pulls

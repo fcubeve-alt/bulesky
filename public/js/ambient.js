@@ -97,6 +97,52 @@ export function initAmbient(opts = {}) {
   let currentTitle = null;
   let currentTrack = null;
 
+  // "Highlight" playback: many tracks have long intros and aren't good all the
+  // way through, so we skip the intro and play only a ~80s slice of the good
+  // part, then move on. A track may override with explicit `start`/`end`
+  // (seconds) in the manifest for a hand-picked hook.
+  const PLAY_WINDOW = 80; // seconds of the "good part" to play
+  const MAX_INTRO_SKIP = 40; // never skip more than this into a track
+  const INTRO_FRACTION = 0.22; // otherwise start ~22% in, past the intro
+  const TARGET_VOLUME = 0.55;
+  let segEnd = Infinity; // when to fade out and advance
+  let fadeTimer = null;
+
+  function clearFade() {
+    if (fadeTimer) {
+      clearInterval(fadeTimer);
+      fadeTimer = null;
+    }
+  }
+
+  // Pick the slice to play, given the track's (possibly unknown) duration.
+  function computeSegment(track, dur) {
+    const hasDur = Number.isFinite(dur) && dur > 0;
+    let start = Number.isFinite(track && track.start) ? track.start : null;
+    let end = Number.isFinite(track && track.end) ? track.end : null;
+    if (start == null) start = hasDur ? Math.min(MAX_INTRO_SKIP, dur * INTRO_FRACTION) : 0;
+    if (end == null) end = start + PLAY_WINDOW;
+    if (hasDur) end = Math.min(end, dur - 0.3);
+    start = Math.max(0, Math.min(start, Math.max(0, end - 20)));
+    return { start, end };
+  }
+
+  // Gentle ~0.6s fade before switching, so the "good part" ends smoothly.
+  function fadeAndNext() {
+    if (fadeTimer || !audio) return;
+    const startVol = audio.volume;
+    let i = 0;
+    const steps = 9;
+    fadeTimer = setInterval(() => {
+      i += 1;
+      if (audio) audio.volume = Math.max(0, startVol * (1 - i / steps));
+      if (i >= steps) {
+        clearFade();
+        if (playing) playRandomTrack();
+      }
+    }, 70);
+  }
+
   async function loadLibrary() {
     if (libraryLoaded) return;
     libraryLoaded = true;
@@ -123,19 +169,43 @@ export function initAmbient(opts = {}) {
     return next;
   }
 
+  function ensureAudio() {
+    if (audio) return;
+    audio = new Audio();
+    audio.addEventListener('ended', () => {
+      if (playing) playRandomTrack();
+    });
+    // Once we know the duration, jump to the start of the highlight slice.
+    audio.addEventListener('loadedmetadata', () => {
+      const seg = computeSegment(currentTrack || {}, audio.duration);
+      segEnd = seg.end;
+      if (seg.start > 0.5 && audio.currentTime < seg.start - 0.5) {
+        try {
+          audio.currentTime = seg.start;
+        } catch {
+          /* seeking not ready yet — ignore */
+        }
+      }
+    });
+    // Leave the slice smoothly instead of playing the whole track.
+    audio.addEventListener('timeupdate', () => {
+      if (playing && Number.isFinite(segEnd) && audio.currentTime >= segEnd) {
+        fadeAndNext();
+      }
+    });
+  }
+
   function playRandomTrack() {
     const track = pickTrack();
     if (!track) return;
-    if (!audio) {
-      audio = new Audio();
-      audio.addEventListener('ended', () => {
-        if (playing) playRandomTrack();
-      });
-    }
+    ensureAudio();
+    clearFade();
     currentTrack = track;
     currentTitle = track.title || track.src.split('/').pop();
+    // Provisional segment (no duration yet); refined on loadedmetadata.
+    segEnd = Number.isFinite(track.end) ? track.end : Infinity;
     audio.src = track.src;
-    audio.volume = 0.55;
+    audio.volume = TARGET_VOLUME;
     audio.play().catch(() => {});
     onChange();
   }
@@ -176,6 +246,7 @@ export function initAmbient(opts = {}) {
   }
 
   function stopAll() {
+    clearFade();
     if (audio) audio.pause();
     stopSynth();
   }
