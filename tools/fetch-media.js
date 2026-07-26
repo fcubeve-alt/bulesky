@@ -113,6 +113,17 @@ function isPublicDomain(licenseurl) {
 // Reject off-brand / disturbing titles — this is a gentle, healing space.
 const TITLE_BLOCK = /\b(rape|blood|bleed|death|kill|gore|satan|hell|drug|porn|sex|nsfw|nazi|war|gun|suicide|terror|hate|noise|scream|horror)\b/i;
 
+// Tracks the owner has listened to and rejected (too noisy, wrong mood, etc.).
+// Never re-add these, even if a source would otherwise return them again.
+const BLOCKED_IDS = new Set([
+  'classical-chopin-raindrop', // noisy old recording
+  'classical-satie-gymnopedie-1', // noisy old recording
+  'classical-debussy-clair-de-lune', // noisy old recording
+  'jamendo-204419', // Ring Spiral
+  'jamendo-2185500', // Beyond earth
+  'jamendo-99776', // Precious
+]);
+
 function titleOk(s) {
   return s && !TITLE_BLOCK.test(String(s));
 }
@@ -211,9 +222,6 @@ const CLASSICAL = [
   { id: 'classical-chopin-prelude-op28-no4', title: 'Prelude in E minor, Op. 28 No. 4', composer: 'Frédéric Chopin',
     q: 'chopin prelude op 28 e minor',
     groups: [['chopin'], ['prelude', 'preludes', 'préludes'], ['op. 28', 'op 28', 'e minor', 'no. 4', 'no 4']] },
-  { id: 'classical-chopin-raindrop', title: 'Prelude in D-flat major, Op. 28 No. 15 (Raindrop)', composer: 'Frédéric Chopin',
-    q: 'chopin raindrop prelude op 28',
-    groups: [['chopin'], ['prelude', 'preludes', 'préludes', 'raindrop'], ['raindrop', 'no. 15', 'no 15', 'd-flat', 'd flat']] },
   { id: 'classical-bach-cello-suite-1-prelude', title: 'Cello Suite No. 1 in G major, BWV 1007 — Prélude', composer: 'J. S. Bach',
     q: 'bach cello suite 1 prelude bwv 1007',
     groups: [['bach'], ['cello'], ['1007', 'suite no. 1', 'suite no 1', 'prelude', 'prélude', 'g major']] },
@@ -235,18 +243,12 @@ const CLASSICAL = [
   { id: 'classical-saint-saens-swan', title: 'The Swan (Le Cygne), from The Carnival of the Animals', composer: 'Camille Saint-Saëns',
     q: 'saint-saens the swan le cygne carnival of the animals',
     groups: [['saint', 'saëns', 'saens'], ['swan', 'cygne']] },
-  { id: 'classical-satie-gymnopedie-1', title: 'Gymnopédie No. 1', composer: 'Erik Satie',
-    q: 'satie gymnopedie no 1',
-    groups: [['satie'], ['gymnopedie', 'gymnopédie', 'gymnopedies', 'gymnopédies'], ['no. 1', 'no 1', 'first', ' 1', 'i.']] },
   { id: 'classical-satie-gnossienne-1', title: 'Gnossienne No. 1', composer: 'Erik Satie',
     q: 'satie gnossienne no 1',
     groups: [['satie'], ['gnossienne', 'gnossiennes'], ['no. 1', 'no 1', 'first', ' 1', 'i.']] },
   { id: 'classical-tchaikovsky-october', title: 'The Seasons, Op. 37a — October (Autumn Song)', composer: 'Pyotr Ilyich Tchaikovsky',
     q: 'tchaikovsky the seasons october autumn song',
     groups: [['tchaikovsky', 'chaikovsky', 'tschaikowsky', 'čajkovskij'], ['october', 'autumn', 'seasons']] },
-  { id: 'classical-debussy-clair-de-lune', title: 'Clair de Lune (Suite bergamasque)', composer: 'Claude Debussy',
-    q: 'debussy clair de lune',
-    groups: [['debussy'], ['clair de lune', 'clair de', 'clair-de-lune']] },
   { id: 'classical-debussy-arabesque-1', title: 'Arabesque No. 1', composer: 'Claude Debussy',
     q: 'debussy arabesque no 1',
     groups: [['debussy'], ['arabesque', 'arabesques'], ['no. 1', 'no 1', 'first', 'premiere', 'première', ' 1', 'l. 66']] },
@@ -312,7 +314,7 @@ function matchTier(piece, doc) {
 async function fetchCuratedClassical(existing) {
   const have = new Set(existing.map((e) => e.id).filter(Boolean));
   const added = [];
-  const wanted = CLASSICAL.filter((p) => !have.has(p.id));
+  const wanted = CLASSICAL.filter((p) => !have.has(p.id) && !BLOCKED_IDS.has(p.id));
 
   for (const piece of wanted) {
     if (added.length >= CLASSICAL_PER_RUN) break;
@@ -581,7 +583,7 @@ async function fetchJamendoAudio(existing) {
     for (const tr of results) {
       if (added.length >= AUDIO_PER_RUN) break;
       const id = `jamendo-${tr.id}`;
-      if (have.has(id)) continue;
+      if (have.has(id) || BLOCKED_IDS.has(id)) continue;
       have.add(id);
       if (!titleOk(tr.name) || !titleOk(tr.artist_name)) {
         log('skip (title):', tr.id);
@@ -654,7 +656,7 @@ async function fetchCCMixterAudio(existing) {
   for (const up of rows) {
     if (added.length >= 2) break;
     const id = `ccmixter-${up.upload_id}`;
-    if (have.has(id)) continue;
+    if (have.has(id) || BLOCKED_IDS.has(id)) continue;
     const name = String(up.upload_name || '');
     const artist = String(up.user_name || '');
     if (!titleOk(name) || !titleOk(artist)) {
@@ -704,7 +706,7 @@ async function fetchCCMixterAudio(existing) {
   const musicFile = path.join(MUSIC_DIR, 'manifest.json');
   const videoFile = path.join(VIDEO_DIR, 'manifest.json');
 
-  let music = readManifest(musicFile, 'tracks');
+  let music = readManifest(musicFile, 'tracks').filter((t) => !BLOCKED_IDS.has(t.id));
   let videos = readManifest(videoFile, 'videos');
 
   // Curated public-domain classical (owner's request) first — these are

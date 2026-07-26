@@ -2,19 +2,10 @@
   "tracks": [
     {
       "id": "classical-tchaikovsky-october",
-      "title": "The Seasons, Op. 37a — October (Autumn Song)",
+      "title": "The Seasons, Op. 37a \u2014 October (Autumn Song)",
       "artist": "Pyotr Ilyich Tchaikovsky",
       "src": "/music/classical-tchaikovsky-october.mp3",
       "source": "https://archive.org/details/lp_the-seasons_pyotr-ilyich-tchaikovsky-lev-oborin",
-      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "pinned": true
-    },
-    {
-      "id": "classical-debussy-clair-de-lune",
-      "title": "Clair de Lune (Suite bergamasque)",
-      "artist": "Claude Debussy",
-      "src": "/music/classical-debussy-clair-de-lune.mp3",
-      "source": "https://archive.org/details/SuiteBergamasque-ClairDeLunedebussy",
       "license": "https://creativecommons.org/publicdomain/mark/1.0/",
       "pinned": true
     },
@@ -30,24 +21,15 @@
     {
       "id": "classical-chopin-prelude-op28-no4",
       "title": "Prelude in E minor, Op. 28 No. 4",
-      "artist": "Frédéric Chopin",
+      "artist": "Fr\u00e9d\u00e9ric Chopin",
       "src": "/music/classical-chopin-prelude-op28-no4.mp3",
       "source": "https://archive.org/details/78_prelude-in-e-minor_leopold-stokowski-philadelphia-symphony-orchestra-chopin_gbia0111504b",
       "license": "https://creativecommons.org/publicdomain/mark/1.0/",
       "pinned": true
     },
     {
-      "id": "classical-chopin-raindrop",
-      "title": "Prelude in D-flat major, Op. 28 No. 15 (Raindrop)",
-      "artist": "Frédéric Chopin",
-      "src": "/music/classical-chopin-raindrop.mp3",
-      "source": "https://archive.org/details/78_prelude-in-d-flat-major-op-28-no-15-raindrop_alfred-cortot-chopin_gbia7003095b",
-      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "pinned": true
-    },
-    {
       "id": "classical-bach-cello-suite-1-prelude",
-      "title": "Cello Suite No. 1 in G major, BWV 1007 — Prélude",
+      "title": "Cello Suite No. 1 in G major, BWV 1007 \u2014 Pr\u00e9lude",
       "artist": "J. S. Bach",
       "src": "/music/classical-bach-cello-suite-1-prelude.mp3",
       "source": "https://archive.org/details/lp_suites-for-unaccompanied-violoncello-no-1_pablo-casals-johann-sebastian-bach",
@@ -65,7 +47,7 @@
     },
     {
       "id": "classical-beethoven-moonlight-1",
-      "title": "Piano Sonata No. 14 \"Moonlight\", Op. 27 No. 2 — Adagio sostenuto",
+      "title": "Piano Sonata No. 14 \"Moonlight\", Op. 27 No. 2 \u2014 Adagio sostenuto",
       "artist": "Ludwig van Beethoven",
       "src": "/music/classical-beethoven-moonlight-1.mp3",
       "source": "https://archive.org/details/lp_moonlight-sonata_ludwig-van-beethoven-frdric-chopin-alexand",
@@ -74,7 +56,7 @@
     },
     {
       "id": "classical-elgar-cello-concerto-1",
-      "title": "Cello Concerto in E minor, Op. 85 — I. Adagio",
+      "title": "Cello Concerto in E minor, Op. 85 \u2014 I. Adagio",
       "artist": "Edward Elgar",
       "src": "/music/classical-elgar-cello-concerto-1.mp3",
       "source": "https://archive.org/details/lp_cello-concerto-cello-encores-bach-sa_sir-edward-elgar-jacqueline-du-pre-sir",
@@ -84,25 +66,16 @@
     {
       "id": "classical-saint-saens-swan",
       "title": "The Swan (Le Cygne), from The Carnival of the Animals",
-      "artist": "Camille Saint-Saëns",
+      "artist": "Camille Saint-Sa\u00ebns",
       "src": "/music/classical-saint-saens-swan.mp3",
       "source": "https://archive.org/details/78_the-swan-le-cygne_mischa-elman-carroll-hollister-saint-sans_gbia0451299a",
       "license": "https://creativecommons.org/publicdomain/mark/1.0/",
       "pinned": true
     },
     {
-      "id": "classical-satie-gymnopedie-1",
-      "title": "Gymnopédie No. 1",
-      "artist": "Erik Satie",
-      "src": "/music/classical-satie-gymnopedie-1.mp3",
-      "source": "https://archive.org/details/78_gymnopdie-no-1_boston-symphony-orchestra-erik-satie-serge-koussevitzky_gbia0295164b",
-      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "pinned": true
-    },
-    {
       "id": "classical-chopin-nocturne-op9-no2",
       "title": "Nocturne in E-flat major, Op. 9 No. 2",
-      "artist": "Frédéric Chopin",
+      "artist": "Fr\u00e9d\u00e9ric Chopin",
       "src": "/music/classical-chopin-nocturne-op9-no2.mp3",
       "source": "https://archive.org/details/a-5800-godowsky-chopin-nocturne",
       "license": "https://creativecommons.org/publicdomain/mark/1.0/",
@@ -110,7 +83,7 @@
     },
     {
       "id": "classical-bach-chaconne",
-      "title": "Partita No. 2 in D minor, BWV 1004 — Chaconne",
+      "title": "Partita No. 2 in D minor, BWV 1004 \u2014 Chaconne",
       "artist": "J. S. Bach",
       "src": "/music/classical-bach-chaconne.mp3",
       "source": "https://archive.org/details/chaconne-d-moll-heifetz",
@@ -124,14 +97,6 @@
       "src": "/music/jamendo-1571345.mp3",
       "source": "https://www.jamendo.com/track/1571345",
       "license": "http://creativecommons.org/licenses/by-sa/3.0/"
-    },
-    {
-      "id": "jamendo-204419",
-      "title": "Ring Spiral",
-      "artist": "Dj Lohphlo",
-      "src": "/music/jamendo-204419.mp3",
-      "source": "https://www.jamendo.com/track/204419",
-      "license": "http://creativecommons.org/licenses/by-sa/2.0/uk/"
     },
     {
       "id": "jamendo-1533251",
@@ -172,22 +137,6 @@
       "src": "/music/jamendo-135529.mp3",
       "source": "https://www.jamendo.com/track/135529",
       "license": "http://creativecommons.org/licenses/by-sa/3.0/"
-    },
-    {
-      "id": "jamendo-99776",
-      "title": "Precious",
-      "artist": "DJ Answer",
-      "src": "/music/jamendo-99776.mp3",
-      "source": "https://www.jamendo.com/track/99776",
-      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
-    },
-    {
-      "id": "jamendo-2185500",
-      "title": "Beyond earth",
-      "artist": "zero-project",
-      "src": "/music/jamendo-2185500.mp3",
-      "source": "https://www.jamendo.com/track/2185500",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
     },
     {
       "id": "jamendo-320060",
