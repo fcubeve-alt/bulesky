@@ -1,6 +1,6 @@
 import { containsAbusive, containsCrisisKeyword, maskContactInfo } from '../../../src/filters.js';
 
-const MAX_CONTENT_LEN = 500;
+const MAX_CONTENT_LEN = 1000;
 const MAX_CODE_LEN = 30;
 const LIST_LIMIT_DEFAULT = 60;
 const LIST_LIMIT_MAX = 120;

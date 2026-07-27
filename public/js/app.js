@@ -187,7 +187,7 @@ function openCompose(type) {
   els.composeContent.placeholder = type === 'pain' ? t('contentPlaceholderPain') : t('contentPlaceholderWish');
   els.composeContent.value = '';
   els.composeCode.value = '';
-  els.composeCount.textContent = '0/500';
+  els.composeCount.textContent = '0/1000';
   els.composeError.classList.add('hidden');
   els.composeHp.value = '';
   els.crisisBanner.classList.toggle('hidden', type !== 'pain');
@@ -450,7 +450,7 @@ function init() {
   els.composeCancel.addEventListener('click', () => closeSheet(els.composeOverlay, els.composeSheet));
   els.composeSubmit.addEventListener('click', submitCompose);
   els.composeContent.addEventListener('input', () => {
-    els.composeCount.textContent = `${els.composeContent.value.length}/500`;
+    els.composeCount.textContent = `${els.composeContent.value.length}/1000`;
   });
   wireOverlayClose(els.composeOverlay, els.composeSheet);
 
