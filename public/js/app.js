@@ -186,6 +186,9 @@ function openCompose(type) {
   els.composeTitle.textContent = type === 'pain' ? t('composeTitlePain') : t('composeTitleWish');
   els.composeContent.placeholder = type === 'pain' ? t('contentPlaceholderPain') : t('contentPlaceholderWish');
   els.composeContent.value = '';
+  // Enforce the limit at runtime too, so a stale cached index.html (which may
+  // still carry the old maxlength) is corrected as soon as the app loads.
+  els.composeContent.maxLength = 1000;
   els.composeCode.value = '';
   els.composeCount.textContent = '0/1000';
   els.composeError.classList.add('hidden');
