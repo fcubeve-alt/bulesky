@@ -88,8 +88,17 @@ function startSynth(context, destination) {
 export function initAmbient(opts = {}) {
   const onChange = typeof opts.onChange === 'function' ? opts.onChange : () => {};
   let library = [];
+  let playlist = []; // library, grouped by style and ordered
+  let playIdx = 0;
   let libraryLoaded = false;
-  let audio = null;
+  // Two audio players so tracks can TRUE-crossfade: as one fades out the other
+  // is already fading in, so there's never a silent gap or an abrupt jump.
+  let players = null; // [Audio, Audio]
+  let trackOf = [null, null];
+  let segEnds = [Infinity, Infinity];
+  let cur = 0; // index of the currently-dominant player
+  let crossTimer = null;
+  let fading = false;
   let ctx = null;
   let masterGain = null;
   let synth = null;
@@ -98,21 +107,21 @@ export function initAmbient(opts = {}) {
   let currentTrack = null;
 
   // "Highlight" playback: many tracks have long intros and aren't good all the
-  // way through, so we skip the intro and play only a ~80s slice of the good
+  // way through, so we skip the intro and play only a ~100s slice of the good
   // part, then move on. A track may override with explicit `start`/`end`
   // (seconds) in the manifest for a hand-picked hook.
-  const PLAY_WINDOW = 80; // seconds of the "good part" to play
+  const PLAY_WINDOW = 100; // seconds of the "good part" to play
   const MAX_INTRO_SKIP = 40; // never skip more than this into a track
   const INTRO_FRACTION = 0.22; // otherwise start ~22% in, past the intro
   const TARGET_VOLUME = 0.55;
-  let segEnd = Infinity; // when to fade out and advance
-  let fadeTimer = null;
+  const CROSSFADE_SEC = 3; // overlap duration when moving between tracks
 
-  function clearFade() {
-    if (fadeTimer) {
-      clearInterval(fadeTimer);
-      fadeTimer = null;
+  function clearCross() {
+    if (crossTimer) {
+      clearInterval(crossTimer);
+      crossTimer = null;
     }
+    fading = false;
   }
 
   // Pick the slice to play, given the track's (possibly unknown) duration.
@@ -127,20 +136,38 @@ export function initAmbient(opts = {}) {
     return { start, end };
   }
 
-  // Gentle ~0.6s fade before switching, so the "good part" ends smoothly.
-  function fadeAndNext() {
-    if (fadeTimer || !audio) return;
-    const startVol = audio.volume;
-    let i = 0;
-    const steps = 9;
-    fadeTimer = setInterval(() => {
-      i += 1;
-      if (audio) audio.volume = Math.max(0, startVol * (1 - i / steps));
-      if (i >= steps) {
-        clearFade();
-        if (playing) playRandomTrack();
-      }
-    }, 70);
+  // ---- Style grouping: keep similar styles adjacent so transitions feel
+  // cohesive (no cello-classical → pop-vocal whiplash). Buckets are ordered
+  // so neighbours are close in feel: solo piano → strings → orchestral → songs.
+  function bucketOf(t) {
+    const id = String(t.id || '');
+    const title = String(t.title || '').toLowerCase();
+    if (id.startsWith('classical-')) {
+      if (/cello|violin|viola|string|swan|cygne|air|adagio|chaconne|serenade|s[eé]r[eé]nade|meditation|m[eé]ditation|thais|thd|elgar|vivaldi|winter/.test(title)) return 'strings';
+      if (/piano|nocturne|prelude|pr[eé]lude|arabesque|gnossienne|gymnop|clair|r[eê]verie|moonlight|elise|bagatelle|sonata|canon|andante/.test(title)) return 'piano';
+      return 'orchestral';
+    }
+    return 'song'; // Jamendo / ccMixter — mostly CC vocal songs
+  }
+  const BUCKET_ORDER = ['piano', 'strings', 'orchestral', 'song'];
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function buildPlaylist() {
+    const groups = { piano: [], strings: [], orchestral: [], song: [] };
+    for (const t of library) (groups[bucketOf(t)] || groups.song).push(t);
+    playlist = [];
+    for (const b of BUCKET_ORDER) playlist.push(...shuffle(groups[b]));
+    if (playlist.length === 0) playlist = library.slice();
+    // Random entry point so sessions don't always open on the same piece,
+    // while still walking the grouped order from there.
+    playIdx = playlist.length ? Math.floor(Math.random() * playlist.length) : 0;
   }
 
   async function loadLibrary() {
@@ -157,56 +184,123 @@ export function initAmbient(opts = {}) {
     } catch {
       /* no manifest → synth fallback */
     }
+    buildPlaylist();
   }
 
   function pickTrack() {
-    if (library.length === 0) return null;
-    if (library.length === 1) return library[0];
-    let next;
+    if (playlist.length === 0) return null;
+    if (playlist.length === 1) return playlist[0];
+    let t;
+    let guard = 0;
     do {
-      next = library[Math.floor(Math.random() * library.length)];
-    } while (next.title === currentTitle);
-    return next;
+      t = playlist[playIdx % playlist.length];
+      playIdx = (playIdx + 1) % playlist.length;
+      guard += 1;
+    } while (t.title === currentTitle && guard < playlist.length);
+    return t;
   }
 
   function ensureAudio() {
-    if (audio) return;
-    audio = new Audio();
-    audio.addEventListener('ended', () => {
-      if (playing) playRandomTrack();
-    });
-    // Once we know the duration, jump to the start of the highlight slice.
-    audio.addEventListener('loadedmetadata', () => {
-      const seg = computeSegment(currentTrack || {}, audio.duration);
-      segEnd = seg.end;
-      if (seg.start > 0.5 && audio.currentTime < seg.start - 0.5) {
-        try {
-          audio.currentTime = seg.start;
-        } catch {
-          /* seeking not ready yet — ignore */
+    if (players) return;
+    players = [new Audio(), new Audio()];
+    players.forEach((p, idx) => {
+      p.preload = 'auto';
+      // Once we know the duration, jump to the start of the highlight slice.
+      p.addEventListener('loadedmetadata', () => {
+        const seg = computeSegment(trackOf[idx] || {}, p.duration);
+        segEnds[idx] = seg.end;
+        if (seg.start > 0.5 && p.currentTime < seg.start - 0.5) {
+          try {
+            p.currentTime = seg.start;
+          } catch {
+            /* seeking not ready yet — ignore */
+          }
         }
-      }
-    });
-    // Leave the slice smoothly instead of playing the whole track.
-    audio.addEventListener('timeupdate', () => {
-      if (playing && Number.isFinite(segEnd) && audio.currentTime >= segEnd) {
-        fadeAndNext();
-      }
+      });
+      // Begin the crossfade CROSSFADE_SEC before the slice ends, so the next
+      // track is already rising as this one settles out.
+      p.addEventListener('timeupdate', () => {
+        if (!playing || idx !== cur || fading) return;
+        if (Number.isFinite(segEnds[idx]) && p.currentTime >= segEnds[idx] - CROSSFADE_SEC) {
+          advance();
+        }
+      });
+      p.addEventListener('ended', () => {
+        if (playing && !fading) advance();
+      });
     });
   }
 
-  function playRandomTrack() {
+  // Smoothly ramp `to` up to volume and `from` down to 0 over CROSSFADE_SEC.
+  function runRamp(from, to, toIdx) {
+    if (crossTimer) clearInterval(crossTimer);
+    const fps = 20;
+    const steps = Math.round(CROSSFADE_SEC * fps);
+    let i = 0;
+    crossTimer = setInterval(() => {
+      i += 1;
+      const k = Math.min(1, i / steps);
+      try { to.volume = TARGET_VOLUME * k; } catch {}
+      try { if (from) from.volume = Math.max(0, TARGET_VOLUME * (1 - k)); } catch {}
+      if (i >= steps) {
+        clearInterval(crossTimer);
+        crossTimer = null;
+        if (from) { try { from.pause(); } catch {} }
+        cur = toIdx;
+        fading = false;
+      }
+    }, 1000 / fps);
+  }
+
+  // Crossfade from the current player to the next track on the other player.
+  function advance() {
+    if (fading) return;
     const track = pickTrack();
     if (!track) return;
     ensureAudio();
-    clearFade();
+    fading = true;
+    const from = players[cur];
+    const toIdx = cur ^ 1;
+    const to = players[toIdx];
+    trackOf[toIdx] = track;
+    segEnds[toIdx] = Number.isFinite(track.end) ? track.end : Infinity;
+    // Reflect now-playing as the incoming track becomes audible.
     currentTrack = track;
     currentTitle = track.title || track.src.split('/').pop();
-    // Provisional segment (no duration yet); refined on loadedmetadata.
-    segEnd = Number.isFinite(track.end) ? track.end : Infinity;
-    audio.src = track.src;
-    audio.volume = TARGET_VOLUME;
-    audio.play().catch(() => {});
+    onChange();
+    to.src = track.src;
+    to.volume = 0;
+    let started = false;
+    const begin = () => {
+      if (started) return;
+      started = true;
+      runRamp(from, to, toIdx);
+    };
+    to.addEventListener('playing', begin, { once: true });
+    const safety = setTimeout(begin, 1500); // start the ramp even if 'playing' is late
+    to.play().then(() => clearTimeout(safety)).catch(() => {
+      clearTimeout(safety);
+      begin();
+    });
+  }
+
+  // Start the first library track outright (no crossfade — nothing to fade from).
+  function playFirstTrack() {
+    const track = pickTrack();
+    if (!track) return;
+    ensureAudio();
+    clearCross();
+    cur = 0;
+    const p = players[0];
+    const other = players[1];
+    try { other.pause(); other.volume = 0; } catch {}
+    trackOf[0] = track;
+    segEnds[0] = Number.isFinite(track.end) ? track.end : Infinity;
+    currentTrack = track;
+    currentTitle = track.title || track.src.split('/').pop();
+    p.src = track.src;
+    p.volume = TARGET_VOLUME;
+    p.play().catch(() => {});
     onChange();
   }
 
@@ -246,8 +340,8 @@ export function initAmbient(opts = {}) {
   }
 
   function stopAll() {
-    clearFade();
-    if (audio) audio.pause();
+    clearCross();
+    if (players) for (const p of players) { try { p.pause(); } catch {} }
     stopSynth();
   }
 
@@ -256,18 +350,19 @@ export function initAmbient(opts = {}) {
   // keeps playing behind a closed page; resume() brings it back on return.
   function suspend() {
     if (!playing) return;
-    if (audio) audio.pause();
+    if (players) for (const p of players) { try { p.pause(); } catch {} }
     if (ctx && ctx.state === 'running') ctx.suspend();
   }
 
   function resume() {
     if (!playing) return;
-    if (audio && audio.paused) audio.play().catch(() => {});
+    // Resume only the dominant player; a half-finished crossfade just settles.
+    if (players && players[cur] && players[cur].paused) players[cur].play().catch(() => {});
     if (ctx && ctx.state === 'suspended') ctx.resume();
   }
 
   function beginPlayback() {
-    if (library.length > 0) playRandomTrack();
+    if (playlist.length > 0) playFirstTrack();
     else startSynthFallback();
   }
 
@@ -295,16 +390,19 @@ export function initAmbient(opts = {}) {
         // in-gesture), then swap to a real track the moment it arrives.
         startSynthFallback();
         loadLibrary().then(() => {
-          if (playing && library.length > 0) {
+          if (playing && playlist.length > 0) {
             stopSynth();
-            playRandomTrack();
+            playFirstTrack();
           }
         });
       }
       return true;
     },
     next() {
-      if (playing && library.length > 0) playRandomTrack();
+      if (!playing || playlist.length === 0) return;
+      // Crossfade to the next track if one is already playing; otherwise start.
+      if (players && trackOf[cur]) advance();
+      else playFirstTrack();
     },
     // Pause/resume actual audio output without changing the "playing" intent.
     suspend,

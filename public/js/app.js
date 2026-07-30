@@ -70,13 +70,17 @@ const els = {
   confirmCopy: $('confirm-copy'),
   confirmHint: $('confirm-hint'),
   confirmClose: $('confirm-close'),
-  detailOverlay: $('detail-overlay'),
-  detailSheet: $('detail-sheet'),
-  detailClose: $('detail-close'),
-  detailContent: $('detail-content'),
-  detailReport: $('detail-report'),
+  readOverlay: $('read-overlay'),
+  readClose: $('read-close'),
+  readScroll: $('read-scroll'),
+  readContent: $('read-content'),
+  readReport: $('read-report'),
+  readReplyBtn: $('read-reply-btn'),
   detailRepliesTitle: $('detail-replies-title'),
-  detailReplies: $('detail-replies'),
+  readReplies: $('read-replies'),
+  replyOverlay: $('reply-overlay'),
+  replySheet: $('reply-sheet'),
+  replyClose: $('reply-close'),
   replyLabel: $('reply-label'),
   replyContent: $('reply-content'),
   replyError: $('reply-error'),
@@ -138,7 +142,8 @@ function applyText() {
   els.confirmCopy.textContent = t('copyCode');
   els.confirmHint.textContent = t('confirmHint');
   els.confirmClose.textContent = t('close');
-  els.detailReport.textContent = t('detailReport');
+  els.readReport.textContent = t('detailReport');
+  els.readReplyBtn.textContent = t('readReply');
   els.replySubmit.textContent = t('replySubmit');
   els.iosTitle.textContent = t('iosTitle');
   els.iosBody.textContent = t('iosBody');
@@ -245,36 +250,60 @@ async function openDetail(id) {
     const res = await fetch(`/api/bubbles/${id}`);
     const data = await res.json();
     if (!res.ok) return showToast(t('errorGeneric'));
-    renderDetail(data.bubble, data.replies);
-    openSheet(els.detailOverlay, els.detailSheet);
+    renderRead(data.bubble, data.replies);
+    openRead();
   } catch {
     showToast(t('errorGeneric'));
   }
 }
 
-function renderDetail(bubble, replies) {
+// Transparent, credits-style reading view: the whisper and its replies drift
+// slowly upward over the live scene, then loop.
+function renderRead(bubble, replies) {
   state.detailBubbleId = bubble.id;
-  els.detailContent.textContent = bubble.content;
+  els.readOverlay.dataset.type = bubble.type;
+  els.readContent.textContent = bubble.content;
   els.detailRepliesTitle.textContent = bubble.type === 'pain' ? t('repliesTitlePain') : t('repliesTitleWish');
   els.replyLabel.textContent = bubble.type === 'pain' ? t('replyLabelPain') : t('replyLabelWish');
   els.replyContent.placeholder = bubble.type === 'pain' ? t('replyPlaceholderPain') : t('replyPlaceholderWish');
   els.replyContent.value = '';
   els.replyError.classList.add('hidden');
 
-  els.detailReplies.innerHTML = '';
+  els.readReplies.innerHTML = '';
   if (!replies.length) {
-    const p = document.createElement('p');
-    p.className = 'hint';
-    p.textContent = t('noReplies');
-    els.detailReplies.appendChild(p);
+    els.detailRepliesTitle.classList.add('hidden');
   } else {
+    els.detailRepliesTitle.classList.remove('hidden');
     for (const r of replies) {
       const item = document.createElement('div');
-      item.className = 'reply-item';
+      item.className = 'read-reply';
       item.textContent = r.content;
-      els.detailReplies.appendChild(item);
+      els.readReplies.appendChild(item);
     }
   }
+
+  // Scroll speed scales with how much there is to read, so long whispers
+  // aren't rushed and short ones don't crawl.
+  const chars = (bubble.content || '').length + replies.reduce((n, r) => n + (r.content || '').length, 0);
+  const dur = Math.min(75, Math.max(20, Math.round(18 + chars * 0.06)));
+  els.readScroll.style.setProperty('--read-dur', dur + 's');
+  // Restart the rise from the bottom every time the view opens.
+  els.readScroll.style.animation = 'none';
+  void els.readScroll.offsetWidth; // force reflow
+  els.readScroll.style.animation = '';
+}
+
+function openRead() {
+  els.readOverlay.classList.remove('hidden');
+}
+
+function closeRead() {
+  els.readOverlay.classList.add('hidden');
+}
+
+function openReplySheet() {
+  openSheet(els.replyOverlay, els.replySheet);
+  els.replyContent.focus();
 }
 
 async function submitReply() {
@@ -290,6 +319,7 @@ async function submitReply() {
     });
     const data = await res.json();
     if (!res.ok) return showError(els.replyError, t(ERROR_KEYS[data.error] || 'errorGeneric'));
+    closeSheet(els.replyOverlay, els.replySheet);
     await openDetail(state.detailBubbleId);
     loadWhispers();
   } catch {
@@ -308,7 +338,7 @@ async function reportBubble() {
       body: JSON.stringify({ targetType: 'bubble', targetId: state.detailBubbleId }),
     });
     showToast(t('reportedToast'));
-    closeSheet(els.detailOverlay, els.detailSheet);
+    closeRead();
     loadWhispers();
   } catch {
     showToast(t('errorGeneric'));
@@ -466,10 +496,16 @@ function init() {
   });
   wireOverlayClose(els.confirmOverlay, els.confirmSheet);
 
-  els.detailClose.addEventListener('click', () => closeSheet(els.detailOverlay, els.detailSheet));
-  els.detailReport.addEventListener('click', reportBubble);
+  els.readClose.addEventListener('click', closeRead);
+  // Tap on empty space (overlay or the non-interactive viewport) closes.
+  els.readOverlay.addEventListener('click', (e) => {
+    if (e.target === els.readOverlay || e.target.classList.contains('read-viewport')) closeRead();
+  });
+  els.readReport.addEventListener('click', reportBubble);
+  els.readReplyBtn.addEventListener('click', openReplySheet);
+  els.replyClose.addEventListener('click', () => closeSheet(els.replyOverlay, els.replySheet));
   els.replySubmit.addEventListener('click', submitReply);
-  wireOverlayClose(els.detailOverlay, els.detailSheet);
+  wireOverlayClose(els.replyOverlay, els.replySheet);
 
   els.findIcon.addEventListener('click', () => {
     els.findResult.innerHTML = '';

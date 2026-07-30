@@ -20,7 +20,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=balloon2" />
+<link rel="stylesheet" href="/css/style.css?v=read1" />
 </head>
 <body>
 
@@ -135,14 +135,27 @@
   <button id="confirm-close" class="btn-primary"></button>
 </section>
 
-<!-- Whisper detail -->
-<div id="detail-overlay" class="overlay hidden"></div>
-<section id="detail-sheet" class="sheet detail-sheet hidden" role="dialog" aria-modal="true">
-  <button class="mini-close sheet-close" id="detail-close" aria-label="Close">×</button>
-  <div id="detail-content" class="detail-content"></div>
-  <button id="detail-report" class="link-btn"></button>
-  <h3 id="detail-replies-title"></h3>
-  <div id="detail-replies" class="detail-replies"></div>
+<!-- Whisper read view: transparent, credits-style upward scroll -->
+<div id="read-overlay" class="read-overlay hidden" role="dialog" aria-modal="true">
+  <div class="read-viewport">
+    <div id="read-scroll" class="read-scroll">
+      <div id="read-content" class="read-content"></div>
+      <h3 id="detail-replies-title" class="read-replies-title"></h3>
+      <div id="read-replies" class="read-replies"></div>
+    </div>
+  </div>
+  <button class="read-close" id="read-close" aria-label="Close">×</button>
+  <div class="read-actions">
+    <button id="read-reply-btn" class="btn-primary btn-small"></button>
+    <button id="read-report" class="link-btn"></button>
+  </div>
+</div>
+
+<!-- Reply input (small sheet, opened from the read view) -->
+<div id="reply-overlay" class="overlay hidden"></div>
+<section id="reply-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="reply-label">
+  <div class="sheet-handle"></div>
+  <button class="mini-close sheet-close" id="reply-close" aria-label="Close">×</button>
   <label id="reply-label" for="reply-content"></label>
   <textarea id="reply-content" rows="3" maxlength="300"></textarea>
   <div id="reply-error" class="form-error hidden"></div>
