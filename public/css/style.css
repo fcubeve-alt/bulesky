@@ -520,49 +520,47 @@ button { font-family: inherit; }
   from { transform: translate(-50%, var(--read-from, 88vh)); }
   to   { transform: translate(-50%, -100%); }
 }
-/* Semi-transparent dark backing so the text stays legible over ANY
-   background image (including bright/white photos). */
+/* Soft pale-yellow backing with dark ink text, so the words stay legible
+   over ANY background (bright or dark) while feeling warm, like lamplight. */
 .read-content {
   display: inline-block;
-  color: #f6f8ff;
+  color: #3b2f18;
   font-size: 1.32rem;
   line-height: 1.75;
   font-weight: 600;
   white-space: pre-wrap;
   word-break: break-word;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
-  background: rgba(8, 12, 26, 0.5);
+  background: rgba(255, 244, 204, 0.82);
   border-radius: 16px;
   padding: 16px 20px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
 }
 .read-replies-title {
   display: inline-block;
   margin: 1.5rem 0 0.7rem;
   font-size: 0.92rem;
   font-weight: 600;
-  color: rgba(235, 241, 255, 0.85);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
-  background: rgba(8, 12, 26, 0.4);
+  color: #6a561f;
+  background: rgba(255, 244, 204, 0.72);
   border-radius: 999px;
   padding: 5px 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 .read-replies-title.hidden { display: none; }
 .read-replies { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
 .read-reply {
   display: inline-block;
   max-width: 100%;
-  color: rgba(233, 239, 255, 0.95);
+  color: #4a3c1e;
   font-size: 1.02rem;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
-  background: rgba(8, 12, 26, 0.44);
+  background: rgba(255, 247, 219, 0.78);
   border-radius: 13px;
   padding: 11px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 }
-.read-overlay[data-type="wish"] .read-content { color: #fff2dc; }
-.read-overlay[data-type="pain"] .read-content { color: #eaf1ff; }
 .read-close {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 12px);

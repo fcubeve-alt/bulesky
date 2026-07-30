@@ -6,7 +6,7 @@
 // version first and only falls back to cache when offline, so updates reach
 // users immediately while the app still works without a connection.
 
-const CACHE_NAME = 'bulesky-runtime-v12';
+const CACHE_NAME = 'bulesky-runtime-v13';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -28,8 +28,17 @@ self.addEventListener('fetch', (event) => {
   // Never cache the API — the shared sky must always be live.
   if (request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
 
+  // Revalidate same-origin assets with the server ('no-cache') instead of
+  // trusting the browser's HTTP cache. Otherwise a long-lived cached JS module
+  // (or one of its imports) can keep running old code after a new deploy even
+  // though we're "network-first" — which is exactly how a shipped fix can look
+  // like it didn't take. 304s keep this cheap.
+  const req = url.origin === self.location.origin
+    ? new Request(request, { cache: 'no-cache' })
+    : request;
+
   event.respondWith(
-    fetch(request)
+    fetch(req)
       .then((res) => {
         if (res && res.ok && url.origin === self.location.origin) {
           const copy = res.clone();
