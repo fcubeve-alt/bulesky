@@ -74,6 +74,7 @@ const els = {
   readClose: $('read-close'),
   readScroll: $('read-scroll'),
   readContent: $('read-content'),
+  readAuthor: $('read-author'),
   readReport: $('read-report'),
   readReplyBtn: $('read-reply-btn'),
   detailRepliesTitle: $('detail-replies-title'),
@@ -83,6 +84,7 @@ const els = {
   replyClose: $('reply-close'),
   replyLabel: $('reply-label'),
   replyContent: $('reply-content'),
+  replyCode: $('reply-code'),
   replyError: $('reply-error'),
   replySubmit: $('reply-submit'),
   iosOverlay: $('ios-overlay'),
@@ -144,6 +146,7 @@ function applyText() {
   els.confirmClose.textContent = t('close');
   els.readReport.textContent = t('detailReport');
   els.readReplyBtn.textContent = t('readReply');
+  els.replyCode.placeholder = t('replyCodePlaceholder');
   els.replySubmit.textContent = t('replySubmit');
   els.iosTitle.textContent = t('iosTitle');
   els.iosBody.textContent = t('iosBody');
@@ -259,14 +262,30 @@ async function openDetail(id, rect) {
 
 // Transparent, credits-style reading view: the whisper and its replies drift
 // slowly upward over the live scene, then loop.
+// Show a handle with most of it hidden, e.g. "ty***" — enough to give the
+// sky some human presence without exposing anyone's full chosen name.
+function maskName(code) {
+  const s = String(code || '').trim();
+  if (!s) return '';
+  return Array.from(s).slice(0, 2).join('') + '***';
+}
+
 function renderRead(bubble, replies, rect) {
   state.detailBubbleId = bubble.id;
   els.readOverlay.dataset.type = bubble.type;
   els.readContent.textContent = bubble.content;
+  if (bubble.code) {
+    els.readAuthor.textContent = `${t('byLabel')} ${maskName(bubble.code)}`;
+    els.readAuthor.classList.remove('hidden');
+  } else {
+    els.readAuthor.textContent = '';
+    els.readAuthor.classList.add('hidden');
+  }
   els.detailRepliesTitle.textContent = bubble.type === 'pain' ? t('repliesTitlePain') : t('repliesTitleWish');
   els.replyLabel.textContent = bubble.type === 'pain' ? t('replyLabelPain') : t('replyLabelWish');
   els.replyContent.placeholder = bubble.type === 'pain' ? t('replyPlaceholderPain') : t('replyPlaceholderWish');
   els.replyContent.value = '';
+  els.replyCode.value = '';
   els.replyError.classList.add('hidden');
 
   els.readReplies.innerHTML = '';
@@ -277,7 +296,13 @@ function renderRead(bubble, replies, rect) {
     for (const r of replies) {
       const item = document.createElement('div');
       item.className = 'read-reply';
-      item.textContent = r.content;
+      const body = document.createElement('div');
+      body.className = 'read-reply-text';
+      body.textContent = r.content;
+      const who = document.createElement('div');
+      who.className = 'read-reply-author';
+      who.textContent = `${t('byLabel')} ${r.code ? maskName(r.code) : t('anonymous')}`;
+      item.append(body, who);
       els.readReplies.appendChild(item);
     }
   }
@@ -326,7 +351,7 @@ async function submitReply() {
     const res = await fetch(`/api/bubbles/${state.detailBubbleId}/replies`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ content, lang: currentLang }),
+      body: JSON.stringify({ content, code: els.replyCode.value.trim(), lang: currentLang }),
     });
     const data = await res.json();
     if (!res.ok) return showError(els.replyError, t(ERROR_KEYS[data.error] || 'errorGeneric'));

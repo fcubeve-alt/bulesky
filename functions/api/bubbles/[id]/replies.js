@@ -1,6 +1,7 @@
 import { containsAbusive, containsCrisisKeyword, maskContactInfo } from '../../../../src/filters.js';
 
 const MAX_CONTENT_LEN = 300;
+const MAX_CODE_LEN = 30;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -27,13 +28,17 @@ export async function onRequestPost({ request, params, env }) {
     return json({ error: 'invalid_json' }, 400);
   }
 
-  const { content, lang } = body || {};
+  const { content, code, lang } = body || {};
   if (typeof content !== 'string' || !content.trim()) {
     return json({ error: 'empty_content' }, 400);
   }
   if (content.length > MAX_CONTENT_LEN) {
     return json({ error: 'content_too_long', max: MAX_CONTENT_LEN }, 400);
   }
+  // Optional author handle; anonymous when omitted.
+  const safeCode = typeof code === 'string' && code.trim()
+    ? code.trim().toLowerCase().slice(0, MAX_CODE_LEN)
+    : null;
 
   const trimmed = content.trim();
   if (containsAbusive(trimmed)) {
@@ -46,10 +51,10 @@ export async function onRequestPost({ request, params, env }) {
   const now = Date.now();
 
   const result = await env.DB.prepare(
-    `INSERT INTO replies (bubble_id, content, lang, report_count, hidden, crisis_flag, created_at)
-     VALUES (?, ?, ?, 0, 0, ?, ?)`
+    `INSERT INTO replies (bubble_id, content, code, lang, report_count, hidden, crisis_flag, created_at)
+     VALUES (?, ?, ?, ?, 0, 0, ?, ?)`
   )
-    .bind(bubbleId, safeContent, safeLang, crisisFlag, now)
+    .bind(bubbleId, safeContent, safeCode, safeLang, crisisFlag, now)
     .run();
 
   await env.DB.prepare(`UPDATE bubbles SET warmth = warmth + 1 WHERE id = ?`).bind(bubbleId).run();

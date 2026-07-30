@@ -563,6 +563,30 @@ button { font-family: inherit; }
   padding: 11px 16px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 }
+.read-reply-text { }
+.read-reply-author {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(74, 60, 30, 0.72);
+  text-align: right;
+}
+/* "from ab***" attribution under a whisper — a little human presence. */
+.read-author {
+  display: block;
+  width: fit-content;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #6a561f;
+  background: rgba(255, 244, 204, 0.42);
+  border-radius: 999px;
+  padding: 3px 13px;
+  text-shadow: 0 1px 3px rgba(255, 250, 235, 0.55);
+}
+.read-author.hidden { display: none; }
+#reply-code { margin-top: 10px; }
 .read-close {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 12px);

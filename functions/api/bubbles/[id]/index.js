@@ -12,7 +12,7 @@ export async function onRequestGet({ params, env }) {
   if (!Number.isFinite(id)) return json({ error: 'invalid_id' }, 400);
 
   const bubble = await env.DB.prepare(
-    `SELECT id, type, content, lang, warmth, hidden, created_at
+    `SELECT id, type, content, code, lang, warmth, hidden, created_at
        FROM bubbles WHERE id = ? AND hidden = 0`
   )
     .bind(id)
@@ -21,7 +21,7 @@ export async function onRequestGet({ params, env }) {
   if (!bubble) return json({ error: 'not_found' }, 404);
 
   const { results: replies } = await env.DB.prepare(
-    `SELECT id, content, lang, created_at
+    `SELECT id, content, code, lang, created_at
        FROM replies
       WHERE bubble_id = ? AND hidden = 0
       ORDER BY created_at ASC`

@@ -20,7 +20,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read5" />
+<link rel="stylesheet" href="/css/style.css?v=read6" />
 </head>
 <body>
 
@@ -140,6 +140,7 @@
   <div class="read-viewport">
     <div id="read-scroll" class="read-scroll">
       <div id="read-content" class="read-content"></div>
+      <div id="read-author" class="read-author"></div>
       <h3 id="detail-replies-title" class="read-replies-title"></h3>
       <div id="read-replies" class="read-replies"></div>
     </div>
@@ -158,6 +159,7 @@
   <button class="mini-close sheet-close" id="reply-close" aria-label="Close">×</button>
   <label id="reply-label" for="reply-content"></label>
   <textarea id="reply-content" rows="3" maxlength="300"></textarea>
+  <input id="reply-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
   <div id="reply-error" class="form-error hidden"></div>
   <button id="reply-submit" class="btn-primary"></button>
 </section>

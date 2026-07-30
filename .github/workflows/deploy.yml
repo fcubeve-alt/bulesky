@@ -43,7 +43,16 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           for f in migrations/*.sql; do
-            npx wrangler d1 execute bulesky-db --remote --file="$f"
+            # Migrations re-run on every deploy. Most are written idempotently;
+            # the one exception is an ADD COLUMN (no IF NOT EXISTS in SQLite),
+            # which errors with "duplicate column name" once already applied.
+            # Tolerate only that specific case; fail on any other error.
+            if ! out=$(npx wrangler d1 execute bulesky-db --remote --file="$f" 2>&1); then
+              echo "$out"
+              echo "$out" | grep -qi "duplicate column name" \
+                && echo "↳ $f already applied — continuing" \
+                || exit 1
+            fi
           done
 
       - name: Ensure Pages project exists
