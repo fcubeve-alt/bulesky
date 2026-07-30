@@ -10,15 +10,6 @@
       "pinned": true
     },
     {
-      "id": "classical-beethoven-sym7-allegretto",
-      "title": "Symphony No. 7 in A, Op. 92 — II. Allegretto",
-      "artist": "Ludwig van Beethoven",
-      "src": "/music/classical-beethoven-sym7-allegretto.mp3",
-      "source": "https://archive.org/details/78_symphony-no-7-in-a-major-a-dur-2nd-movement-conclusion_philharmonic-symphony-orches_gbia7041175b",
-      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "pinned": true
-    },
-    {
       "id": "classical-pachelbel-canon",
       "title": "Canon in D major",
       "artist": "Johann Pachelbel",
@@ -55,15 +46,6 @@
       "pinned": true
     },
     {
-      "id": "classical-puccini-o-mio-babbino",
-      "title": "O mio babbino caro (Gianni Schicchi)",
-      "artist": "Giacomo Puccini",
-      "src": "/music/classical-puccini-o-mio-babbino.mp3",
-      "source": "https://archive.org/details/78_gianni-schicchi-o-mio-babbino-caro-oh-my-beloved-daddy_frances-alda-forzano-pucci_gbia0186477a",
-      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "pinned": true
-    },
-    {
       "id": "classical-tchaikovsky-october",
       "title": "The Seasons, Op. 37a — October (Autumn Song)",
       "artist": "Pyotr Ilyich Tchaikovsky",
@@ -78,15 +60,6 @@
       "artist": "Claude Debussy",
       "src": "/music/classical-debussy-arabesque-1.mp3",
       "source": "https://archive.org/details/lp_childrens-corner-arabesque-no-1-est_claude-debussy-ramon-coll",
-      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "pinned": true
-    },
-    {
-      "id": "classical-chopin-prelude-op28-no4",
-      "title": "Prelude in E minor, Op. 28 No. 4",
-      "artist": "Frédéric Chopin",
-      "src": "/music/classical-chopin-prelude-op28-no4.mp3",
-      "source": "https://archive.org/details/78_prelude-in-e-minor_leopold-stokowski-philadelphia-symphony-orchestra-chopin_gbia0111504b",
       "license": "https://creativecommons.org/publicdomain/mark/1.0/",
       "pinned": true
     },
@@ -166,14 +139,6 @@
       "artist": "Saint Anyway",
       "src": "/music/jamendo-1538430.mp3",
       "source": "https://www.jamendo.com/track/1538430",
-      "license": "http://creativecommons.org/licenses/by/3.0/"
-    },
-    {
-      "id": "jamendo-586577",
-      "title": "Le Lover",
-      "artist": "major tom",
-      "src": "/music/jamendo-586577.mp3",
-      "source": "https://www.jamendo.com/track/586577",
       "license": "http://creativecommons.org/licenses/by/3.0/"
     },
     {

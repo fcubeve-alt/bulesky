@@ -125,6 +125,10 @@ const BLOCKED_IDS = new Set([
   'jamendo-570077', // Sand dunes
   'classical-debussy-reverie', // Rêverie, L. 68
   'classical-chopin-nocturne-op9-no2', // Nocturne in E-flat major, Op. 9 No. 2
+  'classical-chopin-prelude-op28-no4', // Prelude Op. 28 No. 4 — noisy recording
+  'classical-beethoven-sym7-allegretto', // Symphony 7 Allegretto — noisy recording
+  'classical-puccini-o-mio-babbino', // O mio babbino caro — noisy recording
+  'jamendo-586577', // Le Lover — noisy
 ]);
 
 function titleOk(s) {
@@ -219,9 +223,6 @@ const CLASSICAL = [
   { id: 'classical-chopin-nocturne-cs-minor', title: 'Nocturne in C-sharp minor, B. 49 (Lento con gran espressione)', composer: 'Frédéric Chopin',
     q: 'chopin nocturne c sharp minor posthumous',
     groups: [['chopin'], ['nocturne', 'lento'], ['c-sharp', 'c sharp', 'c# ', 'posth', 'b. 49', 'b.49', 'b 49', 'no. 20', 'no 20']] },
-  { id: 'classical-chopin-prelude-op28-no4', title: 'Prelude in E minor, Op. 28 No. 4', composer: 'Frédéric Chopin',
-    q: 'chopin prelude op 28 e minor',
-    groups: [['chopin'], ['prelude', 'preludes', 'préludes'], ['op. 28', 'op 28', 'e minor', 'no. 4', 'no 4']] },
   { id: 'classical-bach-cello-suite-1-prelude', title: 'Cello Suite No. 1 in G major, BWV 1007 — Prélude', composer: 'J. S. Bach',
     q: 'bach cello suite 1 prelude bwv 1007',
     groups: [['bach'], ['cello'], ['1007', 'suite no. 1', 'suite no 1', 'prelude', 'prélude', 'g major']] },
@@ -259,9 +260,6 @@ const CLASSICAL = [
   { id: 'classical-beethoven-fur-elise', title: 'Für Elise (Bagatelle No. 25 in A minor, WoO 59)', composer: 'Ludwig van Beethoven',
     q: 'beethoven fur elise bagatelle woo 59',
     groups: [['beethoven'], ['fur elise', 'für elise', 'fuer elise', 'elise', 'bagatelle', 'woo 59', 'woo59']] },
-  { id: 'classical-beethoven-sym7-allegretto', title: 'Symphony No. 7 in A, Op. 92 — II. Allegretto', composer: 'Ludwig van Beethoven',
-    q: 'beethoven symphony no 7 allegretto op 92',
-    groups: [['beethoven'], ['symphony'], ['no. 7', 'no 7', 'symphony 7', '7th', 'op. 92', 'op 92'], ['allegretto', 'ii.', ' ii ', '2nd', 'second', 'movement 2']] },
   { id: 'classical-pachelbel-canon', title: 'Canon in D major', composer: 'Johann Pachelbel',
     q: 'pachelbel canon in d',
     groups: [['pachelbel'], ['canon', 'kanon']] },
@@ -280,9 +278,6 @@ const CLASSICAL = [
   { id: 'classical-grieg-morning-mood', title: 'Peer Gynt Suite No. 1 — Morning Mood', composer: 'Edvard Grieg',
     q: 'grieg morning mood peer gynt morgenstimmung',
     groups: [['grieg'], ['morning', 'morgenstimmung'], ['peer gynt', 'peer', 'mood', 'op. 46', 'op 46']] },
-  { id: 'classical-puccini-o-mio-babbino', title: 'O mio babbino caro (Gianni Schicchi)', composer: 'Giacomo Puccini',
-    q: 'puccini o mio babbino caro gianni schicchi',
-    groups: [['puccini'], ['babbino', 'o mio babbino', 'gianni schicchi']] },
 ];
 
 // Accept genuinely reusable licenses for classical: public domain / CC0, or
