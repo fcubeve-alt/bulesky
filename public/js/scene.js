@@ -327,9 +327,10 @@ export function createWhisperWorld(viewport, world, { onTap }) {
       span.textContent = text.length > PREVIEW_CHARS ? text.slice(0, PREVIEW_CHARS) + '…' : text;
       el.appendChild(span);
 
-      // Fire a tap only when the pointer didn't drag the world.
+      // Fire a tap only when the pointer didn't drag the world. Pass the
+      // balloon's on-screen rect so the reading text can rise from where it is.
       el.addEventListener('click', () => {
-        if (!moved) onTap(wsp.id);
+        if (!moved) onTap(wsp.id, el.getBoundingClientRect());
       });
       world.appendChild(el);
 

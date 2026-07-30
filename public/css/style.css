@@ -511,40 +511,55 @@ button { font-family: inherit; }
   left: 50%;
   top: 0;
   width: min(88%, 620px);
-  transform: translate(-50%, 100vh);
+  transform: translate(-50%, var(--read-from, 88vh));
   text-align: center;
   will-change: transform;
   animation: read-rise var(--read-dur, 26s) linear infinite;
 }
 @keyframes read-rise {
-  from { transform: translate(-50%, 100vh); }
+  from { transform: translate(-50%, var(--read-from, 88vh)); }
   to   { transform: translate(-50%, -100%); }
 }
+/* Semi-transparent dark backing so the text stays legible over ANY
+   background image (including bright/white photos). */
 .read-content {
-  color: #f3f6ff;
-  font-size: 1.35rem;
+  display: inline-block;
+  color: #f6f8ff;
+  font-size: 1.32rem;
   line-height: 1.75;
   font-weight: 600;
   white-space: pre-wrap;
   word-break: break-word;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.65);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+  background: rgba(8, 12, 26, 0.5);
+  border-radius: 16px;
+  padding: 16px 20px;
 }
 .read-replies-title {
-  margin: 1.8rem 0 0.7rem;
-  font-size: 0.95rem;
+  display: inline-block;
+  margin: 1.5rem 0 0.7rem;
+  font-size: 0.92rem;
   font-weight: 600;
-  color: rgba(228, 236, 255, 0.7);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+  color: rgba(235, 241, 255, 0.85);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  background: rgba(8, 12, 26, 0.4);
+  border-radius: 999px;
+  padding: 5px 14px;
 }
 .read-replies-title.hidden { display: none; }
-.read-replies { display: flex; flex-direction: column; gap: 0.7rem; }
+.read-replies { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
 .read-reply {
-  color: rgba(226, 234, 255, 0.9);
-  font-size: 1.05rem;
+  display: inline-block;
+  max-width: 100%;
+  color: rgba(233, 239, 255, 0.95);
+  font-size: 1.02rem;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  background: rgba(8, 12, 26, 0.44);
+  border-radius: 13px;
+  padding: 11px 16px;
 }
 .read-overlay[data-type="wish"] .read-content { color: #fff2dc; }
 .read-overlay[data-type="pain"] .read-content { color: #eaf1ff; }

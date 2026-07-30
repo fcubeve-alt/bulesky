@@ -245,12 +245,12 @@ function showConfirm(data) {
 
 // ---------- Detail / replies ----------
 
-async function openDetail(id) {
+async function openDetail(id, rect) {
   try {
     const res = await fetch(`/api/bubbles/${id}`);
     const data = await res.json();
     if (!res.ok) return showToast(t('errorGeneric'));
-    renderRead(data.bubble, data.replies);
+    renderRead(data.bubble, data.replies, rect);
     openRead();
   } catch {
     showToast(t('errorGeneric'));
@@ -259,7 +259,7 @@ async function openDetail(id) {
 
 // Transparent, credits-style reading view: the whisper and its replies drift
 // slowly upward over the live scene, then loop.
-function renderRead(bubble, replies) {
+function renderRead(bubble, replies, rect) {
   state.detailBubbleId = bubble.id;
   els.readOverlay.dataset.type = bubble.type;
   els.readContent.textContent = bubble.content;
@@ -287,7 +287,18 @@ function renderRead(bubble, replies) {
   const chars = (bubble.content || '').length + replies.reduce((n, r) => n + (r.content || '').length, 0);
   const dur = Math.min(75, Math.max(20, Math.round(18 + chars * 0.06)));
   els.readScroll.style.setProperty('--read-dur', dur + 's');
-  // Restart the rise from the bottom every time the view opens.
+
+  // Start the rise from where the tapped balloon is, so the text appears
+  // instantly and feels like it lifts off from the balloon — instead of
+  // crawling up from far below the screen. Falls back to near the bottom edge.
+  const vh = window.innerHeight;
+  let startY = vh * 0.88;
+  if (rect && Number.isFinite(rect.top)) {
+    startY = Math.min(vh * 0.98, Math.max(vh * 0.22, rect.top));
+  }
+  els.readScroll.style.setProperty('--read-from', startY + 'px');
+
+  // Restart the rise every time the view opens.
   els.readScroll.style.animation = 'none';
   void els.readScroll.offsetWidth; // force reflow
   els.readScroll.style.animation = '';
