@@ -110,7 +110,6 @@ const els = {
   noticeBody: $('notice-body'),
   noticeOk: $('notice-ok'),
   composePublicHint: $('compose-public-hint'),
-  readShareBtn: $('read-share-btn'),
   toast: $('toast'),
 };
 
@@ -151,7 +150,7 @@ function applyText() {
   els.coffeeLink.textContent = t('coffeeLink');
   els.shareTitle.textContent = t('shareTitle');
   els.shareHint.textContent = t('shareHint');
-  els.shareCopy.textContent = t('copyLink');
+  els.shareCopy.textContent = t('shareWhisper');
   els.entryPain.textContent = t('entryPain');
   els.entryWish.textContent = t('entryWish');
   els.crisisText.textContent = t('crisisText');
@@ -178,8 +177,7 @@ function applyText() {
   els.noticeBody.textContent = t('noticeBody');
   els.noticeOk.textContent = t('noticeOk');
   els.composePublicHint.textContent = t('composePublicHint');
-  els.readShareBtn.textContent = t('shareWhisper');
-  document.title = t('appName');
+  document.title = SHARE_BRAND;
 }
 
 function showToast(message, duration = 3200) {
@@ -212,6 +210,26 @@ async function loadWhispers() {
   } catch {
     whisperWorld.setWhispers([]);
   }
+}
+
+// Track which whispers this device authored, so only the author can turn
+// their own whisper into a video. Per-device by design (no accounts).
+function myBubbleIds() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem('my_bubbles') || '[]'));
+  } catch {
+    return new Set();
+  }
+}
+function rememberMyBubble(id) {
+  if (!id) return;
+  const s = myBubbleIds();
+  if (s.has(id)) return;
+  s.add(id);
+  localStorage.setItem('my_bubbles', JSON.stringify([...s]));
+}
+function isMyBubble(id) {
+  return myBubbleIds().has(id);
 }
 
 // ---------- Compose ----------
@@ -253,6 +271,7 @@ async function submitCompose() {
     const data = await res.json();
     if (!res.ok) return showError(els.composeError, t(ERROR_KEYS[data.error] || 'errorGeneric'));
     closeSheet(els.composeOverlay, els.composeSheet);
+    rememberMyBubble(data.id);
     showConfirm(data);
     loadWhispers();
   } catch {
@@ -302,6 +321,8 @@ function renderRead(bubble, replies, rect) {
   state.detailBubbleId = bubble.id;
   els.readOverlay.dataset.type = bubble.type;
   els.readContent.textContent = bubble.content;
+  // Only the author (this device posted it) can turn a whisper into a video.
+  els.readVideoBtn.classList.toggle('hidden', !isMyBubble(bubble.id));
   if (bubble.code) {
     els.readAuthor.textContent = `${t('byLabel')} ${maskName(bubble.code)}`;
     els.readAuthor.classList.remove('hidden');
@@ -431,6 +452,9 @@ async function submitFind() {
 // A name can hold many whispers, so show them as a tappable list; tapping one
 // opens its full detail (with replies).
 function renderFindResults(bubbles) {
+  // Whispers found by your own code are yours — remember them so you can
+  // make videos of them.
+  for (const b of bubbles) rememberMyBubble(b.id);
   els.findResult.innerHTML = '';
   const title = document.createElement('p');
   title.className = 'find-results-title';
@@ -473,19 +497,22 @@ function maybeShowIosGuide() {
 
 // Share the site itself (a link), never someone else's words — that keeps
 // promotion easy while honoring "only the author may repost their content".
+// Shared content stays English-only (the audience is international) and always
+// carries the brand name "Are you all right?".
+const SHARE_BRAND = 'Are you all right?';
+const SITE_URL = 'https://cubewithin.com';
+
 async function shareSite() {
-  const url = 'https://cubewithin.com';
-  const text = t('shareInvite');
   try {
     if (navigator.share) {
-      await navigator.share({ title: t('appName'), text, url });
+      await navigator.share({ title: SHARE_BRAND, text: SHARE_BRAND, url: SITE_URL });
       return;
     }
   } catch {
     return; // user cancelled the native sheet
   }
   try {
-    await navigator.clipboard.writeText(`${text} ${url}`);
+    await navigator.clipboard.writeText(`${SHARE_BRAND} ${SITE_URL}`);
     showToast(t('copied'));
   } catch {
     showToast(url);
@@ -620,10 +647,13 @@ function startWhisperVideo() {
       ctx.fillText(author, x, y + lines.length * lineH + 8);
     }
 
-    ctx.font = '600 22px system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText('cubewithin.com', 28, H - 46);
+    ctx.font = '700 26px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.fillText(SHARE_BRAND, 28, H - 64);
+    ctx.font = '500 20px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillText('cubewithin.com', 28, H - 38);
     if (credit) {
       ctx.textAlign = 'right';
       ctx.font = '500 20px system-ui, sans-serif';
@@ -798,7 +828,7 @@ function init() {
   });
   els.recordShare.addEventListener('click', async () => {
     if (!recordState.blob) return;
-    const r = await VideoRecorderEngine.share(recordState.blob, videoFilename(), `${t('shareInvite')} https://cubewithin.com`);
+    const r = await VideoRecorderEngine.share(recordState.blob, videoFilename(), `${SHARE_BRAND} ${SITE_URL}`);
     if (r === 'downloaded') showToast(t('copied'));
   });
   els.replyClose.addEventListener('click', () => closeSheet(els.replyOverlay, els.replySheet));
@@ -834,12 +864,7 @@ function init() {
     els.bgPanel.classList.add('hidden');
   });
   els.shareClose.addEventListener('click', () => els.sharePanel.classList.add('hidden'));
-  els.shareCopy.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      showToast(t('linkCopied'));
-    } catch { /* ignore */ }
-  });
+  els.shareCopy.addEventListener('click', shareSite);
 
   els.bgIcon.addEventListener('click', () => {
     els.bgPanel.classList.toggle('hidden');
@@ -888,7 +913,6 @@ function init() {
     localStorage.setItem('bulesky_notice_ack', '1');
     closeSheet(els.noticeOverlay, els.noticeModal);
   });
-  els.readShareBtn.addEventListener('click', shareSite);
 
   maybeShowNotice();
   maybeShowIosGuide();

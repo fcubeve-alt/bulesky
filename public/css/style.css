@@ -217,11 +217,12 @@ body.has-video #mist { display: none; }
   pointer-events: none;
 }
 .brand {
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: rgba(234, 240, 255, 0.5);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #f2c14e; /* golden logo */
   text-transform: uppercase;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
 .top-icons { display: flex; gap: 9px; }
 .icon-btn {
