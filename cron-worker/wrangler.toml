@@ -16,5 +16,5 @@ database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 
 [vars]
 # How long content is kept before it's permanently deleted. PRD lists this
-# as "half a year to a year, TBD" — defaults to the lower bound.
-RETENTION_DAYS = "180"
+# as "half a year to a year, TBD" — set to one year.
+RETENTION_DAYS = "365"
