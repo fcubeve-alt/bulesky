@@ -20,7 +20,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read8" />
+<link rel="stylesheet" href="/css/style.css?v=read9" />
 </head>
 <body>
 
@@ -150,6 +150,7 @@
   <div class="read-actions">
     <button id="read-reply-btn" class="btn-primary btn-small"></button>
     <button id="read-share-btn" class="btn-secondary btn-small"></button>
+    <button id="read-video-btn" class="btn-secondary btn-small"></button>
     <button id="read-report" class="link-btn"></button>
   </div>
 </div>
@@ -164,6 +165,21 @@
   <input id="reply-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
   <div id="reply-error" class="form-error hidden"></div>
   <button id="reply-submit" class="btn-primary"></button>
+</section>
+
+<!-- Generate & share a short video of this whisper -->
+<div id="record-overlay" class="overlay hidden"></div>
+<section id="record-modal" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="record-title">
+  <div class="sheet-handle"></div>
+  <button class="mini-close sheet-close" id="record-close" aria-label="Close">×</button>
+  <h2 id="record-title"></h2>
+  <p id="record-status" class="hint"></p>
+  <div id="record-progress" class="record-progress hidden"><div id="record-bar" class="record-bar"></div></div>
+  <div id="record-preview" class="record-preview hidden"></div>
+  <div class="sheet-actions">
+    <button id="record-download" class="btn-secondary hidden"></button>
+    <button id="record-share" class="btn-primary hidden"></button>
+  </div>
 </section>
 
 <!-- First-visit notice: public content + reposting rights -->

@@ -2,6 +2,7 @@ import { t, currentLang } from './i18n.js';
 import { createWhisperWorld } from './scene.js';
 import { initAmbient } from './ambient.js';
 import { initBackgrounds } from './backgrounds.js';
+import { VideoRecorderEngine, isRecordingSupported } from './recorder.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -77,6 +78,17 @@ const els = {
   readAuthor: $('read-author'),
   readReport: $('read-report'),
   readReplyBtn: $('read-reply-btn'),
+  readVideoBtn: $('read-video-btn'),
+  recordOverlay: $('record-overlay'),
+  recordModal: $('record-modal'),
+  recordClose: $('record-close'),
+  recordTitle: $('record-title'),
+  recordStatus: $('record-status'),
+  recordProgress: $('record-progress'),
+  recordBar: $('record-bar'),
+  recordPreview: $('record-preview'),
+  recordDownload: $('record-download'),
+  recordShare: $('record-share'),
   detailRepliesTitle: $('detail-replies-title'),
   readReplies: $('read-replies'),
   replyOverlay: $('reply-overlay'),
@@ -153,6 +165,10 @@ function applyText() {
   els.confirmClose.textContent = t('close');
   els.readReport.textContent = t('detailReport');
   els.readReplyBtn.textContent = t('readReply');
+  els.readVideoBtn.textContent = t('makeVideo');
+  els.recordTitle.textContent = t('recordTitle');
+  els.recordDownload.textContent = t('download');
+  els.recordShare.textContent = t('shareWhisper');
   els.replyCode.placeholder = t('replyCodePlaceholder');
   els.replySubmit.textContent = t('replySubmit');
   els.iosTitle.textContent = t('iosTitle');
@@ -476,6 +492,198 @@ async function shareSite() {
   }
 }
 
+// ---------- One-tap share video (in-page recording, no system UI) ----------
+// Composites the live background video + this whisper's text + the music onto
+// an offscreen canvas and records ~16s to a shareable clip. Balloons are DOM
+// and aren't captured here (a later phase could canvas-render them).
+const RECORD_SECONDS = 16;
+let recordState = { engine: null, raf: 0, blob: null };
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawCover(ctx, video, W, H) {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return false;
+  const scale = Math.max(W / vw, H / vh);
+  const dw = vw * scale;
+  const dh = vh * scale;
+  ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  return true;
+}
+
+function wrapCanvasText(ctx, text, maxWidth) {
+  const lines = [];
+  for (const para of String(text).split('\n')) {
+    let line = '';
+    for (const ch of Array.from(para)) {
+      if (line && ctx.measureText(line + ch).width > maxWidth) {
+        lines.push(line);
+        line = ch;
+      } else {
+        line += ch;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+function prepRecordModal() {
+  els.recordStatus.textContent = '';
+  els.recordProgress.classList.add('hidden');
+  els.recordBar.style.width = '0%';
+  els.recordPreview.classList.add('hidden');
+  els.recordPreview.innerHTML = '';
+  els.recordDownload.classList.add('hidden');
+  els.recordShare.classList.add('hidden');
+}
+
+function videoFilename() {
+  const ext = recordState.engine ? recordState.engine.extension : 'webm';
+  return `cubewithin-${Date.now()}.${ext}`;
+}
+
+function startWhisperVideo() {
+  openSheet(els.recordOverlay, els.recordModal);
+  prepRecordModal();
+  if (!isRecordingSupported()) {
+    els.recordStatus.textContent = t('recordUnsupported');
+    return;
+  }
+
+  const text = (els.readContent.textContent || '').trim();
+  const author = (els.readAuthor.textContent || '').trim();
+  const type = els.readOverlay.dataset.type || 'wish';
+  const credit = ambient.isPlaying && ambient.usingLibrary && ambient.nowPlaying
+    ? `♪ ${ambient.nowPlaying}${ambient.nowCredit ? ' · ' + ambient.nowCredit : ''}`
+    : '';
+  const bgVideo = document.querySelector('.bg-video.bg-show');
+
+  const W = 720;
+  const H = 1280;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  const engine = new VideoRecorderEngine(canvas, ambient.getAudioTracks(), { fps: 30 });
+  recordState.engine = engine;
+  recordState.blob = null;
+
+  els.recordProgress.classList.remove('hidden');
+  els.recordStatus.textContent = t('recordWorking');
+
+  const start = performance.now();
+  function frame(now) {
+    const elapsed = (now - start) / 1000;
+    const p = Math.min(1, elapsed / RECORD_SECONDS);
+
+    if (!(bgVideo && bgVideo.readyState >= 2 && drawCover(ctx, bgVideo, W, H))) {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#0a0f22');
+      g.addColorStop(1, '#161d3a');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.fillStyle = 'rgba(4,6,16,0.34)';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.font = '600 40px "PingFang SC", "Hiragino Sans GB", "Noto Sans", system-ui, sans-serif';
+    const maxW = W * 0.76;
+    const x = W * 0.12;
+    const lines = wrapCanvasText(ctx, text, maxW);
+    const lineH = 58;
+    const authorH = author ? 46 : 0;
+    const blockH = lines.length * lineH + authorH;
+    const y = H * 0.9 - p * (H * 0.52); // rise upward over the clip
+
+    ctx.fillStyle = 'rgba(255,244,204,0.44)';
+    roundRect(ctx, x - 24, y - 24, maxW + 48, blockH + 40, 24);
+    ctx.fill();
+
+    ctx.fillStyle = '#3b2f18';
+    lines.forEach((ln, i) => ctx.fillText(ln, x, y + i * lineH));
+    if (author) {
+      ctx.font = '700 26px "PingFang SC", system-ui, sans-serif';
+      ctx.fillStyle = '#6a561f';
+      ctx.fillText(author, x, y + lines.length * lineH + 8);
+    }
+
+    ctx.font = '600 22px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.textAlign = 'left';
+    ctx.fillText('cubewithin.com', 28, H - 46);
+    if (credit) {
+      ctx.textAlign = 'right';
+      ctx.font = '500 20px system-ui, sans-serif';
+      ctx.fillText(credit.slice(0, 52), W - 28, H - 44);
+    }
+
+    els.recordBar.style.width = (p * 100).toFixed(1) + '%';
+
+    if (elapsed < RECORD_SECONDS) {
+      recordState.raf = requestAnimationFrame(frame);
+    } else {
+      finishWhisperVideo();
+    }
+  }
+
+  try {
+    engine.start();
+  } catch {
+    els.recordStatus.textContent = t('recordUnsupported');
+    return;
+  }
+  recordState.raf = requestAnimationFrame(frame);
+}
+
+async function finishWhisperVideo() {
+  cancelAnimationFrame(recordState.raf);
+  els.recordStatus.textContent = t('recordFinishing');
+  try {
+    const blob = await recordState.engine.stop();
+    recordState.blob = blob;
+    els.recordPreview.innerHTML = '';
+    const v = document.createElement('video');
+    v.src = VideoRecorderEngine.previewUrl(blob);
+    v.controls = true;
+    v.loop = true;
+    v.playsInline = true;
+    v.autoplay = true;
+    els.recordPreview.appendChild(v);
+    els.recordPreview.classList.remove('hidden');
+    els.recordProgress.classList.add('hidden');
+    els.recordStatus.textContent = t('recordDone');
+    els.recordDownload.classList.remove('hidden');
+    els.recordShare.classList.remove('hidden');
+  } catch {
+    els.recordProgress.classList.add('hidden');
+    els.recordStatus.textContent = t('recordFailed');
+  }
+}
+
+function stopRecordFlow() {
+  cancelAnimationFrame(recordState.raf);
+  try {
+    const r = recordState.engine && recordState.engine.recorder;
+    if (r && r.state === 'recording') r.stop();
+  } catch {
+    /* ignore */
+  }
+  closeSheet(els.recordOverlay, els.recordModal);
+}
+
 // ---------- First-visit hint ----------
 
 // Tell first-time visitors that a single tap starts the music (browsers block
@@ -582,6 +790,17 @@ function init() {
   });
   els.readReport.addEventListener('click', reportBubble);
   els.readReplyBtn.addEventListener('click', openReplySheet);
+  els.readVideoBtn.addEventListener('click', startWhisperVideo);
+  els.recordClose.addEventListener('click', stopRecordFlow);
+  els.recordOverlay.addEventListener('click', stopRecordFlow);
+  els.recordDownload.addEventListener('click', () => {
+    if (recordState.blob) VideoRecorderEngine.download(recordState.blob, videoFilename());
+  });
+  els.recordShare.addEventListener('click', async () => {
+    if (!recordState.blob) return;
+    const r = await VideoRecorderEngine.share(recordState.blob, videoFilename(), `${t('shareInvite')} https://cubewithin.com`);
+    if (r === 'downloaded') showToast(t('copied'));
+  });
   els.replyClose.addEventListener('click', () => closeSheet(els.replyOverlay, els.replySheet));
   els.replySubmit.addEventListener('click', submitReply);
   wireOverlayClose(els.replyOverlay, els.replySheet);
