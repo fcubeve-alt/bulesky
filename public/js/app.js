@@ -92,6 +92,13 @@ const els = {
   iosTitle: $('ios-title'),
   iosBody: $('ios-body'),
   iosClose: $('ios-close'),
+  noticeOverlay: $('notice-overlay'),
+  noticeModal: $('notice-modal'),
+  noticeTitle: $('notice-title'),
+  noticeBody: $('notice-body'),
+  noticeOk: $('notice-ok'),
+  composePublicHint: $('compose-public-hint'),
+  readShareBtn: $('read-share-btn'),
   toast: $('toast'),
 };
 
@@ -151,6 +158,11 @@ function applyText() {
   els.iosTitle.textContent = t('iosTitle');
   els.iosBody.textContent = t('iosBody');
   els.iosClose.textContent = t('iosClose');
+  els.noticeTitle.textContent = t('noticeTitle');
+  els.noticeBody.textContent = t('noticeBody');
+  els.noticeOk.textContent = t('noticeOk');
+  els.composePublicHint.textContent = t('composePublicHint');
+  els.readShareBtn.textContent = t('shareWhisper');
   document.title = t('appName');
 }
 
@@ -424,13 +436,44 @@ function renderFindResults(bubbles) {
 
 // ---------- iOS install guide ----------
 
+// First-visit notice: everything posted here is public, and only the author
+// may repost their own words elsewhere. Shown once, before anything else.
+function maybeShowNotice() {
+  if (localStorage.getItem('bulesky_notice_ack')) return false;
+  setTimeout(() => openSheet(els.noticeOverlay, els.noticeModal), 700);
+  return true;
+}
+
 function maybeShowIosGuide() {
+  // Don't stack the install guide on top of the first-visit notice.
+  if (!localStorage.getItem('bulesky_notice_ack')) return;
   const isIos =
     /iphone|ipad|ipod/i.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   if (!isIos || standalone || localStorage.getItem('bulesky_ios_guide_dismissed')) return;
   setTimeout(() => openSheet(els.iosOverlay, els.iosModal), 1400);
+}
+
+// Share the site itself (a link), never someone else's words — that keeps
+// promotion easy while honoring "only the author may repost their content".
+async function shareSite() {
+  const url = 'https://cubewithin.com';
+  const text = t('shareInvite');
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: t('appName'), text, url });
+      return;
+    }
+  } catch {
+    return; // user cancelled the native sheet
+  }
+  try {
+    await navigator.clipboard.writeText(`${text} ${url}`);
+    showToast(t('copied'));
+  } catch {
+    showToast(url);
+  }
 }
 
 // ---------- First-visit hint ----------
@@ -622,6 +665,13 @@ function init() {
   });
   wireOverlayClose(els.iosOverlay, els.iosModal);
 
+  els.noticeOk.addEventListener('click', () => {
+    localStorage.setItem('bulesky_notice_ack', '1');
+    closeSheet(els.noticeOverlay, els.noticeModal);
+  });
+  els.readShareBtn.addEventListener('click', shareSite);
+
+  maybeShowNotice();
   maybeShowIosGuide();
   maybeShowFirstHint();
 

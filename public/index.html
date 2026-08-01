@@ -20,7 +20,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read6" />
+<link rel="stylesheet" href="/css/style.css?v=read7" />
 </head>
 <body>
 
@@ -110,6 +110,7 @@
   <button class="mini-close sheet-close" id="compose-close" aria-label="Close">×</button>
   <h2 id="compose-title"></h2>
   <div id="crisis-banner" class="crisis-banner hidden"><p id="crisis-text"></p></div>
+  <p id="compose-public-hint" class="hint public-hint"></p>
   <textarea id="compose-content" rows="4" maxlength="1000"></textarea>
   <div id="compose-count" class="char-count">0/1000</div>
   <label id="compose-code-label" for="compose-code"></label>
@@ -148,6 +149,7 @@
   <button class="read-close" id="read-close" aria-label="Close">×</button>
   <div class="read-actions">
     <button id="read-reply-btn" class="btn-primary btn-small"></button>
+    <button id="read-share-btn" class="btn-secondary btn-small"></button>
     <button id="read-report" class="link-btn"></button>
   </div>
 </div>
@@ -162,6 +164,14 @@
   <input id="reply-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
   <div id="reply-error" class="form-error hidden"></div>
   <button id="reply-submit" class="btn-primary"></button>
+</section>
+
+<!-- First-visit notice: public content + reposting rights -->
+<div id="notice-overlay" class="overlay hidden"></div>
+<section id="notice-modal" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="notice-title">
+  <h2 id="notice-title"></h2>
+  <p id="notice-body" class="notice-body"></p>
+  <button id="notice-ok" class="btn-primary"></button>
 </section>
 
 <!-- iOS install guide -->
