@@ -4,7 +4,7 @@
   "description": "An anonymous whisper-box: one shared sky, no borders.",
   "start_url": "/",
   "scope": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#0a0e27",
   "theme_color": "#0a0e27",

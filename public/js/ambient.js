@@ -407,17 +407,6 @@ export function initAmbient(opts = {}) {
     // Pause/resume actual audio output without changing the "playing" intent.
     suspend,
     resume,
-    // Live audio track(s) of the current track, for in-page video recording.
-    getAudioTracks() {
-      try {
-        const p = players && players[cur];
-        if (p && typeof p.captureStream === 'function') return p.captureStream().getAudioTracks();
-        if (p && typeof p.mozCaptureStream === 'function') return p.mozCaptureStream().getAudioTracks();
-      } catch {
-        /* capture not permitted — record silently */
-      }
-      return [];
-    },
     get isPlaying() {
       return playing;
     },
