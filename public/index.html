@@ -23,7 +23,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read11" />
+<link rel="stylesheet" href="/css/style.css?v=read12" />
 </head>
 <body>
 
@@ -111,19 +111,27 @@
 <section id="compose-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="compose-title">
   <div class="sheet-handle"></div>
   <button class="mini-close sheet-close" id="compose-close" aria-label="Close">×</button>
-  <h2 id="compose-title"></h2>
+  <div id="compose-title" class="cx-lead"></div>
+  <p id="compose-sub" class="cx-sub"></p>
   <div id="crisis-banner" class="crisis-banner hidden"><p id="crisis-text"></p></div>
-  <p id="compose-public-hint" class="hint public-hint"></p>
-  <textarea id="compose-content" rows="4" maxlength="1000"></textarea>
-  <div id="compose-count" class="char-count">0/1000</div>
-  <label id="compose-code-label" for="compose-code"></label>
-  <input id="compose-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-  <p id="compose-code-hint" class="hint"></p>
+  <div id="type-toggle" class="type-toggle">
+    <button type="button" id="type-pain" class="type-opt pain" data-type="pain"></button>
+    <button type="button" id="type-wish" class="type-opt wish" data-type="wish"></button>
+  </div>
+  <div class="field">
+    <textarea id="compose-content" class="big-input" rows="4" maxlength="1000"></textarea>
+    <span id="compose-count" class="field-count">0 / 1000</span>
+  </div>
+  <div class="name-field">
+    <span id="compose-code-label" class="chip"></span>
+    <input id="compose-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+  </div>
   <input id="compose-hp" type="text" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+  <p id="compose-public-hint" class="cx-hint"></p>
   <div id="compose-error" class="form-error hidden"></div>
-  <div class="sheet-actions">
-    <button id="compose-cancel" class="btn-secondary"></button>
-    <button id="compose-submit" class="btn-primary"></button>
+  <div class="cx-actions">
+    <button type="button" id="compose-cancel" class="cx-cancel"></button>
+    <button type="button" id="compose-submit" class="cx-send"></button>
   </div>
 </section>
 
@@ -162,11 +170,17 @@
 <section id="reply-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="reply-label">
   <div class="sheet-handle"></div>
   <button class="mini-close sheet-close" id="reply-close" aria-label="Close">×</button>
-  <label id="reply-label" for="reply-content"></label>
-  <textarea id="reply-content" rows="3" maxlength="300"></textarea>
-  <input id="reply-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+  <div class="reply-lead"><span class="q">🤍</span><p id="reply-label"></p></div>
+  <div class="field">
+    <textarea id="reply-content" class="big-input" rows="3" maxlength="300"></textarea>
+    <span id="reply-count" class="field-count">0 / 300</span>
+  </div>
+  <div class="name-field">
+    <span id="reply-code-label" class="chip"></span>
+    <input id="reply-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+  </div>
   <div id="reply-error" class="form-error hidden"></div>
-  <button id="reply-submit" class="btn-primary"></button>
+  <button id="reply-submit" class="cx-send"></button>
 </section>
 
 <!-- How to record this whisper as a video (native screen recorder guide) -->

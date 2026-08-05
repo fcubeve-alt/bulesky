@@ -52,13 +52,16 @@ const els = {
   composeSheet: $('compose-sheet'),
   composeClose: $('compose-close'),
   composeTitle: $('compose-title'),
+  composeSub: $('compose-sub'),
+  typeToggle: $('type-toggle'),
+  typePain: $('type-pain'),
+  typeWish: $('type-wish'),
   crisisBanner: $('crisis-banner'),
   crisisText: $('crisis-text'),
   composeContent: $('compose-content'),
   composeCount: $('compose-count'),
   composeCodeLabel: $('compose-code-label'),
   composeCode: $('compose-code'),
-  composeCodeHint: $('compose-code-hint'),
   composeHp: $('compose-hp'),
   composeError: $('compose-error'),
   composeCancel: $('compose-cancel'),
@@ -91,7 +94,9 @@ const els = {
   replyClose: $('reply-close'),
   replyLabel: $('reply-label'),
   replyContent: $('reply-content'),
+  replyCount: $('reply-count'),
   replyCode: $('reply-code'),
+  replyCodeLabel: $('reply-code-label'),
   replyError: $('reply-error'),
   replySubmit: $('reply-submit'),
   iosOverlay: $('ios-overlay'),
@@ -149,9 +154,12 @@ function applyText() {
   els.entryPain.textContent = t('entryPain');
   els.entryWish.textContent = t('entryWish');
   els.crisisText.textContent = t('crisisText');
-  els.composeCodeLabel.textContent = t('codeLabel');
+  els.composeSub.textContent = t('composeSub');
+  els.typePain.textContent = t('typePain');
+  els.typeWish.textContent = t('typeWish');
+  els.composeCodeLabel.textContent = t('composeNameChip');
   els.composeCode.placeholder = t('codePlaceholder');
-  els.composeCodeHint.textContent = t('codeHint');
+  els.replyCodeLabel.textContent = t('replyNameChip');
   els.composeCancel.textContent = t('cancel');
   els.composeSubmit.textContent = t('submit');
   els.confirmCopy.textContent = t('copyCode');
@@ -229,20 +237,28 @@ function isMyBubble(id) {
 
 // ---------- Compose ----------
 
-function openCompose(type) {
+// Set/switch the emotion type: active pill + title + placeholder + crisis
+// banner (banner only on 'pain').
+function setComposeType(type) {
   state.composeType = type;
-  state.composeOpenedAt = Date.now();
   els.composeTitle.textContent = type === 'pain' ? t('composeTitlePain') : t('composeTitleWish');
   els.composeContent.placeholder = type === 'pain' ? t('contentPlaceholderPain') : t('contentPlaceholderWish');
+  els.typePain.classList.toggle('active', type === 'pain');
+  els.typeWish.classList.toggle('active', type === 'wish');
+  els.crisisBanner.classList.toggle('hidden', type !== 'pain');
+}
+
+function openCompose(type) {
+  state.composeOpenedAt = Date.now();
+  setComposeType(type);
   els.composeContent.value = '';
   // Enforce the limit at runtime too, so a stale cached index.html (which may
   // still carry the old maxlength) is corrected as soon as the app loads.
   els.composeContent.maxLength = 1000;
   els.composeCode.value = '';
-  els.composeCount.textContent = '0/1000';
+  els.composeCount.textContent = '0 / 1000';
   els.composeError.classList.add('hidden');
   els.composeHp.value = '';
-  els.crisisBanner.classList.toggle('hidden', type !== 'pain');
   openSheet(els.composeOverlay, els.composeSheet);
   els.composeContent.focus();
 }
@@ -329,6 +345,7 @@ function renderRead(bubble, replies, rect) {
   els.replyLabel.textContent = bubble.type === 'pain' ? t('replyLabelPain') : t('replyLabelWish');
   els.replyContent.placeholder = bubble.type === 'pain' ? t('replyPlaceholderPain') : t('replyPlaceholderWish');
   els.replyContent.value = '';
+  els.replyCount.textContent = '0 / 300';
   els.replyCode.value = '';
   els.replyError.classList.add('hidden');
 
@@ -609,8 +626,13 @@ function init() {
   els.composeClose.addEventListener('click', () => closeSheet(els.composeOverlay, els.composeSheet));
   els.composeCancel.addEventListener('click', () => closeSheet(els.composeOverlay, els.composeSheet));
   els.composeSubmit.addEventListener('click', submitCompose);
+  els.typePain.addEventListener('click', () => setComposeType('pain'));
+  els.typeWish.addEventListener('click', () => setComposeType('wish'));
+  els.replyContent.addEventListener('input', () => {
+    els.replyCount.textContent = `${els.replyContent.value.length} / 300`;
+  });
   els.composeContent.addEventListener('input', () => {
-    els.composeCount.textContent = `${els.composeContent.value.length}/1000`;
+    els.composeCount.textContent = `${els.composeContent.value.length} / 1000`;
   });
   wireOverlayClose(els.composeOverlay, els.composeSheet);
 
