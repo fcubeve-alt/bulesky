@@ -225,7 +225,6 @@ export function initScene(canvas) {
 
 const WARMTH_CAP = 12;
 const PREVIEW_CHARS = 20;
-const COL_SPACING = 120; // horizontal room per whisper; wider than a screen when many
 
 // The whispers live in a layered depth field, not on a flat plane. Each
 // balloon gets a depth `z` in [0,1] (0 = far, 1 = near) that drives its size,
@@ -274,17 +273,37 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
 
+  // Give a balloon a fresh depth, rise speed and horizontal spot — biased
+  // toward the NEAR front so most whispers are big and readable and only a few
+  // sit far back. Called on build and again every time a balloon recycles off
+  // the top, so every whisper keeps getting turns up front where its words can
+  // be read and tapped, instead of being stranded in the unreadable distance.
+  function seatDepth(it) {
+    const z0 = Math.sqrt(Math.random()); // skew toward 1 (near): ~60% big/readable
+    it.z0 = z0;
+    it.rise = 0.05 + z0 * 0.5; // near balloons rise a little faster (parallax)
+    it.baseX = rand(0, Math.max(1, worldW - it.w));
+    it.el.style.opacity = (0.42 + z0 * 0.58).toFixed(2);
+    it.el.style.filter = z0 < 0.4 ? `blur(${((0.4 - z0) * 4).toFixed(2)}px)` : '';
+    it.el.style.zIndex = String(Math.round(z0 * 100));
+  }
+
   function frame(t) {
     const time = t * 0.001;
     const H = window.innerHeight;
     for (const it of items) {
       it.y -= it.rise;
-      if (it.y < -it.h * 2.2) it.y = H + rand(20, 160);
+      // Recycle off the top: drop back below the screen with a fresh depth and
+      // spot, so it takes another turn up front rather than staying stuck far.
+      if (it.y < -it.h * 2.2) {
+        it.y = H + rand(20, 160);
+        seatDepth(it);
+      }
 
       // Gentle depth "breathing" — balloons drift a little toward and away
       // from the viewer, so the field feels alive in 3D rather than fixed.
       const z = Math.max(0, Math.min(1, it.z0 + Math.sin(time * it.zFreq + it.zPhase) * it.zAmp));
-      const scale = 0.24 + z * 1.28; // far ~0.24× (distant dots), near ~1.5×
+      const scale = 0.34 + z * 1.16; // far ~0.34×, near ~1.5×
       const sway = Math.sin(time * it.swayFreq + it.swayPhase) * it.swayAmp * (0.4 + z);
       const bob = Math.cos(time * it.bobFreq + it.bobPhase) * it.bobAmp;
       // Near layers slide a lot under a drag; the far layer barely moves → real parallax depth.
@@ -301,26 +320,21 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
     const W = window.innerWidth;
     const H = window.innerHeight;
 
-    // World is at least a screen wide, wider when there are many whispers, so
-    // the sky never feels crammed and you can drag sideways to explore.
-    worldW = Math.max(W, whispers.length * COL_SPACING);
+    // Keep the field close to one screen wide (a little wider when there are
+    // many whispers) so the sky stays busy and readable up front instead of
+    // spreading whispers so thin you must drag forever to find one. Depth —
+    // not width — is what gives the sky room, so many balloons share the view.
+    worldW = Math.max(W, Math.min(whispers.length * 84, W * 1.7));
     world.style.width = worldW + 'px';
     world.style.transform = 'none';
     minPan = Math.min(0, W - worldW);
     panX = clampPan(panX);
 
-    const slot = worldW / Math.max(1, whispers.length);
-
-    items = whispers.map((wsp, i) => {
+    items = whispers.map((wsp) => {
       const text = (wsp.content || '').trim();
       // Combined "warmth": replies plus a lighter weight for passing lights —
       // both make a balloon glow more and light its burner brighter.
       const warmN = Math.min(1, ((wsp.warmth || 0) + (wsp.lights || 0) * 0.6) / WARMTH_CAP);
-
-      // Depth: biased toward the far distance so the field has several tiers —
-      // a scatter of tiny dim dots deep in the sky, fewer big bright ones up
-      // close — like looking into real distance rather than at a flat plane.
-      const z0 = Math.pow(Math.random(), 1.5);
 
       // Base envelope size (before depth scale). A little variety from length.
       const lenFactor = Math.min(1, text.length / 160);
@@ -340,11 +354,6 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
       el.style.fontSize = (0.56 + lenFactor * 0.12).toFixed(3) + 'rem';
       el.style.setProperty('--glow', (0.5 + warmN * 1.0).toFixed(2));
       el.style.setProperty('--burn', (0.14 + warmN * 0.7).toFixed(2)); // burner brightens with warmth
-      // Depth cues baked once: nearer = more opaque and crisp; farther = dim
-      // and softly out of focus. Nearer balloons also stack on top.
-      el.style.opacity = (0.34 + z0 * 0.62).toFixed(2);
-      el.style.filter = z0 < 0.5 ? `blur(${((0.5 - z0) * 4).toFixed(2)}px)` : '';
-      el.style.zIndex = String(Math.round(z0 * 100));
       el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');
 
       const span = document.createElement('span');
@@ -368,17 +377,17 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
       });
       world.appendChild(el);
 
-      return {
+      const it = {
         el,
         w,
         h,
-        baseX: i * slot + slot / 2 + rand(-slot * 0.22, slot * 0.22) - w / 2,
         y: rand(-H * 0.05, H * 1.02), // pre-scattered so the sky looks alive on load
-        z0,
+        z0: 0,
+        baseX: 0,
+        rise: 0,
         zPhase: rand(0, Math.PI * 2),
         zFreq: rand(0.05, 0.16),
         zAmp: rand(0.03, 0.08),
-        rise: 0.04 + z0 * 0.5, // near balloons rise faster (parallax)
         swayAmp: rand(5, 15),
         swayFreq: rand(0.08, 0.26),
         swayPhase: rand(0, Math.PI * 2),
@@ -386,6 +395,8 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
         bobFreq: rand(0.3, 0.8),
         bobPhase: rand(0, Math.PI * 2),
       };
+      seatDepth(it); // near-biased depth, rise speed, x-spot + depth styles
+      return it;
     });
   }
 
