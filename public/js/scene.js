@@ -227,41 +227,6 @@ const WARMTH_CAP = 12;
 const PREVIEW_CHARS = 20;
 const COL_SPACING = 120; // horizontal room per whisper; wider than a screen when many
 
-// The balloon envelope, drawn once as an SVG and reused for every whisper.
-// The panel "gores" are quadratic curves that fan from the crown, bulge at the
-// middle and converge again at the mouth — that convergence is what makes it
-// read as a rounded 3D canopy instead of a flat disc. Body colour, gore/rim
-// strokes and the burner opacity all come from CSS (see `.lantern .b-*`), so
-// one markup string covers both whisper types and every warmth level.
-const ENV = 'M50 4 C23 4 10 27 10 58 C10 89 30 115 50 119 C70 115 90 89 90 58 C90 27 77 4 50 4 Z';
-const GORES = [17, 28, 39, 61, 72, 83]
-  .map((m) => `<path d="M50 6 Q${m} 60 50 117"/>`)
-  .join('');
-const BALLOON_SVG =
-  `<svg class="balloon" viewBox="0 0 100 122" preserveAspectRatio="none" aria-hidden="true">` +
-  `<path class="b-body" d="${ENV}"/>` +
-  `<path d="${ENV}" fill="url(#cx-shade)"/>` +
-  `<g class="b-gores"><path d="M50 6 L50 117"/>${GORES}</g>` +
-  `<path d="${ENV}" fill="url(#cx-crown)"/>` +
-  `<ellipse class="b-burn" cx="50" cy="107" rx="23" ry="15" fill="url(#cx-burn)"/>` +
-  `<path class="b-rim" d="${ENV}"/>` +
-  `</svg>`;
-// Shared gradient defs, injected once per field: a warm-white lit crown, a
-// spherical shade that darkens the lower body, and the burner glow at the mouth.
-const BALLOON_DEFS =
-  `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>` +
-  `<radialGradient id="cx-crown" cx="0.5" cy="0.16" r="0.6">` +
-  `<stop offset="0" stop-color="#fff" stop-opacity="0.95"/>` +
-  `<stop offset="0.45" stop-color="#fff" stop-opacity="0.3"/>` +
-  `<stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>` +
-  `<radialGradient id="cx-shade" cx="0.5" cy="0.4" r="0.62">` +
-  `<stop offset="0.5" stop-color="#0a1024" stop-opacity="0"/>` +
-  `<stop offset="1" stop-color="#0a1024" stop-opacity="0.4"/></radialGradient>` +
-  `<radialGradient id="cx-burn" cx="0.5" cy="0.5" r="0.5">` +
-  `<stop offset="0" stop-color="#ffdca4" stop-opacity="0.95"/>` +
-  `<stop offset="1" stop-color="#ffb063" stop-opacity="0"/></radialGradient>` +
-  `</defs></svg>`;
-
 // The whispers live in a layered depth field, not on a flat plane. Each
 // balloon gets a depth `z` in [0,1] (0 = far, 1 = near) that drives its size,
 // brightness, blur, rise speed, drag-parallax and stacking — so the sky reads
@@ -333,7 +298,6 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
 
   function build(whispers) {
     world.innerHTML = '';
-    world.insertAdjacentHTML('afterbegin', BALLOON_DEFS);
     const W = window.innerWidth;
     const H = window.innerHeight;
 
@@ -383,8 +347,6 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
       el.style.zIndex = String(Math.round(z0 * 100));
       el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');
 
-      // The 3D envelope sits behind the whisper preview text.
-      el.insertAdjacentHTML('afterbegin', BALLOON_SVG);
       const span = document.createElement('span');
       span.className = 'lantern-text';
       span.textContent = text.length > PREVIEW_CHARS ? text.slice(0, PREVIEW_CHARS) + '…' : text;

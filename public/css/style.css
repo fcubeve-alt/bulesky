@@ -122,44 +122,54 @@ body.has-video #mist { display: none; }
   top: 0;
   left: 0;
   border: none;
-  background: none;
-  padding: 0;
+  padding: 12px;
   cursor: pointer;
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  filter: drop-shadow(0 7px 13px rgba(0, 0, 0, 0.32));
+  /* Hot-air-balloon envelope: round on top, gently drawn in toward the
+     bottom so it reads as a balloon canopy rather than a plain disc. Paired
+     with the basket + rigging drawn in ::after below. */
+  border-radius: 50% 50% 48% 48% / 56% 56% 44% 44%;
+  /* Spherical shading + panel gores + a lit crown, so each reads as a real
+     3D hot-air balloon envelope rather than a flat disc:
+     - thin light "gore" seams (the vertical panels of the canopy),
+     - a radial spherical shade (bright crown top-left → dark bottom edge). */
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(255, 255, 255, 0.11) 0 1px,
+      transparent 1px 12.5%),
+    radial-gradient(120% 100% at 50% 8%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 34%),
+    radial-gradient(circle at 34% 26%, #ffffff 0%, var(--l-core) 30%, var(--l-edge) 74%, var(--l-deep) 100%);
+  box-shadow:
+    /* outer halo grows with warmth/light */
+    0 0 calc(22px * var(--glow, 1)) calc(6px * var(--glow, 1)) var(--l-halo),
+    0 10px 22px rgba(0, 0, 0, 0.34),
+    /* body shading */
+    inset 0 -13px 22px rgba(0, 0, 0, 0.3),
+    inset 0 9px 16px rgba(255, 255, 255, 0.32),
+    /* rim light along the canopy edge */
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    /* burner glow rising from the mouth — brightens with warmth */
+    inset 0 calc(-14px - 8px * var(--burn, 0)) calc(20px + 16px * var(--burn, 0)) rgba(255, 190, 116, var(--burn, 0));
   will-change: transform;
   -webkit-tap-highlight-color: transparent;
   overflow: visible;
 }
-.lantern::before { /* soft balloon-shaped halo behind the envelope; brightens with warmth */
+.lantern::before { /* glossy specular highlight */
   content: "";
   position: absolute;
-  inset: -16%;
-  z-index: -1;
-  background: radial-gradient(closest-side at 50% 47%, var(--l-halo), transparent 74%);
-  opacity: var(--glow, 0.6);
+  top: 12%;
+  left: 18%;
+  width: 34%;
+  height: 26%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+  filter: blur(1px);
   pointer-events: none;
 }
-/* The envelope, drawn as an SVG so the panel gores curve and converge at the
-   crown and mouth like a real hot-air balloon, with a lit crown and a burner
-   glowing at the bottom. preserveAspectRatio:none lets one path stretch into
-   the round / tall / wide size variety. */
-.lantern .balloon {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  overflow: visible;
-}
-.lantern .b-body { fill: var(--l-core); }
-.lantern .b-gores path { fill: none; stroke: rgba(255, 255, 255, 0.32); stroke-width: 0.5; }
-.lantern .b-rim { fill: none; stroke: rgba(255, 255, 255, 0.55); stroke-width: 1; }
-.lantern .b-burn { opacity: var(--burn, 0.2); }
 .lantern::after { /* hot-air-balloon rigging: ropes + wicker basket */
   content: "";
   position: absolute;
@@ -176,7 +186,6 @@ body.has-video #mist { display: none; }
 }
 .lantern-text {
   position: relative;
-  z-index: 1;
   font-weight: 700;
   line-height: 1.22;
   color: rgba(28, 18, 32, 0.92);
