@@ -227,6 +227,41 @@ const WARMTH_CAP = 12;
 const PREVIEW_CHARS = 20;
 const COL_SPACING = 120; // horizontal room per whisper; wider than a screen when many
 
+// The balloon envelope, drawn once as an SVG and reused for every whisper.
+// The panel "gores" are quadratic curves that fan from the crown, bulge at the
+// middle and converge again at the mouth — that convergence is what makes it
+// read as a rounded 3D canopy instead of a flat disc. Body colour, gore/rim
+// strokes and the burner opacity all come from CSS (see `.lantern .b-*`), so
+// one markup string covers both whisper types and every warmth level.
+const ENV = 'M50 4 C23 4 10 27 10 58 C10 89 30 115 50 119 C70 115 90 89 90 58 C90 27 77 4 50 4 Z';
+const GORES = [17, 28, 39, 61, 72, 83]
+  .map((m) => `<path d="M50 6 Q${m} 60 50 117"/>`)
+  .join('');
+const BALLOON_SVG =
+  `<svg class="balloon" viewBox="0 0 100 122" preserveAspectRatio="none" aria-hidden="true">` +
+  `<path class="b-body" d="${ENV}"/>` +
+  `<path d="${ENV}" fill="url(#cx-shade)"/>` +
+  `<g class="b-gores"><path d="M50 6 L50 117"/>${GORES}</g>` +
+  `<path d="${ENV}" fill="url(#cx-crown)"/>` +
+  `<ellipse class="b-burn" cx="50" cy="107" rx="23" ry="15" fill="url(#cx-burn)"/>` +
+  `<path class="b-rim" d="${ENV}"/>` +
+  `</svg>`;
+// Shared gradient defs, injected once per field: a warm-white lit crown, a
+// spherical shade that darkens the lower body, and the burner glow at the mouth.
+const BALLOON_DEFS =
+  `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>` +
+  `<radialGradient id="cx-crown" cx="0.5" cy="0.16" r="0.6">` +
+  `<stop offset="0" stop-color="#fff" stop-opacity="0.95"/>` +
+  `<stop offset="0.45" stop-color="#fff" stop-opacity="0.3"/>` +
+  `<stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>` +
+  `<radialGradient id="cx-shade" cx="0.5" cy="0.4" r="0.62">` +
+  `<stop offset="0.5" stop-color="#0a1024" stop-opacity="0"/>` +
+  `<stop offset="1" stop-color="#0a1024" stop-opacity="0.4"/></radialGradient>` +
+  `<radialGradient id="cx-burn" cx="0.5" cy="0.5" r="0.5">` +
+  `<stop offset="0" stop-color="#ffdca4" stop-opacity="0.95"/>` +
+  `<stop offset="1" stop-color="#ffb063" stop-opacity="0"/></radialGradient>` +
+  `</defs></svg>`;
+
 // The whispers live in a layered depth field, not on a flat plane. Each
 // balloon gets a depth `z` in [0,1] (0 = far, 1 = near) that drives its size,
 // brightness, blur, rise speed, drag-parallax and stacking — so the sky reads
@@ -284,11 +319,11 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
       // Gentle depth "breathing" — balloons drift a little toward and away
       // from the viewer, so the field feels alive in 3D rather than fixed.
       const z = Math.max(0, Math.min(1, it.z0 + Math.sin(time * it.zFreq + it.zPhase) * it.zAmp));
-      const scale = 0.42 + z * 1.05; // far ~0.42×, near ~1.47×
-      const sway = Math.sin(time * it.swayFreq + it.swayPhase) * it.swayAmp * (0.45 + z);
+      const scale = 0.24 + z * 1.28; // far ~0.24× (distant dots), near ~1.5×
+      const sway = Math.sin(time * it.swayFreq + it.swayPhase) * it.swayAmp * (0.4 + z);
       const bob = Math.cos(time * it.bobFreq + it.bobPhase) * it.bobAmp;
-      // Near layers slide more under a drag than far ones → real parallax.
-      const px = panX * (0.4 + it.z0 * 0.6);
+      // Near layers slide a lot under a drag; the far layer barely moves → real parallax depth.
+      const px = panX * (0.24 + it.z0 * 0.76);
       const x = it.baseX + px + sway;
       it.el.style.transform =
         `translate(${x.toFixed(1)}px, ${(it.y + bob).toFixed(1)}px) scale(${scale.toFixed(3)})`;
@@ -298,6 +333,7 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
 
   function build(whispers) {
     world.innerHTML = '';
+    world.insertAdjacentHTML('afterbegin', BALLOON_DEFS);
     const W = window.innerWidth;
     const H = window.innerHeight;
 
@@ -317,9 +353,10 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
       // both make a balloon glow more and light its burner brighter.
       const warmN = Math.min(1, ((wsp.warmth || 0) + (wsp.lights || 0) * 0.6) / WARMTH_CAP);
 
-      // Depth: spread across the full range so some balloons sit far back as
-      // dim little dots and others rise up close, big and bright.
-      const z0 = rand(0.04, 1);
+      // Depth: biased toward the far distance so the field has several tiers —
+      // a scatter of tiny dim dots deep in the sky, fewer big bright ones up
+      // close — like looking into real distance rather than at a flat plane.
+      const z0 = Math.pow(Math.random(), 1.5);
 
       // Base envelope size (before depth scale). A little variety from length.
       const lenFactor = Math.min(1, text.length / 160);
@@ -341,11 +378,13 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
       el.style.setProperty('--burn', (0.14 + warmN * 0.7).toFixed(2)); // burner brightens with warmth
       // Depth cues baked once: nearer = more opaque and crisp; farther = dim
       // and softly out of focus. Nearer balloons also stack on top.
-      el.style.opacity = (0.5 + z0 * 0.5).toFixed(2);
-      el.style.filter = z0 < 0.45 ? `blur(${((0.45 - z0) * 3).toFixed(2)}px)` : '';
+      el.style.opacity = (0.34 + z0 * 0.62).toFixed(2);
+      el.style.filter = z0 < 0.5 ? `blur(${((0.5 - z0) * 4).toFixed(2)}px)` : '';
       el.style.zIndex = String(Math.round(z0 * 100));
       el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');
 
+      // The 3D envelope sits behind the whisper preview text.
+      el.insertAdjacentHTML('afterbegin', BALLOON_SVG);
       const span = document.createElement('span');
       span.className = 'lantern-text';
       span.textContent = text.length > PREVIEW_CHARS ? text.slice(0, PREVIEW_CHARS) + '…' : text;
@@ -377,7 +416,7 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
         zPhase: rand(0, Math.PI * 2),
         zFreq: rand(0.05, 0.16),
         zAmp: rand(0.03, 0.08),
-        rise: 0.06 + z0 * 0.42, // near balloons rise faster (parallax)
+        rise: 0.04 + z0 * 0.5, // near balloons rise faster (parallax)
         swayAmp: rand(5, 15),
         swayFreq: rand(0.08, 0.26),
         swayPhase: rand(0, Math.PI * 2),

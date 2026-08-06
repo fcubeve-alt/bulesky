@@ -23,7 +23,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read14" />
+<link rel="stylesheet" href="/css/style.css?v=read15" />
 </head>
 <body>
 
@@ -157,8 +157,6 @@
   <div class="read-actions">
     <button id="read-reply-btn" class="btn-primary btn-small"></button>
     <button id="read-light-btn" class="btn-secondary btn-small light-btn"></button>
-    <button id="read-video-btn" class="btn-secondary btn-small"></button>
-    <button id="read-report" class="link-btn"></button>
   </div>
 </div>
 
@@ -178,16 +176,6 @@
   </div>
   <div id="reply-error" class="form-error hidden"></div>
   <button id="reply-submit" class="cx-send"></button>
-</section>
-
-<!-- How to record this whisper as a video (native screen recorder guide) -->
-<div id="record-overlay" class="overlay hidden"></div>
-<section id="record-modal" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="record-title">
-  <div class="sheet-handle"></div>
-  <button class="mini-close sheet-close" id="record-close" aria-label="Close">×</button>
-  <h2 id="record-title"></h2>
-  <p id="record-body" class="notice-body"></p>
-  <button id="record-ok" class="btn-primary"></button>
 </section>
 
 <!-- First-visit notice: public content + reposting rights -->

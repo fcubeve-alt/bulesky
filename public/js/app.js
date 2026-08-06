@@ -75,16 +75,8 @@ const els = {
   readScroll: $('read-scroll'),
   readContent: $('read-content'),
   readAuthor: $('read-author'),
-  readReport: $('read-report'),
   readReplyBtn: $('read-reply-btn'),
   readLightBtn: $('read-light-btn'),
-  readVideoBtn: $('read-video-btn'),
-  recordOverlay: $('record-overlay'),
-  recordModal: $('record-modal'),
-  recordClose: $('record-close'),
-  recordTitle: $('record-title'),
-  recordBody: $('record-body'),
-  recordOk: $('record-ok'),
   detailRepliesTitle: $('detail-replies-title'),
   readReplies: $('read-replies'),
   replyOverlay: $('reply-overlay'),
@@ -161,13 +153,8 @@ function applyText() {
   els.confirmCopy.textContent = t('copyCode');
   els.confirmHint.textContent = t('confirmHint');
   els.confirmClose.textContent = t('close');
-  els.readReport.textContent = t('detailReport');
   els.readReplyBtn.textContent = t('readReply');
   els.readLightBtn.textContent = t('leaveLight');
-  els.readVideoBtn.textContent = t('makeVideo');
-  els.recordTitle.textContent = t('recordTitle');
-  els.recordBody.textContent = t('recordBody');
-  els.recordOk.textContent = t('close');
   els.replyCode.placeholder = t('replyCodePlaceholder');
   els.replySubmit.textContent = t('replySubmit');
   els.iosTitle.textContent = t('iosTitle');
@@ -352,8 +339,6 @@ function renderRead(bubble, replies, rect) {
   state.detailBubbleId = bubble.id;
   els.readOverlay.dataset.type = bubble.type;
   els.readContent.textContent = bubble.content;
-  // Only the author (this device posted it) can turn a whisper into a video.
-  els.readVideoBtn.classList.toggle('hidden', !isMyBubble(bubble.id));
   setLightButtonState(bubble.id);
   if (bubble.code) {
     els.readAuthor.textContent = `${t('byLabel')} ${maskName(bubble.code)}`;
@@ -413,10 +398,15 @@ function renderRead(bubble, replies, rect) {
 
 function openRead() {
   els.readOverlay.classList.remove('hidden');
+  // While reading, hide the bottom compose bar and the now-playing strip so
+  // the reading view's own actions don't collide with them.
+  document.body.classList.add('reading');
 }
 
 function closeRead() {
   els.readOverlay.classList.add('hidden');
+  els.readOverlay.classList.remove('lit');
+  document.body.classList.remove('reading');
 }
 
 // Reflect whether this device has already left a light on the open whisper.
@@ -427,6 +417,16 @@ function setLightButtonState(id) {
   els.readLightBtn.disabled = left;
 }
 
+// A single spark that floats up and fades — the visible acknowledgement that a
+// light was left. Self-removing so it never piles up in the DOM.
+function flySpark() {
+  const s = document.createElement('div');
+  s.className = 'light-spark';
+  s.textContent = '✨';
+  els.readOverlay.appendChild(s);
+  s.addEventListener('animationend', () => s.remove());
+}
+
 // Leave a light: a soft, numberless "I read this, I'm here" for readers who
 // don't want to type. One per device per whisper.
 async function leaveLight() {
@@ -434,6 +434,10 @@ async function leaveLight() {
   if (!id || hasLeftLight(id)) return;
   rememberLight(id);
   setLightButtonState(id);
+  // Clear, immediate feedback: the whisper warms up and a little spark floats
+  // off it, so it's obvious the light landed (a toast alone was easy to miss).
+  els.readOverlay.classList.add('lit');
+  flySpark();
   showToast(t('lightThanks'));
   try {
     await fetch(`/api/bubbles/${id}/lights`, { method: 'POST' });
@@ -470,21 +474,6 @@ async function submitReply() {
   }
 }
 
-async function reportBubble() {
-  if (!window.confirm(t('reportConfirm'))) return;
-  try {
-    await fetch('/api/report', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ targetType: 'bubble', targetId: state.detailBubbleId }),
-    });
-    showToast(t('reportedToast'));
-    closeRead();
-    loadWhispers();
-  } catch {
-    showToast(t('errorGeneric'));
-  }
-}
 
 // ---------- Find my light (robust query-param endpoint) ----------
 
@@ -575,15 +564,6 @@ async function shareSite() {
   }
 }
 
-
-// ---------- "Save as video" guide ----------
-// A faithful clip of the live scene (background video + drifting balloons +
-// music) can't be produced inside a mobile browser without capturing system
-// UI, so we guide the author to their phone's built-in screen recorder, which
-// records the real screen to an mp4 that saves to Photos and opens anywhere.
-function openRecordGuide() {
-  openSheet(els.recordOverlay, els.recordModal);
-}
 
 // ---------- First-visit hint ----------
 
@@ -692,13 +672,8 @@ function init() {
   els.readOverlay.addEventListener('click', (e) => {
     if (e.target === els.readOverlay || e.target.classList.contains('read-viewport')) closeRead();
   });
-  els.readReport.addEventListener('click', reportBubble);
   els.readReplyBtn.addEventListener('click', openReplySheet);
   els.readLightBtn.addEventListener('click', leaveLight);
-  els.readVideoBtn.addEventListener('click', openRecordGuide);
-  els.recordClose.addEventListener('click', () => closeSheet(els.recordOverlay, els.recordModal));
-  els.recordOk.addEventListener('click', () => closeSheet(els.recordOverlay, els.recordModal));
-  wireOverlayClose(els.recordOverlay, els.recordModal);
   els.replyClose.addEventListener('click', () => closeSheet(els.replyOverlay, els.replySheet));
   els.replySubmit.addEventListener('click', submitReply);
   wireOverlayClose(els.replyOverlay, els.replySheet);
