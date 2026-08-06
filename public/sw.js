@@ -6,7 +6,7 @@
 // version first and only falls back to cache when offline, so updates reach
 // users immediately while the app still works without a connection.
 
-const CACHE_NAME = 'bulesky-runtime-v27';
+const CACHE_NAME = 'bulesky-runtime-v28';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

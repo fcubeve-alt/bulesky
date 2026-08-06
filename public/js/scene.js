@@ -273,18 +273,19 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
 
-  // Give a balloon a fresh depth, rise speed and horizontal spot — biased
-  // toward the NEAR front so most whispers are big and readable and only a few
-  // sit far back. Called on build and again every time a balloon recycles off
-  // the top, so every whisper keeps getting turns up front where its words can
-  // be read and tapped, instead of being stranded in the unreadable distance.
+  // Give a balloon a fresh depth, rise speed and horizontal spot. Depth is
+  // spread evenly across near→far (not crammed onto one plane and not all
+  // pushed to the distance) so the sky has real layers: a few big readable
+  // ones close, some mid, a few small dim ones far back. Everything rises
+  // slowly and gently — the calm float-up we always liked. Re-seated each time
+  // a balloon recycles off the top, so every whisper takes turns at every depth.
   function seatDepth(it) {
-    const z0 = Math.sqrt(Math.random()); // skew toward 1 (near): ~60% big/readable
+    const z0 = 0.15 + Math.random() * 0.85; // even spread → real layering, not one plane
     it.z0 = z0;
-    it.rise = 0.05 + z0 * 0.5; // near balloons rise a little faster (parallax)
+    it.rise = 0.09 + z0 * 0.18; // slow, gentle; near only a touch faster (parallax)
     it.baseX = rand(0, Math.max(1, worldW - it.w));
-    it.el.style.opacity = (0.42 + z0 * 0.58).toFixed(2);
-    it.el.style.filter = z0 < 0.4 ? `blur(${((0.4 - z0) * 4).toFixed(2)}px)` : '';
+    it.el.style.opacity = (0.45 + z0 * 0.55).toFixed(2);
+    it.el.style.filter = z0 < 0.35 ? `blur(${((0.35 - z0) * 4).toFixed(2)}px)` : '';
     it.el.style.zIndex = String(Math.round(z0 * 100));
   }
 
@@ -303,7 +304,7 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
       // Gentle depth "breathing" — balloons drift a little toward and away
       // from the viewer, so the field feels alive in 3D rather than fixed.
       const z = Math.max(0, Math.min(1, it.z0 + Math.sin(time * it.zFreq + it.zPhase) * it.zAmp));
-      const scale = 0.34 + z * 1.16; // far ~0.34×, near ~1.5×
+      const scale = 0.4 + z * 1.05; // far ~0.4×, near ~1.45× — clear layered depth
       const sway = Math.sin(time * it.swayFreq + it.swayPhase) * it.swayAmp * (0.4 + z);
       const bob = Math.cos(time * it.bobFreq + it.bobPhase) * it.bobAmp;
       // Near layers slide a lot under a drag; the far layer barely moves → real parallax depth.
@@ -320,11 +321,10 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
     const W = window.innerWidth;
     const H = window.innerHeight;
 
-    // Keep the field close to one screen wide (a little wider when there are
-    // many whispers) so the sky stays busy and readable up front instead of
-    // spreading whispers so thin you must drag forever to find one. Depth —
-    // not width — is what gives the sky room, so many balloons share the view.
-    worldW = Math.max(W, Math.min(whispers.length * 84, W * 1.7));
+    // A modest width — a screen or two, never so wide you drag forever — with
+    // depth doing most of the work of giving the sky room. Enough balloons
+    // share the view to feel alive, spread across near/far rather than piled up.
+    worldW = Math.max(W, Math.min(whispers.length * 96, W * 1.9));
     world.style.width = worldW + 'px';
     world.style.transform = 'none';
     minPan = Math.min(0, W - worldW);
