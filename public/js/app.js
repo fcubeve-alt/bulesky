@@ -53,9 +53,6 @@ const els = {
   composeClose: $('compose-close'),
   composeTitle: $('compose-title'),
   composeSub: $('compose-sub'),
-  typeToggle: $('type-toggle'),
-  typePain: $('type-pain'),
-  typeWish: $('type-wish'),
   crisisBanner: $('crisis-banner'),
   crisisText: $('crisis-text'),
   composeContent: $('compose-content'),
@@ -155,8 +152,6 @@ function applyText() {
   els.entryWish.textContent = t('entryWish');
   els.crisisText.textContent = t('crisisText');
   els.composeSub.textContent = t('composeSub');
-  els.typePain.textContent = t('typePain');
-  els.typeWish.textContent = t('typeWish');
   els.composeCodeLabel.textContent = t('composeNameChip');
   els.composeCode.placeholder = t('codePlaceholder');
   els.replyCodeLabel.textContent = t('replyNameChip');
@@ -243,8 +238,6 @@ function setComposeType(type) {
   state.composeType = type;
   els.composeTitle.textContent = type === 'pain' ? t('composeTitlePain') : t('composeTitleWish');
   els.composeContent.placeholder = type === 'pain' ? t('contentPlaceholderPain') : t('contentPlaceholderWish');
-  els.typePain.classList.toggle('active', type === 'pain');
-  els.typeWish.classList.toggle('active', type === 'wish');
   els.crisisBanner.classList.toggle('hidden', type !== 'pain');
 }
 
@@ -626,8 +619,6 @@ function init() {
   els.composeClose.addEventListener('click', () => closeSheet(els.composeOverlay, els.composeSheet));
   els.composeCancel.addEventListener('click', () => closeSheet(els.composeOverlay, els.composeSheet));
   els.composeSubmit.addEventListener('click', submitCompose);
-  els.typePain.addEventListener('click', () => setComposeType('pain'));
-  els.typeWish.addEventListener('click', () => setComposeType('wish'));
   els.replyContent.addEventListener('input', () => {
     els.replyCount.textContent = `${els.replyContent.value.length} / 300`;
   });

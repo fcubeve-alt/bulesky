@@ -577,6 +577,47 @@ button { font-family: inherit; }
 .reply-lead p { margin: 0; font-size: 0.9rem; line-height: 1.5; color: var(--ink); }
 .link-btn { background: none; border: none; color: var(--ink-soft); font-size: 0.77rem; text-decoration: underline; cursor: pointer; padding: 6px 0; }
 
+/* White, paper-like theme for the compose & reply sheets — calmer to type on
+   than the dark navy. Scoped so only these two panels turn light. */
+#compose-sheet, #reply-sheet {
+  background: linear-gradient(180deg, #ffffff 0%, #fbf9f4 100%);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -16px 48px rgba(20, 24, 46, 0.28);
+  color: #2a2c38;
+}
+#compose-sheet .sheet-handle, #reply-sheet .sheet-handle { background: rgba(0, 0, 0, 0.14); }
+#compose-sheet .sheet-close, #reply-sheet .sheet-close { color: #9aa0ad; }
+#compose-sheet .cx-lead, #reply-sheet .cx-lead { color: #24262f; }
+#compose-sheet .cx-sub, #reply-sheet .cx-sub { color: #7a7f8c; }
+#compose-sheet .big-input, #reply-sheet .big-input {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #26282f;
+}
+#compose-sheet .big-input:focus, #reply-sheet .big-input:focus { border-color: rgba(255, 157, 92, 0.65); }
+#compose-sheet .big-input::placeholder, #reply-sheet .big-input::placeholder { color: rgba(40, 44, 56, 0.34); }
+#compose-sheet .field-count, #reply-sheet .field-count { color: #a3a8b3; }
+#compose-sheet .name-field, #reply-sheet .name-field {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+#compose-sheet .name-field .chip, #reply-sheet .name-field .chip { color: #8a8f9b; }
+#compose-sheet .name-field input, #reply-sheet .name-field input { color: #26282f; }
+#compose-sheet .name-field input::placeholder, #reply-sheet .name-field input::placeholder { color: rgba(40, 44, 56, 0.3); }
+#compose-sheet .cx-cancel { color: #8a8f9b; }
+#compose-sheet .cx-hint { color: #b07a3c; }
+#compose-sheet .crisis-banner {
+  background: rgba(255, 157, 92, 0.1);
+  border-color: rgba(255, 157, 92, 0.32);
+}
+#compose-sheet .crisis-banner p { color: #a65b1e; }
+#reply-sheet .reply-lead {
+  background: #fbf5ec;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+}
+#reply-sheet .reply-lead p { color: #4a4d59; }
+#reply-submit { width: 100%; box-sizing: border-box; margin-top: 16px; }
+
 .code-display {
   display: flex;
   align-items: center;
