@@ -125,6 +125,28 @@
 
 ---
 
+## 7b. 下一步立即要做:官方页面 + 隐私 + 博客(用户点名,关系推广)
+> 当前 App 是单页(只有 `/`,由 Cloudflare Pages 从 `public/` 提供)。以下是要新建的**静态官方页面**(可被搜索引擎收录),与用户内容(私密、不收录)分开。这些页面在新对话里直接建,别再讨论方案。
+
+**A. 隐私三件套(优先)**
+1. `public/robots.txt`:允许官方页面;`Disallow: /api/`;指向 sitemap。
+2. `public/sitemap.xml`:只放官方页面(首页 + about/privacy/principles/blog),**不放任何用户内容**。
+3. **隐私承诺**:首页可见一句(页脚或首访提示里)——"Your stories stay private and are not indexed by search engines. / 你的故事保持私密,不会被搜索引擎收录。"
+
+**B. 官方页面(静态 HTML,英文为主,风格与 App 一致、深蓝+暖黄)**
+- `public/privacy.html` —— 隐私政策:匿名、无账号;悄悄话公开可见且可能被转发;不收集个人身份;保留期约 365 天后自动清理;联系方式会被屏蔽;不向搜索引擎提交用户内容。
+- `public/principles.html` —— 《社区原则 / Kindness Guard 善意守护》:**允许痛苦,禁止伤害**(Pain is welcome. Harm is not.);接纳思念/失恋/孤独/绝望;严禁针对他人的辱骂/攻击/嘲笑/歧视/骚扰;举报与人工复核(说明,不必现在做功能)。
+- `public/about.html`(可选,简短):产品是什么、品牌标语 "Love never truly disappears."。
+- 加一个**低调页脚/小链接**从 App 通向这几页(About · Privacy · Principles · Blog)。
+
+**C. 博客(SEO 长期流量)**
+- `public/blog/index.html` + 至少 1 篇起步文章。只写用户会搜的痛点/情绪主题(见 §6:失恋、面对失去、为何向陌生人倾诉更易),文末放 `Visit the sky` 回 App 的按钮,**不展示具体用户故事**。
+- 结构做成可持续加文章(每篇一个 `public/blog/xxx.html`,index 汇总)。
+
+**注意**:这些页面同样走现有 GitHub Actions 部署;上线前后照例 bump SW 缓存版本。
+
+---
+
 ## 8. 待拍板 / 开放问题
 1. **AI 语义审核(二/三期)**:接哪家?推荐 **Cloudflare Workers AI**(便宜、同账号、低延迟);备选 OpenAI。需确认投入与成本。
 2. **SEO 官方页面体系**:确认放三期(先把 App 体验做扎实)。
