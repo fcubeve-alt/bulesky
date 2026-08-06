@@ -199,6 +199,17 @@ async function loadWhispers() {
   }
 }
 
+// Called when the drifting field has shown its whole deck once and wants fresh
+// balloons rising next (SKY_FEED §3). Throttled so a small corpus that cycles
+// quickly doesn't hammer the API.
+let lastSampleAt = 0;
+function requestFreshSample() {
+  const now = Date.now();
+  if (now - lastSampleAt < 20000) return;
+  lastSampleAt = now;
+  loadWhispers();
+}
+
 // Track which whispers this device authored, so only the author can turn
 // their own whisper into a video. Per-device by design (no accounts).
 function myBubbleIds() {
@@ -633,7 +644,11 @@ function armMusicAutostart() {
 function init() {
   applyText();
   backgrounds = initBackgrounds({ videoA: els.bgVideoA, videoB: els.bgVideoB, scrim: els.bgScrim });
-  whisperWorld = createWhisperWorld(els.lanterns, els.world, { onTap: openDetail, ribbonText });
+  whisperWorld = createWhisperWorld(els.lanterns, els.world, {
+    onTap: openDetail,
+    ribbonText,
+    onNeedMore: requestFreshSample,
+  });
   loadWhispers();
   // Periodically deal a fresh sample so a long-open sky keeps bringing in
   // different whispers (each fetch is a new per-viewer random draw server-side).

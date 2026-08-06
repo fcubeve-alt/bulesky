@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+## Project memory — READ BEFORE TOUCHING THESE AREAS
+- **The drifting sky / balloon feed** (`public/js/scene.js`, `.lantern*` in `public/css/style.css`, the `/api/bubbles` list in `functions/api/bubbles/index.js`, and the fetch/pin/refresh in `public/js/app.js`): **read `docs/SKY_FEED.md` first**, then verify every rule there still holds after your change. It captures hard-won decisions (per-viewer weighted sampling, the capped "river", 3–4 depth tiers, per-layer rise speed, mobile width/drag, author-pin). Do not regress one rule while fixing another.
+- Product strategy & roadmap: `docs/ROADMAP.md`.
+
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.

@@ -226,6 +226,32 @@ export function initScene(canvas) {
 const WARMTH_CAP = 12;
 const PREVIEW_CHARS = 20;
 
+// Four explicit depth tiers (see docs/SKY_FEED.md §4). Using discrete tiers —
+// rather than one flat random spread — guarantees the sky always has real
+// layers: a scatter of tiny dim dots far back, some mid, a few big readable
+// ones up front. Each balloon lands in a tier by weight, then jitters within.
+const DEPTH_TIERS = [
+  { zMin: 0.04, zMax: 0.16, weight: 5 }, // far: tiny dim dots, slowest — most common
+  { zMin: 0.3, zMax: 0.46, weight: 4 }, // mid-far
+  { zMin: 0.58, zMax: 0.76, weight: 3 }, // mid-near
+  { zMin: 0.88, zMax: 1.0, weight: 2 }, // near: big, bright, fastest — fewest
+];
+const DEPTH_TIER_TOTAL = DEPTH_TIERS.reduce((s, t) => s + t.weight, 0);
+function pickTierZ() {
+  let r = Math.random() * DEPTH_TIER_TOTAL;
+  for (const t of DEPTH_TIERS) {
+    r -= t.weight;
+    if (r <= 0) return t.zMin + Math.random() * (t.zMax - t.zMin);
+  }
+  return 0.88 + Math.random() * 0.12;
+}
+
+// How many balloons live on screen at once. Fewer on a narrow phone (so they
+// don't overlap), more on a wide desktop. See docs/SKY_FEED.md §2 & §6.
+function poolCap() {
+  return window.innerWidth < 640 ? 14 : 20;
+}
+
 // The whispers live in a layered depth field, not on a flat plane. Each
 // balloon gets a depth `z` in [0,1] (0 = far, 1 = near) that drives its size,
 // brightness, blur, rise speed, drag-parallax and stacking — so the sky reads
@@ -233,7 +259,7 @@ const PREVIEW_CHARS = 20;
 // big bright ones rise close and sway past. `viewport` is the fixed clipping
 // element; `world` is the inner layer that holds the balloons. Tap vs. drag is
 // distinguished by movement distance.
-export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
+export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedMore }) {
   let items = [];
   let raf = null;
   let worldW = 0;
@@ -274,13 +300,12 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
   window.addEventListener('pointerup', onUp);
 
   // ---- The "river": a small, capped set of balloons streams continuously ----
-  // Only POOL_CAP balloons live on screen at once, so the sky is a calm stream,
+  // Only poolCap() balloons live on screen at once, so the sky is a calm stream,
   // never a heap. Each draws whispers one at a time from `deck` — the sample the
   // server dealt THIS viewer — and when one drifts off the top it rebinds to the
   // next whisper in the deck and re-enters from the bottom. So a handful are
   // visible while, over time, the whole deck cycles through; different viewers
   // get different decks, so different people see different whispers.
-  const POOL_CAP = 18;
   let deck = [];
   let nextIdx = 0;
   const pinned = []; // whispers to surface ASAP (e.g. the author's own new post)
@@ -290,21 +315,24 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
     if (!deck.length) return null;
     const wsp = deck[nextIdx % deck.length];
     nextIdx += 1;
+    // Finished a full pass of the deck → ask for a fresh sample so the balloons
+    // rising next are newly drawn, not the same batch looping (SKY_FEED §3).
+    if (nextIdx % deck.length === 0 && typeof onNeedMore === 'function') onNeedMore();
     return wsp;
   }
 
-  // Give a balloon a fresh depth, rise speed and horizontal spot. Depth is
-  // spread evenly across near→far (not crammed onto one plane and not all
-  // pushed to the distance) so the sky has real layers: a few big readable
-  // ones close, some mid, a few small dim ones far back — every one still
-  // tappable. Everything rises slowly and gently — the calm float-up we like.
+  // Seat a balloon in one of the four depth tiers (SKY_FEED §4–5): sets its
+  // depth, its rise speed (near noticeably faster, far slowest — the staggered
+  // pace that reads as 3D), its horizontal spot, and its depth styling. Every
+  // tier stays populated, so there are always tiny dim dots far back and a few
+  // big readable ones up front — all still tappable.
   function seatDepth(it) {
-    const z0 = 0.15 + Math.random() * 0.85; // even spread → real layering, not one plane
+    const z0 = pickTierZ();
     it.z0 = z0;
-    it.rise = 0.09 + z0 * 0.18; // slow, gentle; near only a touch faster (parallax)
+    it.rise = 0.05 + z0 * 0.3; // far ~0.05 (slow) → near ~0.35 (faster): staggered by layer
     it.baseX = rand(0, Math.max(1, worldW - it.w));
-    it.el.style.opacity = (0.45 + z0 * 0.55).toFixed(2);
-    it.el.style.filter = z0 < 0.35 ? `blur(${((0.35 - z0) * 4).toFixed(2)}px)` : '';
+    it.el.style.opacity = (0.38 + z0 * 0.62).toFixed(2);
+    it.el.style.filter = z0 < 0.34 ? `blur(${((0.34 - z0) * 5).toFixed(2)}px)` : '';
     it.el.style.zIndex = String(Math.round(z0 * 100));
   }
 
@@ -399,10 +427,11 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
 
   function layout() {
     const W = window.innerWidth;
-    const poolN = Math.max(1, items.length);
-    // Width follows how many are actually on screen (the pool), not the whole
-    // deck — modest, so depth does the spacing and you never drag forever.
-    worldW = Math.max(W, Math.min(poolN * 96, W * 1.9));
+    // About two screens wide — enough to drag sideways and let the few big near
+    // balloons breathe, but not so wide the sky feels empty or the depth tiers
+    // get scattered so you never see near + far together (SKY_FEED §6). Depth
+    // (near big, far tiny), not width, does most of the decluttering.
+    worldW = Math.round(W * 1.9);
     world.style.width = worldW + 'px';
     world.style.transform = 'none';
     minPan = Math.min(0, W - worldW);
@@ -410,7 +439,7 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
   }
 
   function build() {
-    const target = Math.min(POOL_CAP, Math.max(1, deck.length));
+    const target = Math.min(poolCap(), Math.max(1, deck.length));
     while (items.length < target) items.push(makeItem());
     layout();
     for (const it of items) respawn(it, true);
@@ -429,7 +458,7 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
       // Gentle depth "breathing" — balloons drift a little toward and away from
       // the viewer, so the field feels alive in 3D rather than fixed.
       const z = Math.max(0, Math.min(1, it.z0 + Math.sin(time * it.zFreq + it.zPhase) * it.zAmp));
-      const scale = 0.4 + z * 1.05; // far ~0.4×, near ~1.45× — clear layered depth
+      const scale = 0.26 + z * 1.24; // far ~0.3× (tiny dot), near ~1.5× — strong layered depth
       const sway = Math.sin(time * it.swayFreq + it.swayPhase) * it.swayAmp * (0.4 + z);
       const bob = Math.cos(time * it.bobFreq + it.bobPhase) * it.bobAmp;
       // Near layers slide a lot under a drag; the far layer barely moves.
@@ -454,7 +483,7 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
         build();
         return;
       }
-      const target = Math.min(POOL_CAP, Math.max(1, deck.length));
+      const target = Math.min(poolCap(), Math.max(1, deck.length));
       let grew = false;
       while (items.length < target) {
         const it = makeItem();
