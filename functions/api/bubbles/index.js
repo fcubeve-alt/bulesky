@@ -52,13 +52,33 @@ export async function onRequestGet({ request, env }) {
     params.push(before);
   }
 
+  // The drifting sky is a per-request weighted-random SAMPLE, not "the newest
+  // N". Two effects, both deliberate:
+  //  1. Every request re-rolls RANDOM(), so different viewers (and refreshes)
+  //     get different whispers — with a large corpus, the crowd collectively
+  //     witnesses far more of it than any one screen could hold.
+  //  2. The random key is nudged by weights so the sky still feels alive and
+  //     kind: hotter (more-replied) whispers surface more, brand-new ones get a
+  //     lift, and whispers with zero replies get a deliberate boost so the ones
+  //     that most need a first reply keep getting seen.
+  // Smaller sort value = more likely to be picked (ASC, then LIMIT).
+  // ABS(RANDOM() % 1000) stays in 0..999 (avoids the INT64 overflow that bare
+  // ABS(RANDOM()) can hit). This full-scan sample is fine at our scale; the API
+  // shape lets the sampling strategy grow (random-key ranges, etc.) later
+  // without touching the client.
+  const freshCutoff = Date.now() - 24 * 60 * 60 * 1000;
   const stmt = env.DB.prepare(
     `SELECT id, type, content, lang, warmth, lights, created_at
        FROM bubbles
       WHERE ${clauses.join(' AND ')}
-      ORDER BY created_at DESC
+      ORDER BY (
+        ABS(RANDOM() % 1000)
+        - MIN(warmth, 12) * 45
+        - (CASE WHEN warmth = 0 THEN 120 ELSE 0 END)
+        - (CASE WHEN created_at > ? THEN 200 ELSE 0 END)
+      ) ASC
       LIMIT ?`
-  ).bind(...params, limit);
+  ).bind(...params, freshCutoff, limit);
 
   const { results } = await stmt.all();
   return json({ bubbles: results });

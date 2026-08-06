@@ -273,12 +273,31 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
 
+  // ---- The "river": a small, capped set of balloons streams continuously ----
+  // Only POOL_CAP balloons live on screen at once, so the sky is a calm stream,
+  // never a heap. Each draws whispers one at a time from `deck` — the sample the
+  // server dealt THIS viewer — and when one drifts off the top it rebinds to the
+  // next whisper in the deck and re-enters from the bottom. So a handful are
+  // visible while, over time, the whole deck cycles through; different viewers
+  // get different decks, so different people see different whispers.
+  const POOL_CAP = 18;
+  let deck = [];
+  let nextIdx = 0;
+  const pinned = []; // whispers to surface ASAP (e.g. the author's own new post)
+
+  function nextWhisper() {
+    if (pinned.length) return pinned.shift();
+    if (!deck.length) return null;
+    const wsp = deck[nextIdx % deck.length];
+    nextIdx += 1;
+    return wsp;
+  }
+
   // Give a balloon a fresh depth, rise speed and horizontal spot. Depth is
   // spread evenly across near→far (not crammed onto one plane and not all
   // pushed to the distance) so the sky has real layers: a few big readable
-  // ones close, some mid, a few small dim ones far back. Everything rises
-  // slowly and gently — the calm float-up we always liked. Re-seated each time
-  // a balloon recycles off the top, so every whisper takes turns at every depth.
+  // ones close, some mid, a few small dim ones far back — every one still
+  // tappable. Everything rises slowly and gently — the calm float-up we like.
   function seatDepth(it) {
     const z0 = 0.15 + Math.random() * 0.85; // even spread → real layering, not one plane
     it.z0 = z0;
@@ -289,25 +308,131 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
     it.el.style.zIndex = String(Math.round(z0 * 100));
   }
 
+  // Point an existing balloon at a (new) whisper: size, colour, glow, preview
+  // text and ribbon all follow the content it now carries.
+  function applyWhisper(it, wsp) {
+    it.wsp = wsp;
+    const text = (wsp.content || '').trim();
+    const warmN = Math.min(1, ((wsp.warmth || 0) + (wsp.lights || 0) * 0.6) / WARMTH_CAP);
+    const lenFactor = Math.min(1, text.length / 160);
+    const base = 74 + lenFactor * 42; // ~74–116px, then × depth scale
+    const shape = Math.random();
+    let w = base;
+    let h = base;
+    if (shape < 0.32) h = base * (1.1 + Math.random() * 0.16);
+    else if (shape < 0.52) w = base * (1.12 + Math.random() * 0.16);
+    it.w = w;
+    it.h = h;
+    const el = it.el;
+    el.className = `lantern type-${wsp.type}`;
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+    el.style.fontSize = (0.56 + lenFactor * 0.12).toFixed(3) + 'rem';
+    el.style.setProperty('--glow', (0.5 + warmN * 1.0).toFixed(2));
+    el.style.setProperty('--burn', (0.14 + warmN * 0.7).toFixed(2)); // burner brightens with warmth
+    el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');
+    it.span.textContent = text.length > PREVIEW_CHARS ? text.slice(0, PREVIEW_CHARS) + '…' : text;
+    // A whisper that's been answered hangs a small streamer; rebuild it per bind.
+    if (it.ribbon) {
+      it.ribbon.remove();
+      it.ribbon = null;
+    }
+    if ((wsp.warmth || 0) >= 1 && typeof ribbonText === 'function') {
+      const ribbon = document.createElement('span');
+      ribbon.className = 'lantern-ribbon' + ((wsp.warmth || 0) >= 5 ? ' warm' : '');
+      ribbon.textContent = ribbonText(wsp.warmth || 0);
+      el.appendChild(ribbon);
+      it.ribbon = ribbon;
+    }
+  }
+
+  // (Re)enter a balloon from below carrying the next whisper. On firstTime it is
+  // scattered across the whole height so the sky looks alive immediately.
+  function respawn(it, firstTime) {
+    const wsp = nextWhisper();
+    if (!wsp) {
+      it.wsp = null;
+      it.el.style.display = 'none';
+      return;
+    }
+    it.el.style.display = '';
+    applyWhisper(it, wsp);
+    seatDepth(it);
+    const H = window.innerHeight;
+    it.y = firstTime ? rand(-H * 0.05, H * 1.02) : H + rand(20, 160);
+  }
+
+  function makeItem() {
+    const el = document.createElement('button');
+    el.className = 'lantern';
+    const span = document.createElement('span');
+    span.className = 'lantern-text';
+    el.appendChild(span);
+    const it = {
+      el,
+      span,
+      ribbon: null,
+      wsp: null,
+      w: 90,
+      h: 90,
+      y: 0,
+      z0: 0,
+      baseX: 0,
+      rise: 0,
+      zPhase: rand(0, Math.PI * 2),
+      zFreq: rand(0.05, 0.16),
+      zAmp: rand(0.03, 0.08),
+      swayAmp: rand(5, 15),
+      swayFreq: rand(0.08, 0.26),
+      swayPhase: rand(0, Math.PI * 2),
+      bobAmp: rand(2, 5),
+      bobFreq: rand(0.3, 0.8),
+      bobPhase: rand(0, Math.PI * 2),
+    };
+    // Tap opens whatever whisper this balloon currently carries — near or far.
+    el.addEventListener('click', () => {
+      if (!moved && it.wsp) onTap(it.wsp.id, el.getBoundingClientRect());
+    });
+    world.appendChild(el);
+    return it;
+  }
+
+  function layout() {
+    const W = window.innerWidth;
+    const poolN = Math.max(1, items.length);
+    // Width follows how many are actually on screen (the pool), not the whole
+    // deck — modest, so depth does the spacing and you never drag forever.
+    worldW = Math.max(W, Math.min(poolN * 96, W * 1.9));
+    world.style.width = worldW + 'px';
+    world.style.transform = 'none';
+    minPan = Math.min(0, W - worldW);
+    panX = clampPan(panX);
+  }
+
+  function build() {
+    const target = Math.min(POOL_CAP, Math.max(1, deck.length));
+    while (items.length < target) items.push(makeItem());
+    layout();
+    for (const it of items) respawn(it, true);
+  }
+
   function frame(t) {
     const time = t * 0.001;
-    const H = window.innerHeight;
     for (const it of items) {
+      if (!it.wsp) continue;
       it.y -= it.rise;
-      // Recycle off the top: drop back below the screen with a fresh depth and
-      // spot, so it takes another turn up front rather than staying stuck far.
+      // Off the top → rebind to the next whisper and re-enter from the bottom.
       if (it.y < -it.h * 2.2) {
-        it.y = H + rand(20, 160);
-        seatDepth(it);
+        respawn(it, false);
+        continue;
       }
-
-      // Gentle depth "breathing" — balloons drift a little toward and away
-      // from the viewer, so the field feels alive in 3D rather than fixed.
+      // Gentle depth "breathing" — balloons drift a little toward and away from
+      // the viewer, so the field feels alive in 3D rather than fixed.
       const z = Math.max(0, Math.min(1, it.z0 + Math.sin(time * it.zFreq + it.zPhase) * it.zAmp));
       const scale = 0.4 + z * 1.05; // far ~0.4×, near ~1.45× — clear layered depth
       const sway = Math.sin(time * it.swayFreq + it.swayPhase) * it.swayAmp * (0.4 + z);
       const bob = Math.cos(time * it.bobFreq + it.bobPhase) * it.bobAmp;
-      // Near layers slide a lot under a drag; the far layer barely moves → real parallax depth.
+      // Near layers slide a lot under a drag; the far layer barely moves.
       const px = panX * (0.24 + it.z0 * 0.76);
       const x = it.baseX + px + sway;
       it.el.style.transform =
@@ -316,95 +441,46 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
     raf = requestAnimationFrame(frame);
   }
 
-  function build(whispers) {
-    world.innerHTML = '';
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-
-    // A modest width — a screen or two, never so wide you drag forever — with
-    // depth doing most of the work of giving the sky room. Enough balloons
-    // share the view to feel alive, spread across near/far rather than piled up.
-    worldW = Math.max(W, Math.min(whispers.length * 96, W * 1.9));
-    world.style.width = worldW + 'px';
-    world.style.transform = 'none';
-    minPan = Math.min(0, W - worldW);
-    panX = clampPan(panX);
-
-    items = whispers.map((wsp) => {
-      const text = (wsp.content || '').trim();
-      // Combined "warmth": replies plus a lighter weight for passing lights —
-      // both make a balloon glow more and light its burner brighter.
-      const warmN = Math.min(1, ((wsp.warmth || 0) + (wsp.lights || 0) * 0.6) / WARMTH_CAP);
-
-      // Base envelope size (before depth scale). A little variety from length.
-      const lenFactor = Math.min(1, text.length / 160);
-      const base = 74 + lenFactor * 42; // ~74–116px, then × depth scale
-
-      // Shape variety: mostly round, some taller or wider envelopes.
-      const shape = Math.random();
-      let w = base;
-      let h = base;
-      if (shape < 0.32) h = base * (1.1 + Math.random() * 0.16);
-      else if (shape < 0.52) w = base * (1.12 + Math.random() * 0.16);
-
-      const el = document.createElement('button');
-      el.className = `lantern type-${wsp.type}`;
-      el.style.width = w + 'px';
-      el.style.height = h + 'px';
-      el.style.fontSize = (0.56 + lenFactor * 0.12).toFixed(3) + 'rem';
-      el.style.setProperty('--glow', (0.5 + warmN * 1.0).toFixed(2));
-      el.style.setProperty('--burn', (0.14 + warmN * 0.7).toFixed(2)); // burner brightens with warmth
-      el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');
-
-      const span = document.createElement('span');
-      span.className = 'lantern-text';
-      span.textContent = text.length > PREVIEW_CHARS ? text.slice(0, PREVIEW_CHARS) + '…' : text;
-      el.appendChild(span);
-
-      // A whisper that's been answered hangs a small streamer — "someone
-      // stayed for this". None when there are no replies (keeps the sky calm).
-      if ((wsp.warmth || 0) >= 1 && typeof ribbonText === 'function') {
-        const ribbon = document.createElement('span');
-        ribbon.className = 'lantern-ribbon' + ((wsp.warmth || 0) >= 5 ? ' warm' : '');
-        ribbon.textContent = ribbonText(wsp.warmth || 0);
-        el.appendChild(ribbon);
-      }
-
-      // Fire a tap only when the pointer didn't drag the field. Pass the
-      // balloon's on-screen rect so the reading text can rise from where it is.
-      el.addEventListener('click', () => {
-        if (!moved) onTap(wsp.id, el.getBoundingClientRect());
-      });
-      world.appendChild(el);
-
-      const it = {
-        el,
-        w,
-        h,
-        y: rand(-H * 0.05, H * 1.02), // pre-scattered so the sky looks alive on load
-        z0: 0,
-        baseX: 0,
-        rise: 0,
-        zPhase: rand(0, Math.PI * 2),
-        zFreq: rand(0.05, 0.16),
-        zAmp: rand(0.03, 0.08),
-        swayAmp: rand(5, 15),
-        swayFreq: rand(0.08, 0.26),
-        swayPhase: rand(0, Math.PI * 2),
-        bobAmp: rand(2, 5),
-        bobFreq: rand(0.3, 0.8),
-        bobPhase: rand(0, Math.PI * 2),
-      };
-      seatDepth(it); // near-biased depth, rise speed, x-spot + depth styles
-      return it;
-    });
-  }
-
   if (!raf) raf = requestAnimationFrame(frame);
 
   return {
+    // Deal this viewer a fresh deck (a server sample). On first call it builds
+    // the pool; later calls (periodic refetch) just swap the deck — balloons
+    // rebind to the new whispers as they recycle, so content stays fresh.
     setWhispers(whispers) {
-      build(whispers);
+      deck = Array.isArray(whispers) ? whispers.slice() : [];
+      nextIdx = 0;
+      if (!items.length) {
+        build();
+        return;
+      }
+      const target = Math.min(POOL_CAP, Math.max(1, deck.length));
+      let grew = false;
+      while (items.length < target) {
+        const it = makeItem();
+        items.push(it);
+        grew = true;
+      }
+      if (grew) {
+        layout();
+        for (const it of items) if (!it.wsp) respawn(it, true);
+      }
+      if (!deck.length) {
+        for (const it of items) {
+          it.wsp = null;
+          it.el.style.display = 'none';
+        }
+      }
+    },
+    // Surface a whisper right away (the author's own new post). It jumps into
+    // the deck ahead of the queue and the balloon nearest the top re-enters
+    // carrying it, so the author sees their own balloon within a moment.
+    pin(wsp) {
+      if (!wsp || wsp.id == null) return;
+      pinned.push(wsp);
+      let top = null;
+      for (const it of items) if (it.wsp && (!top || it.y < top.y)) top = it;
+      if (top) respawn(top, false);
     },
     get pannable() {
       return worldW > window.innerWidth + 4;

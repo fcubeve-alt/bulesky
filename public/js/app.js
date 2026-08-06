@@ -291,6 +291,9 @@ async function submitCompose() {
     closeSheet(els.composeOverlay, els.composeSheet);
     rememberMyBubble(data.id);
     showConfirm(data);
+    // The author must always see their own whisper: pin it so a balloon
+    // carrying it rises within moments, even if the random sample missed it.
+    whisperWorld.pin({ id: data.id, type: data.type, content: data.content, warmth: 0, lights: 0 });
     loadWhispers();
   } catch {
     showError(els.composeError, t('errorGeneric'));
@@ -632,6 +635,9 @@ function init() {
   backgrounds = initBackgrounds({ videoA: els.bgVideoA, videoB: els.bgVideoB, scrim: els.bgScrim });
   whisperWorld = createWhisperWorld(els.lanterns, els.world, { onTap: openDetail, ribbonText });
   loadWhispers();
+  // Periodically deal a fresh sample so a long-open sky keeps bringing in
+  // different whispers (each fetch is a new per-viewer random draw server-side).
+  setInterval(loadWhispers, 90000);
   ambient.preload(); // fetch the music manifest early so first-tap playback is instant
   armMusicAutostart();
 
