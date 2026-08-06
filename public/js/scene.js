@@ -225,14 +225,16 @@ export function initScene(canvas) {
 
 const WARMTH_CAP = 12;
 const PREVIEW_CHARS = 20;
-const COL_SPACING = 104; // horizontal room per whisper; wider than a screen when many
+const COL_SPACING = 120; // horizontal room per whisper; wider than a screen when many
 
-// Each whisper is a glowing lantern that shows a short preview and slowly
-// rises from the lake. When there are more whispers than fit on screen, the
-// field becomes wider than the viewport and can be dragged left/right.
-// `viewport` is the fixed clipping element; `world` is the wide inner layer
-// that pans. Tap vs. drag is distinguished by movement distance.
-export function createWhisperWorld(viewport, world, { onTap }) {
+// The whispers live in a layered depth field, not on a flat plane. Each
+// balloon gets a depth `z` in [0,1] (0 = far, 1 = near) that drives its size,
+// brightness, blur, rise speed, drag-parallax and stacking — so the sky reads
+// as a real 3D space you look *into*: tiny dim balloons drift far away while
+// big bright ones rise close and sway past. `viewport` is the fixed clipping
+// element; `world` is the inner layer that holds the balloons. Tap vs. drag is
+// distinguished by movement distance.
+export function createWhisperWorld(viewport, world, { onTap, ribbonText }) {
   let items = [];
   let raf = null;
   let worldW = 0;
@@ -252,7 +254,7 @@ export function createWhisperWorld(viewport, world, { onTap }) {
   function onDown(e) {
     dragging = true;
     moved = false;
-    startX = (e.touches ? e.touches[0].clientX : e.clientX);
+    startX = e.touches ? e.touches[0].clientX : e.clientX;
     startPan = panX;
   }
   function onMove(e) {
@@ -261,7 +263,8 @@ export function createWhisperWorld(viewport, world, { onTap }) {
     const dx = cx - startX;
     if (Math.abs(dx) > 6) moved = true;
     panX = clampPan(startPan + dx);
-    world.style.transform = `translateX(${panX.toFixed(1)}px)`;
+    // Parallax is applied per balloon in the frame loop (near layers pan more
+    // than far ones), so we don't move `world` as a single block here.
   }
   function onUp() {
     dragging = false;
@@ -276,10 +279,19 @@ export function createWhisperWorld(viewport, world, { onTap }) {
     const H = window.innerHeight;
     for (const it of items) {
       it.y -= it.rise;
-      if (it.y < -120) it.y = H + rand(20, 140);
-      const sway = Math.sin(time * it.swayFreq + it.swayPhase) * it.swayAmp;
+      if (it.y < -it.h * 2.2) it.y = H + rand(20, 160);
+
+      // Gentle depth "breathing" — balloons drift a little toward and away
+      // from the viewer, so the field feels alive in 3D rather than fixed.
+      const z = Math.max(0, Math.min(1, it.z0 + Math.sin(time * it.zFreq + it.zPhase) * it.zAmp));
+      const scale = 0.42 + z * 1.05; // far ~0.42×, near ~1.47×
+      const sway = Math.sin(time * it.swayFreq + it.swayPhase) * it.swayAmp * (0.45 + z);
       const bob = Math.cos(time * it.bobFreq + it.bobPhase) * it.bobAmp;
-      it.el.style.transform = `translate(${(it.x + sway).toFixed(1)}px, ${(it.y + bob).toFixed(1)}px)`;
+      // Near layers slide more under a drag than far ones → real parallax.
+      const px = panX * (0.4 + it.z0 * 0.6);
+      const x = it.baseX + px + sway;
+      it.el.style.transform =
+        `translate(${x.toFixed(1)}px, ${(it.y + bob).toFixed(1)}px) scale(${scale.toFixed(3)})`;
     }
     raf = requestAnimationFrame(frame);
   }
@@ -288,38 +300,50 @@ export function createWhisperWorld(viewport, world, { onTap }) {
     world.innerHTML = '';
     const W = window.innerWidth;
     const H = window.innerHeight;
-    const horizon = H * HORIZON;
 
-    // World is at least a screen wide, wider when there are many whispers,
-    // so the sky never feels crammed and you can drag to explore.
+    // World is at least a screen wide, wider when there are many whispers, so
+    // the sky never feels crammed and you can drag sideways to explore.
     worldW = Math.max(W, whispers.length * COL_SPACING);
     world.style.width = worldW + 'px';
+    world.style.transform = 'none';
     minPan = Math.min(0, W - worldW);
     panX = clampPan(panX);
-    world.style.transform = `translateX(${panX.toFixed(1)}px)`;
+
+    const slot = worldW / Math.max(1, whispers.length);
 
     items = whispers.map((wsp, i) => {
-      const warmth = Math.min(1, (wsp.warmth || 0) / WARMTH_CAP);
       const text = (wsp.content || '').trim();
+      // Combined "warmth": replies plus a lighter weight for passing lights —
+      // both make a balloon glow more and light its burner brighter.
+      const warmN = Math.min(1, ((wsp.warmth || 0) + (wsp.lights || 0) * 0.6) / WARMTH_CAP);
 
-      // Size reflects how much was written (longer confession = bigger
-      // balloon) plus a nudge for warmth, so the sky has real variety.
-      const lenFactor = Math.min(1, text.length / 140);
-      const base = 62 + lenFactor * 50 + warmth * 20; // ~62–132px
+      // Depth: spread across the full range so some balloons sit far back as
+      // dim little dots and others rise up close, big and bright.
+      const z0 = rand(0.04, 1);
 
-      // Shape variety: mostly round, some tall or wide ellipses.
+      // Base envelope size (before depth scale). A little variety from length.
+      const lenFactor = Math.min(1, text.length / 160);
+      const base = 74 + lenFactor * 42; // ~74–116px, then × depth scale
+
+      // Shape variety: mostly round, some taller or wider envelopes.
       const shape = Math.random();
       let w = base;
       let h = base;
-      if (shape < 0.3) h = base * (1.1 + Math.random() * 0.16);
-      else if (shape < 0.5) w = base * (1.12 + Math.random() * 0.16);
+      if (shape < 0.32) h = base * (1.1 + Math.random() * 0.16);
+      else if (shape < 0.52) w = base * (1.12 + Math.random() * 0.16);
 
       const el = document.createElement('button');
       el.className = `lantern type-${wsp.type}`;
       el.style.width = w + 'px';
       el.style.height = h + 'px';
       el.style.fontSize = (0.56 + lenFactor * 0.12).toFixed(3) + 'rem';
-      el.style.setProperty('--glow', (0.5 + warmth * 0.5).toFixed(2));
+      el.style.setProperty('--glow', (0.5 + warmN * 1.0).toFixed(2));
+      el.style.setProperty('--burn', (0.14 + warmN * 0.7).toFixed(2)); // burner brightens with warmth
+      // Depth cues baked once: nearer = more opaque and crisp; farther = dim
+      // and softly out of focus. Nearer balloons also stack on top.
+      el.style.opacity = (0.5 + z0 * 0.5).toFixed(2);
+      el.style.filter = z0 < 0.45 ? `blur(${((0.45 - z0) * 3).toFixed(2)}px)` : '';
+      el.style.zIndex = String(Math.round(z0 * 100));
       el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');
 
       const span = document.createElement('span');
@@ -327,22 +351,34 @@ export function createWhisperWorld(viewport, world, { onTap }) {
       span.textContent = text.length > PREVIEW_CHARS ? text.slice(0, PREVIEW_CHARS) + '…' : text;
       el.appendChild(span);
 
-      // Fire a tap only when the pointer didn't drag the world. Pass the
+      // A whisper that's been answered hangs a small streamer — "someone
+      // stayed for this". None when there are no replies (keeps the sky calm).
+      if ((wsp.warmth || 0) >= 1 && typeof ribbonText === 'function') {
+        const ribbon = document.createElement('span');
+        ribbon.className = 'lantern-ribbon' + ((wsp.warmth || 0) >= 5 ? ' warm' : '');
+        ribbon.textContent = ribbonText(wsp.warmth || 0);
+        el.appendChild(ribbon);
+      }
+
+      // Fire a tap only when the pointer didn't drag the field. Pass the
       // balloon's on-screen rect so the reading text can rise from where it is.
       el.addEventListener('click', () => {
         if (!moved) onTap(wsp.id, el.getBoundingClientRect());
       });
       world.appendChild(el);
 
-      // Spread evenly across the (possibly wide) world.
-      const slot = worldW / Math.max(1, whispers.length);
       return {
         el,
-        x: i * slot + slot / 2 + rand(-slot * 0.22, slot * 0.22) - w / 2,
-        y: rand(-H * 0.05, H * 1.02), // pre-scattered across full height so the sky looks alive on load
-
-        rise: rand(0.1, 0.34),
-        swayAmp: rand(5, 16),
+        w,
+        h,
+        baseX: i * slot + slot / 2 + rand(-slot * 0.22, slot * 0.22) - w / 2,
+        y: rand(-H * 0.05, H * 1.02), // pre-scattered so the sky looks alive on load
+        z0,
+        zPhase: rand(0, Math.PI * 2),
+        zFreq: rand(0.05, 0.16),
+        zAmp: rand(0.03, 0.08),
+        rise: 0.06 + z0 * 0.42, // near balloons rise faster (parallax)
+        swayAmp: rand(5, 15),
         swayFreq: rand(0.08, 0.26),
         swayPhase: rand(0, Math.PI * 2),
         bobAmp: rand(2, 5),

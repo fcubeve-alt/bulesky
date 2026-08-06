@@ -77,6 +77,7 @@ const els = {
   readAuthor: $('read-author'),
   readReport: $('read-report'),
   readReplyBtn: $('read-reply-btn'),
+  readLightBtn: $('read-light-btn'),
   readVideoBtn: $('read-video-btn'),
   recordOverlay: $('record-overlay'),
   recordModal: $('record-modal'),
@@ -162,6 +163,7 @@ function applyText() {
   els.confirmClose.textContent = t('close');
   els.readReport.textContent = t('detailReport');
   els.readReplyBtn.textContent = t('readReply');
+  els.readLightBtn.textContent = t('leaveLight');
   els.readVideoBtn.textContent = t('makeVideo');
   els.recordTitle.textContent = t('recordTitle');
   els.recordBody.textContent = t('recordBody');
@@ -228,6 +230,31 @@ function rememberMyBubble(id) {
 }
 function isMyBubble(id) {
   return myBubbleIds().has(id);
+}
+
+// A device may leave at most one "light" (微光) per whisper — a zero-effort
+// warm response. Gated in localStorage so the button can't be spammed.
+function litBubbleIds() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem('lit_bubbles') || '[]'));
+  } catch {
+    return new Set();
+  }
+}
+function hasLeftLight(id) {
+  return litBubbleIds().has(id);
+}
+function rememberLight(id) {
+  const s = litBubbleIds();
+  if (s.has(id)) return;
+  s.add(id);
+  localStorage.setItem('lit_bubbles', JSON.stringify([...s]));
+}
+
+// Ribbon text under an answered balloon — companionship phrasing, never a cold
+// "N comments" count.
+function ribbonText(warmth) {
+  return warmth >= 5 ? t('ribbonMany') : t('ribbon1');
 }
 
 // ---------- Compose ----------
@@ -327,6 +354,7 @@ function renderRead(bubble, replies, rect) {
   els.readContent.textContent = bubble.content;
   // Only the author (this device posted it) can turn a whisper into a video.
   els.readVideoBtn.classList.toggle('hidden', !isMyBubble(bubble.id));
+  setLightButtonState(bubble.id);
   if (bubble.code) {
     els.readAuthor.textContent = `${t('byLabel')} ${maskName(bubble.code)}`;
     els.readAuthor.classList.remove('hidden');
@@ -389,6 +417,29 @@ function openRead() {
 
 function closeRead() {
   els.readOverlay.classList.add('hidden');
+}
+
+// Reflect whether this device has already left a light on the open whisper.
+function setLightButtonState(id) {
+  const left = hasLeftLight(id);
+  els.readLightBtn.textContent = left ? t('lightLeft') : t('leaveLight');
+  els.readLightBtn.classList.toggle('left', left);
+  els.readLightBtn.disabled = left;
+}
+
+// Leave a light: a soft, numberless "I read this, I'm here" for readers who
+// don't want to type. One per device per whisper.
+async function leaveLight() {
+  const id = state.detailBubbleId;
+  if (!id || hasLeftLight(id)) return;
+  rememberLight(id);
+  setLightButtonState(id);
+  showToast(t('lightThanks'));
+  try {
+    await fetch(`/api/bubbles/${id}/lights`, { method: 'POST' });
+  } catch {
+    // Best-effort; the on-device "already left" state stands regardless.
+  }
 }
 
 function openReplySheet() {
@@ -599,7 +650,7 @@ function armMusicAutostart() {
 function init() {
   applyText();
   backgrounds = initBackgrounds({ videoA: els.bgVideoA, videoB: els.bgVideoB, scrim: els.bgScrim });
-  whisperWorld = createWhisperWorld(els.lanterns, els.world, { onTap: openDetail });
+  whisperWorld = createWhisperWorld(els.lanterns, els.world, { onTap: openDetail, ribbonText });
   loadWhispers();
   ambient.preload(); // fetch the music manifest early so first-tap playback is instant
   armMusicAutostart();
@@ -643,6 +694,7 @@ function init() {
   });
   els.readReport.addEventListener('click', reportBubble);
   els.readReplyBtn.addEventListener('click', openReplySheet);
+  els.readLightBtn.addEventListener('click', leaveLight);
   els.readVideoBtn.addEventListener('click', openRecordGuide);
   els.recordClose.addEventListener('click', () => closeSheet(els.recordOverlay, els.recordModal));
   els.recordOk.addEventListener('click', () => closeSheet(els.recordOverlay, els.recordModal));

@@ -53,7 +53,7 @@ export async function onRequestGet({ request, env }) {
   }
 
   const stmt = env.DB.prepare(
-    `SELECT id, type, content, lang, warmth, created_at
+    `SELECT id, type, content, lang, warmth, lights, created_at
        FROM bubbles
       WHERE ${clauses.join(' AND ')}
       ORDER BY created_at DESC
