@@ -450,6 +450,14 @@ body.has-video #mist { display: none; }
   transition: background 0.14s ease;
 }
 .find-result-row:active { background: rgba(255, 255, 255, 0.12); }
+/* A whisper of yours that was hidden for breaking the guidelines: listed, but
+   unreadable and not tappable. */
+.find-result-row.removed {
+  color: var(--ink-soft);
+  font-style: italic;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: default;
+}
 .share-qr {
   display: block;
   width: 180px;
@@ -521,6 +529,16 @@ label { display: block; font-size: 0.84rem; color: var(--ink-soft); margin: 4px 
   margin-bottom: 12px;
 }
 .crisis-banner p { margin: 0; font-size: 0.79rem; line-height: 1.5; color: #ffd9ad; }
+/* Hotlines are national, not linguistic — this link carries whoever we don't
+   have a number for. */
+#crisis-link {
+  display: inline-block;
+  margin-top: 5px;
+  font-size: 0.76rem;
+  color: var(--warm);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .form-error { color: #ff9a9a; font-size: 0.82rem; margin: 6px 2px; }
 
 .sheet-actions { display: flex; gap: 10px; margin-top: 16px; }
@@ -724,6 +742,12 @@ body.reading #now-playing { display: none; }
   from { transform: translate(-50%, var(--read-from, 88vh)); }
   to   { transform: translate(-50%, -100%); }
 }
+/* The text drifts up at ~50px/s, which is fine to read and impossible to aim
+   at. Tapping the whisper or a reply freezes the rise (tap again to resume) so
+   the per-reply report button is a still target. Those two need their own
+   pointer-events because the viewport lets taps fall through to close. */
+.read-scroll.paused { animation-play-state: paused; }
+.read-content, .read-reply { pointer-events: auto; }
 /* Soft pale-yellow backing with dark ink text, so the words stay legible
    over ANY background (bright or dark) while feeling warm, like lamplight. */
 .read-content {
@@ -876,6 +900,39 @@ body.reading #now-playing { display: none; }
   pointer-events: none;
 }
 .read-actions > * { pointer-events: auto; }
+/* Reporting is a quiet, tertiary action: always reachable, never competing
+   with "reply" and "leave a light". */
+.report-btn {
+  background: none;
+  border: none;
+  padding: 9px 10px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: rgba(226, 234, 255, 0.6);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+.report-btn:disabled, .report-btn.reported { color: rgba(226, 234, 255, 0.34); cursor: default; }
+/* Per-reply report, sitting at the end of each reply's byline. Needs its own
+   pointer-events because the reading viewport lets taps fall through. */
+.reply-report {
+  pointer-events: auto;
+  margin-left: 4px;
+  min-height: 28px;
+  padding: 4px 11px;
+  border: 1px solid rgba(59, 47, 24, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  color: rgba(59, 47, 24, 0.72);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.reply-report:disabled, .reply-report.reported {
+  color: rgba(59, 47, 24, 0.4);
+  background: rgba(255, 255, 255, 0.16);
+  cursor: default;
+}
 .read-actions .link-btn { color: rgba(226, 234, 255, 0.75); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); }
 /* "Leave a light" — a zero-effort warm response for readers who don't type.
    No number, no rank; once left (per device) it settles into a soft glow. */

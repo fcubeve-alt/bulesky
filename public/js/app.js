@@ -55,6 +55,7 @@ const els = {
   composeSub: $('compose-sub'),
   crisisBanner: $('crisis-banner'),
   crisisText: $('crisis-text'),
+  crisisLink: $('crisis-link'),
   composeContent: $('compose-content'),
   composeCount: $('compose-count'),
   composeCodeLabel: $('compose-code-label'),
@@ -77,6 +78,7 @@ const els = {
   readAuthor: $('read-author'),
   readReplyBtn: $('read-reply-btn'),
   readLightBtn: $('read-light-btn'),
+  readReportBtn: $('read-report-btn'),
   detailRepliesTitle: $('detail-replies-title'),
   readReplies: $('read-replies'),
   replyOverlay: $('reply-overlay'),
@@ -144,6 +146,7 @@ function applyText() {
   els.entryPain.textContent = t('entryPain');
   els.entryWish.textContent = t('entryWish');
   els.crisisText.textContent = t('crisisText');
+  els.crisisLink.textContent = t('crisisMore');
   els.composeSub.textContent = t('composeSub');
   els.composeCodeLabel.textContent = t('composeNameChip');
   els.composeCode.placeholder = t('codePlaceholder');
@@ -247,6 +250,59 @@ function rememberLight(id) {
   if (s.has(id)) return;
   s.add(id);
   localStorage.setItem('lit_bubbles', JSON.stringify([...s]));
+}
+
+// ---------- Reporting ----------
+
+// One report per device per item, kept in localStorage as "bubble:12" /
+// "reply:34" so a whisper and its replies are counted separately. Reporting is
+// deliberately one tap with no confirmation dialog: an extra step mostly buys
+// fewer reports, not better ones.
+function reportedKeys() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem('reported_items') || '[]'));
+  } catch {
+    return new Set();
+  }
+}
+function reportKey(targetType, id) {
+  return `${targetType}:${id}`;
+}
+function hasReported(targetType, id) {
+  return reportedKeys().has(reportKey(targetType, id));
+}
+function rememberReported(targetType, id) {
+  const s = reportedKeys();
+  s.add(reportKey(targetType, id));
+  localStorage.setItem('reported_items', JSON.stringify([...s]));
+}
+
+function markReportButton(btn) {
+  btn.textContent = t('reported');
+  btn.disabled = true;
+  btn.classList.add('reported');
+}
+
+// Send one report. The server answers whether the content ended up hidden —
+// either because the moderation model confirmed the violation on this very
+// report, or because it has now been flagged enough times.
+async function sendReport(targetType, id, btn, onHidden) {
+  if (hasReported(targetType, id)) return;
+  rememberReported(targetType, id);
+  markReportButton(btn);
+  try {
+    const res = await fetch('/api/report', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ targetType, targetId: id }),
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(t('errorGeneric'));
+    showToast(t('reportedToast'));
+    if (data.hidden) onHidden();
+  } catch {
+    showToast(t('errorGeneric'));
+  }
 }
 
 // Ribbon text under an answered balloon — companionship phrasing, never a cold
@@ -354,6 +410,7 @@ function renderRead(bubble, replies, rect) {
   els.readOverlay.dataset.type = bubble.type;
   els.readContent.textContent = bubble.content;
   setLightButtonState(bubble.id);
+  setReportButtonState(bubble.id);
   if (bubble.code) {
     els.readAuthor.textContent = `${t('byLabel')} ${maskName(bubble.code)}`;
     els.readAuthor.classList.remove('hidden');
@@ -383,6 +440,19 @@ function renderRead(bubble, replies, rect) {
       const who = document.createElement('div');
       who.className = 'read-reply-author';
       who.textContent = `${t('byLabel')} ${r.code ? maskName(r.code) : t('anonymous')}`;
+      // Every reply carries its own report button, counted separately from the
+      // whisper it sits under.
+      const flag = document.createElement('button');
+      flag.className = 'reply-report';
+      const flagged = hasReported('reply', r.id);
+      flag.textContent = flagged ? t('reported') : t('report');
+      flag.disabled = flagged;
+      flag.classList.toggle('reported', flagged);
+      flag.addEventListener('click', (e) => {
+        e.stopPropagation(); // a tap on the overlay closes the reading view
+        sendReport('reply', r.id, flag, () => item.remove());
+      });
+      who.appendChild(flag);
       item.append(body, who);
       els.readReplies.appendChild(item);
     }
@@ -420,7 +490,16 @@ function openRead() {
 function closeRead() {
   els.readOverlay.classList.add('hidden');
   els.readOverlay.classList.remove('lit');
+  els.readScroll.classList.remove('paused');
   document.body.classList.remove('reading');
+}
+
+// Reflect whether this device has already reported the open whisper.
+function setReportButtonState(id) {
+  const done = hasReported('bubble', id);
+  els.readReportBtn.textContent = done ? t('reported') : t('report');
+  els.readReportBtn.disabled = done;
+  els.readReportBtn.classList.toggle('reported', done);
 }
 
 // Reflect whether this device has already left a light on the open whisper.
@@ -522,6 +601,16 @@ function renderFindResults(bubbles) {
   for (const b of bubbles) {
     const row = document.createElement('button');
     row.className = 'find-result-row';
+    // A whisper that was hidden for breaking the guidelines stays unreadable
+    // even here, for its own author — but it is listed, so it doesn't look
+    // like the lookup lost it.
+    if (b.removed) {
+      row.classList.add('removed');
+      row.textContent = t('removedNotice');
+      row.disabled = true;
+      els.findResult.appendChild(row);
+      continue;
+    }
     const icon = b.type === 'wish' ? '✦ ' : '❁ ';
     const text = (b.content || '').trim();
     row.textContent = icon + text.slice(0, 42) + (text.length > 42 ? '…' : '');
@@ -693,8 +782,23 @@ function init() {
   els.readOverlay.addEventListener('click', (e) => {
     if (e.target === els.readOverlay || e.target.classList.contains('read-viewport')) closeRead();
   });
+  // Tapping the text holds it still — for a slow re-read, and so the report
+  // button on a reply can actually be hit. Tap again to let it drift on.
+  els.readScroll.addEventListener('click', () => {
+    els.readScroll.classList.toggle('paused');
+  });
   els.readReplyBtn.addEventListener('click', openReplySheet);
   els.readLightBtn.addEventListener('click', leaveLight);
+  els.readReportBtn.addEventListener('click', () => {
+    const id = state.detailBubbleId;
+    if (!id) return;
+    // A whisper that gets hidden leaves the sky, so close the view it was
+    // being read in and re-deal the deck.
+    sendReport('bubble', id, els.readReportBtn, () => {
+      closeRead();
+      loadWhispers();
+    });
+  });
   els.replyClose.addEventListener('click', () => closeSheet(els.replyOverlay, els.replySheet));
   els.replySubmit.addEventListener('click', submitReply);
   wireOverlayClose(els.replyOverlay, els.replySheet);

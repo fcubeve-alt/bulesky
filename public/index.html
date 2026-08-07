@@ -23,7 +23,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read17" />
+<link rel="stylesheet" href="/css/style.css?v=read18" />
 </head>
 <body>
 
@@ -123,7 +123,12 @@
   <button class="mini-close sheet-close" id="compose-close" aria-label="Close">×</button>
   <div id="compose-title" class="cx-lead"></div>
   <p id="compose-sub" class="cx-sub"></p>
-  <div id="crisis-banner" class="crisis-banner hidden"><p id="crisis-text"></p></div>
+  <!-- Always on while composing a sorrow — never triggered by keywords, so it
+       is there before the first word rather than after it. -->
+  <div id="crisis-banner" class="crisis-banner hidden">
+    <p id="crisis-text"></p>
+    <a id="crisis-link" href="https://findahelpline.com" target="_blank" rel="noopener noreferrer"></a>
+  </div>
   <div class="field">
     <textarea id="compose-content" class="big-input" rows="4" maxlength="1000"></textarea>
     <span id="compose-count" class="field-count">0 / 1000</span>
@@ -167,6 +172,7 @@
   <div class="read-actions">
     <button id="read-reply-btn" class="btn-primary btn-small"></button>
     <button id="read-light-btn" class="btn-secondary btn-small light-btn"></button>
+    <button id="read-report-btn" class="report-btn"></button>
   </div>
 </div>
 

@@ -12,6 +12,16 @@ function json(data, status = 200) {
   });
 }
 
+// Hidden content is invisible to EVERYONE, including whoever wrote it: an
+// author who could still read the abuse aimed at them (or screenshot it) is a
+// risk we don't want to carry. The row is still listed, though, marked
+// `removed` and stripped of its text — vanishing silently would just make the
+// author think the lookup is broken and try again.
+function redactIfHidden(b) {
+  if (!b.hidden) return b;
+  return { id: b.id, type: b.type, created_at: b.created_at, removed: 1 };
+}
+
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
 
@@ -24,13 +34,13 @@ export async function onRequestGet({ request, env }) {
     const code = codeParam.trim().toLowerCase();
     if (!code) return json({ error: 'empty_code' }, 400);
     const { results } = await env.DB.prepare(
-      `SELECT id, type, content, lang, warmth, crisis_flag, created_at
-         FROM bubbles WHERE code = ? AND hidden = 0 ORDER BY created_at DESC`
+      `SELECT id, type, content, lang, warmth, crisis_flag, hidden, created_at
+         FROM bubbles WHERE code = ? ORDER BY created_at DESC`
     )
       .bind(code)
       .all();
     if (!results || results.length === 0) return json({ error: 'not_found', bubbles: [] }, 404);
-    return json({ bubbles: results });
+    return json({ bubbles: results.map(redactIfHidden) });
   }
 
   const type = url.searchParams.get('type');

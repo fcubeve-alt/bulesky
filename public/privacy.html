@@ -113,9 +113,16 @@
     Before anything is saved, the text passes through automatic filters that mask
     contact details (email addresses, phone numbers, messaging handles) so people
     can't be pulled out of the sky and into a private channel where no one can help
-    them. Words that suggest someone is in crisis cause the app to show a support
-    line. Nothing is read by a human as a matter of routine; content is only looked
-    at when it is reported.
+    them. The crisis hotlines are shown to everyone writing a sorrow, so nothing you
+    type decides whether you're offered help.
+  </p>
+  <p>
+    When someone reports a whisper or a reply, that one piece of text is sent to
+    Cloudflare's Workers AI to be judged against the community principles, and the
+    verdict decides whether it's hidden. Only the reported text is sent — nothing
+    that identifies who wrote it — and Cloudflare states that it does not use
+    inference data to train models. Nothing here is read by a human as a matter of
+    routine.
   </p>
 
   <h2>Copyright and reposting</h2>
@@ -130,9 +137,17 @@
   <p>
     There's no delete button yet — with no accounts, there's no way for the server to
     prove a request came from the person who wrote it. In the meantime: use the
-    report button on the content, which hides it once enough people flag it, or write
-    to us at the address below and tell us the name you posted under and roughly what
-    it said. Everything is deleted automatically after a year regardless.
+    report button on the whisper or reply, which sends it through an automatic check
+    and hides it if it breaks the <a href="/principles.html">community principles</a>
+    (three reports hide it either way). Or write to us at the address below and tell
+    us the name you posted under and roughly what it said. Everything is deleted
+    automatically after a year regardless.
+  </p>
+  <p>
+    Hidden content is hidden from everyone, including the person who wrote it. If you
+    look up your own whispers by name, a hidden one is still listed — marked as
+    removed, with the text gone — so it's clear that it existed and what happened to
+    it.
   </p>
 
   <h2>Children</h2>
