@@ -125,7 +125,12 @@
 
 ---
 
-## 7b. 下一步立即要做:官方页面 + 隐私 + 博客(用户点名,关系推广)
+## 7b. 官方页面 + 隐私 + 博客 —— ✅ 已完成(2026-08)
+> 已上线文件:`public/robots.txt`、`public/sitemap.xml`、`public/about.html`、`public/privacy.html`、`public/principles.html`、`public/blog/index.html` + 3 篇起步文章、共享样式 `public/css/pages.css`;App 底部加了低调页脚链接(`.site-links`),首访须知加了"搜索引擎不收录"一条(5 语)。
+>
+> **遗留待办**:①`privacy.html` 里的联系邮箱 `hello@cubewithin.com` 需真正开通(或换成别的地址);②《原则》页写的"人工复核"目前只有举报自动隐藏,没有人工队列——要么补功能,要么改措辞;③博客后续加文章:新增 `public/blog/xxx.html` + 在 index 和 sitemap 各加一条。
+>
+> 以下为当时的需求原文,保留备查。
 > 当前 App 是单页(只有 `/`,由 Cloudflare Pages 从 `public/` 提供)。以下是要新建的**静态官方页面**(可被搜索引擎收录),与用户内容(私密、不收录)分开。这些页面在新对话里直接建,别再讨论方案。
 
 **A. 隐私三件套(优先)**

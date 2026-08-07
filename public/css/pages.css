@@ -1,0 +1,157 @@
+/* Styling for the official static pages (About / Privacy / Principles / Blog).
+   Deliberately separate from style.css: the app is a fixed, non-scrolling
+   fullscreen scene, these are ordinary scrollable documents. Colors and the
+   font stack are kept in sync with the app so the two feel like one place. */
+
+:root {
+  --ink: #eaf0ff;
+  --ink-soft: rgba(234, 240, 255, 0.66);
+  --warm: #ffcf8a;
+  --warm-deep: #ff9d5c;
+  --cool: #8fb6ff;
+  --panel-bg: rgba(12, 16, 34, 0.72);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --radius-md: 15px;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100%;
+  color: var(--ink);
+  font-family: "Nunito", "PingFang SC", "Hiragino Sans GB", "Noto Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.75;
+  background:
+    radial-gradient(120% 80% at 50% 0%, #131a38 0%, #0a0e22 45%, #05060f 100%)
+    #05060f fixed;
+}
+
+a { color: var(--warm); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---- Shell ---- */
+.page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 20px 72px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 22px 0 34px;
+}
+.brand-link {
+  color: var(--ink);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+.brand-link:hover { text-decoration: none; color: var(--warm); }
+.page-nav { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.8rem; }
+.page-nav a { color: var(--ink-soft); }
+.page-nav a[aria-current="page"] { color: var(--warm); }
+
+/* ---- Type ---- */
+h1 {
+  font-size: 1.9rem;
+  line-height: 1.3;
+  margin: 0 0 10px;
+  letter-spacing: -0.01em;
+}
+h2 {
+  font-size: 1.15rem;
+  margin: 38px 0 10px;
+  color: var(--warm);
+  letter-spacing: 0.01em;
+}
+h3 { font-size: 1rem; margin: 26px 0 6px; }
+p { margin: 0 0 16px; }
+ul { margin: 0 0 16px; padding-left: 20px; }
+li { margin-bottom: 8px; }
+strong { color: #fff; }
+
+.lede {
+  font-size: 1.08rem;
+  color: rgba(234, 240, 255, 0.86);
+  margin-bottom: 30px;
+}
+.meta {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+  margin: 0 0 26px;
+}
+
+.note {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin: 26px 0;
+  font-size: 0.94rem;
+}
+.note p:last-child { margin-bottom: 0; }
+.note-warm { border-color: rgba(255, 179, 102, 0.32); background: rgba(255, 179, 102, 0.09); }
+
+blockquote {
+  margin: 26px 0;
+  padding-left: 18px;
+  border-left: 2px solid rgba(255, 207, 138, 0.5);
+  color: rgba(234, 240, 255, 0.86);
+  font-style: italic;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--panel-border);
+  margin: 42px 0;
+}
+
+/* ---- Blog index ---- */
+.post-list { list-style: none; margin: 0; padding: 0; }
+.post-list li { margin-bottom: 26px; }
+.post-list h2 { margin: 0 0 4px; font-size: 1.1rem; color: var(--ink); }
+.post-list a:hover h2 { color: var(--warm); }
+.post-list p { margin: 0; color: var(--ink-soft); font-size: 0.94rem; }
+.post-list a { display: block; color: inherit; }
+.post-list a:hover { text-decoration: none; }
+
+/* ---- Call to action back into the app ---- */
+.cta {
+  display: inline-block;
+  margin: 10px 0 4px;
+  padding: 13px 26px;
+  border-radius: 999px;
+  font-weight: 700;
+  color: var(--ink);
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(135deg, rgba(255, 175, 110, 0.26), rgba(120, 160, 240, 0.14));
+  box-shadow: 0 0 22px rgba(255, 168, 92, 0.22);
+}
+.cta:hover { text-decoration: none; box-shadow: 0 0 30px rgba(255, 168, 92, 0.34); }
+
+/* ---- Footer ---- */
+.page-footer {
+  border-top: 1px solid var(--panel-border);
+  margin-top: 54px;
+  padding-top: 22px;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.page-footer nav { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; }
+.page-footer a { color: var(--ink-soft); }
+.page-footer a:hover { color: var(--warm); }
+
+@media (max-width: 520px) {
+  body { font-size: 16px; }
+  h1 { font-size: 1.6rem; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 8px; padding-bottom: 26px; }
+}

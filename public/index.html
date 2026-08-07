@@ -23,7 +23,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read16" />
+<link rel="stylesheet" href="/css/style.css?v=read17" />
 </head>
 <body>
 
@@ -102,8 +102,18 @@
 
 <!-- Bottom invitation -->
 <nav class="bottom-bar">
-  <button id="entry-pain" class="bottom-btn" data-type="pain"></button>
-  <button id="entry-wish" class="bottom-btn" data-type="wish"></button>
+  <div class="bottom-actions">
+    <button id="entry-pain" class="bottom-btn" data-type="pain"></button>
+    <button id="entry-wish" class="bottom-btn" data-type="wish"></button>
+  </div>
+  <!-- Quiet footer to the official pages. English on purpose: the pages
+       themselves are English, so a localized label would mislead. -->
+  <p class="site-links">
+    <a href="/about.html">About</a>
+    <a href="/principles.html">Principles</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/blog/">Blog</a>
+  </p>
 </nav>
 
 <!-- Compose sheet -->
