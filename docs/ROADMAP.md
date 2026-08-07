@@ -128,7 +128,9 @@
 ## 7b. 官方页面 + 隐私 + 博客 —— ✅ 已完成(2026-08)
 > 已上线文件:`public/robots.txt`、`public/sitemap.xml`、`public/about.html`、`public/privacy.html`、`public/principles.html`、`public/blog/index.html` + 3 篇起步文章、共享样式 `public/css/pages.css`;App 底部加了低调页脚链接(`.site-links`),首访须知加了"搜索引擎不收录"一条(5 语)。
 >
-> **遗留待办**:①`privacy.html` 里的联系邮箱 `hello@cubewithin.com` 需真正开通(或换成别的地址);②博客后续加文章:新增 `public/blog/xxx.html` + 在 index 和 sitemap 各加一条。
+> **遗留待办**:`privacy.html` 里的联系邮箱 `hello@cubewithin.com` 需真正开通(或换成别的地址)。
+>
+> 博客后来改成了后台发布(见 §7d),不再是静态文件。
 >
 > ~~②《原则》页写的"人工复核"…~~ 已按《举报与内容安全规则》补充文档处理,见 §7c。
 >
@@ -171,6 +173,19 @@
 **关键词过滤**:维持现状(英文为主),不扩展其他语言——非英文内容的安全由"举报 + AI 语义判断"兜底,AI 不受语言限制。
 
 **阅读页可暂停**:文字以约 50px/s 上升,62×22px 的举报按钮根本点不中。**点一下正文或某条回复会冻结上升(再点恢复)**,`.read-scroll.paused`。改动前请确认这条仍成立,否则每条回复的举报按钮等于不存在。
+
+---
+
+## 7d. 博客后台(CMS)—— ✅ 已完成(2026-08)
+> 用户要求:"我要在后台可以发博客"。博客从静态 HTML 改为 **D1 + Pages Functions**,写文章不再需要改代码、发版。
+
+- **后台**:`/admin.html`(`noindex` + `robots.txt` Disallow)。列表 / 新建 / 编辑 / 发布 / 撤回 / 删除;Markdown 正文,标题自动生成 URL(可改),摘要选填(留空取第一段)。
+- **登录**:单一密码 `ADMIN_PASSWORD`(Pages secret,由 deploy workflow 从 GitHub secret 同步)。密码只用于校验和签名,**不入库、不进 cookie**;cookie 是 `<过期时间>.<HMAC-SHA256>`,两周过期,HttpOnly + Secure + SameSite=Strict(`src/admin-auth.js`)。**没配 `ADMIN_PASSWORD` 时任何人都进不去**(而不是所有人都能进)。
+- **前台**:`/blog/`(列表)、`/blog/<slug>`(正文)由 `functions/blog/` 渲染,套用与官方页同一套 `pages.css` 外壳(`src/blog-page.js`);草稿对读者一律 404。`/sitemap.xml` 改成动态,发布即进 sitemap。
+- **Markdown**:`src/markdown.js` 只支持 `##`/`###`/列表/引用/`---`/粗斜体/链接。**先转义再解析**,链接只放行 `http(s)` 和站内 `/`;JSON-LD 里另外把 `<` 转成 `<`(否则标题里一个 `</script>` 就能越狱)。
+- **原来的 3 篇**:源文件在 `content/blog/*.md`,`node tools/gen-post-seed.mjs` 生成 `migrations/0007_seed_posts.sql` 灌进 D1(`INSERT OR IGNORE`,重跑迁移不会覆盖你在后台改过的内容)。改种子文章正常做法是**直接在后台改**,不用动 md。
+- **缓存**:文章页 `cache-control: max-age=60` —— 撤回一篇已发布的文章,已经打开过的浏览器最多还能看到 60 秒。
+- **`public/_routes.json`**:只有 `/api/*`、`/blog`、`/blog/*`、`/sitemap.xml` 走 Functions,其余静态资源直出。**新增动态路由记得加进来**。
 
 ---
 

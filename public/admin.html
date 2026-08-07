@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#070a18" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Write — Are you all right?</title>
+<link rel="icon" href="/icons/icon.svg" />
+<link rel="stylesheet" href="/css/pages.css?v=1" />
+<link rel="stylesheet" href="/css/admin.css?v=1" />
+</head>
+<body>
+<div class="page">
+
+<header class="page-header">
+  <a class="brand-link" href="/">Are you all right?</a>
+  <nav class="page-nav">
+    <a href="/blog/">Blog</a>
+    <button id="logout" class="link hidden" type="button">Sign out</button>
+  </nav>
+</header>
+
+<!-- 1. Sign in -->
+<main id="view-login" class="hidden">
+  <h1>Write</h1>
+  <p class="lede">Sign in to write and publish posts.</p>
+  <label for="password">Password</label>
+  <input id="password" type="password" autocomplete="current-password" />
+  <div class="row"><button id="login" class="primary" type="button">Sign in</button></div>
+  <p id="login-msg" class="msg error hidden"></p>
+</main>
+
+<!-- 2. All posts -->
+<main id="view-list" class="hidden">
+  <div class="admin-bar">
+    <h1>Posts</h1>
+    <button id="new-post" class="primary" type="button">New post</button>
+  </div>
+  <div id="posts"></div>
+  <p id="list-msg" class="msg hidden"></p>
+</main>
+
+<!-- 3. Editor -->
+<main id="view-edit" class="hidden">
+  <div class="admin-bar">
+    <h1 id="edit-title">New post</h1>
+    <button id="back" class="link" type="button">← All posts</button>
+  </div>
+
+  <label for="title">Title</label>
+  <input id="title" type="text" />
+
+  <label for="slug">URL</label>
+  <input id="slug" type="text" />
+  <p class="field-hint">cubewithin.com/blog/<span id="slug-preview">…</span> — leave it alone and it follows the title.</p>
+
+  <label for="description">Summary</label>
+  <input id="description" type="text" />
+  <p class="field-hint">Shown on the blog index and to search engines. Optional — the first paragraph is used if you leave it empty.</p>
+
+  <label for="body">Body</label>
+  <textarea id="body" spellcheck="true"></textarea>
+  <p class="field-hint">
+    Markdown: <code>## Heading</code>, <code>### Smaller heading</code>, <code>- list item</code>,
+    <code>&gt; quote</code>, <code>**bold**</code>, <code>*italic*</code>,
+    <code>[text](https://link)</code>, <code>---</code> for a divider. Blank line between paragraphs.
+  </p>
+
+  <div class="checkbox">
+    <input id="published" type="checkbox" />
+    <label for="published" style="margin:0">Published — visible on the blog and in the sitemap</label>
+  </div>
+
+  <div class="row">
+    <button id="save" class="primary" type="button">Save</button>
+    <button id="view" class="hidden" type="button">View</button>
+    <button id="delete" class="danger hidden" type="button">Delete</button>
+  </div>
+  <p id="edit-msg" class="msg hidden"></p>
+</main>
+
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const views = { login: $('view-login'), list: $('view-list'), edit: $('view-edit') };
+let editingId = null;
+let slugTouched = false;
+
+function show(name) {
+  for (const [key, el] of Object.entries(views)) el.classList.toggle('hidden', key !== name);
+  $('logout').classList.toggle('hidden', name === 'login');
+}
+
+function say(el, text, kind = 'error') {
+  el.textContent = text;
+  el.className = `msg ${kind}`;
+  el.classList.toggle('hidden', !text);
+}
+
+const ERRORS = {
+  wrong_password: 'That password is not right.',
+  not_configured: 'ADMIN_PASSWORD is not set on the server yet.',
+  slug_taken: 'Another post already uses that URL.',
+  empty_title: 'A post needs a title.',
+  empty_body: 'A post needs a body.',
+  title_too_long: 'That title is too long.',
+  body_too_long: 'That post is too long.',
+};
+
+// isLogin: a 401 from the sign-in call means "wrong password", not "your
+// session ended" — it must report the reason instead of bouncing to the form.
+async function api(path, options = {}, isLogin = false) {
+  const res = await fetch(path, { credentials: 'same-origin', ...options });
+  if (res.status === 401 && !isLogin) {
+    show('login');
+    throw new Error('unauthorized');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(ERRORS[data.error] || 'Something went wrong. Try again.');
+  return data;
+}
+
+const fmt = (ms) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+async function loadList() {
+  const { posts } = await api('/api/admin/posts');
+  const box = $('posts');
+  box.textContent = '';
+  if (!posts.length) {
+    say($('list-msg'), 'No posts yet. "New post" starts the first one.', 'ok');
+    return;
+  }
+  say($('list-msg'), '');
+  for (const p of posts) {
+    const row = document.createElement('div');
+    row.className = 'post-row';
+
+    const left = document.createElement('div');
+    const h = document.createElement('h2');
+    h.textContent = p.title;
+    const tag = document.createElement('span');
+    tag.className = `tag ${p.published ? 'live' : 'draft'}`;
+    tag.textContent = p.published ? 'Published' : 'Draft';
+    h.appendChild(tag);
+    const meta = document.createElement('p');
+    meta.className = 'meta';
+    meta.textContent = `${fmt(p.created_at)} · /blog/${p.slug}`;
+    left.append(h, meta);
+
+    const edit = document.createElement('button');
+    edit.textContent = 'Edit';
+    edit.addEventListener('click', () => openEditor(p.id));
+
+    row.append(left, edit);
+    box.appendChild(row);
+  }
+  show('list');
+}
+
+function fillEditor(post) {
+  editingId = post?.id ?? null;
+  slugTouched = Boolean(post);
+  $('edit-title').textContent = post ? 'Edit post' : 'New post';
+  $('title').value = post?.title || '';
+  $('slug').value = post?.slug || '';
+  $('slug-preview').textContent = post?.slug || '…';
+  $('description').value = post?.description || '';
+  $('body').value = post?.body || '';
+  $('published').checked = Boolean(post?.published);
+  $('delete').classList.toggle('hidden', !post);
+  $('view').classList.toggle('hidden', !post?.published);
+  say($('edit-msg'), '');
+  show('edit');
+}
+
+async function openEditor(id) {
+  if (!id) return fillEditor(null);
+  const { post } = await api(`/api/admin/posts/${id}`);
+  fillEditor(post);
+}
+
+// Mirrors slugify() on the server, so the preview matches what gets saved.
+function slugify(s) {
+  return String(s).toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '').slice(0, 80);
+}
+
+$('title').addEventListener('input', () => {
+  if (slugTouched) return;
+  $('slug').value = slugify($('title').value);
+  $('slug-preview').textContent = $('slug').value || '…';
+});
+$('slug').addEventListener('input', () => {
+  slugTouched = true;
+  $('slug-preview').textContent = slugify($('slug').value) || '…';
+});
+
+$('save').addEventListener('click', async () => {
+  const payload = {
+    title: $('title').value,
+    slug: $('slug').value || $('title').value,
+    description: $('description').value,
+    body: $('body').value,
+    published: $('published').checked,
+  };
+  $('save').disabled = true;
+  try {
+    const res = editingId
+      ? await api(`/api/admin/posts/${editingId}`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      : await api('/api/admin/posts', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+    editingId = editingId || res.id;
+    $('slug').value = res.slug;
+    $('delete').classList.remove('hidden');
+    $('view').classList.toggle('hidden', !$('published').checked);
+    $('edit-title').textContent = 'Edit post';
+    say($('edit-msg'), $('published').checked ? 'Saved and live.' : 'Saved as a draft.', 'ok');
+  } catch (e) {
+    say($('edit-msg'), e.message);
+  } finally {
+    $('save').disabled = false;
+  }
+});
+
+$('view').addEventListener('click', () => window.open(`/blog/${$('slug').value}`, '_blank'));
+
+$('delete').addEventListener('click', async () => {
+  if (!editingId || !confirm('Delete this post? This cannot be undone.')) return;
+  try {
+    await api(`/api/admin/posts/${editingId}`, { method: 'DELETE' });
+    await loadList();
+  } catch (e) {
+    say($('edit-msg'), e.message);
+  }
+});
+
+$('new-post').addEventListener('click', () => fillEditor(null));
+$('back').addEventListener('click', () => loadList().catch(() => {}));
+
+$('login').addEventListener('click', async () => {
+  try {
+    await api(
+      '/api/admin/session',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password: $('password').value }),
+      },
+      true
+    );
+    $('password').value = '';
+    say($('login-msg'), '');
+    await loadList();
+  } catch (e) {
+    say($('login-msg'), e.message);
+  }
+});
+$('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('login').click(); });
+
+$('logout').addEventListener('click', async () => {
+  await fetch('/api/admin/session', { method: 'DELETE', credentials: 'same-origin' });
+  show('login');
+});
+
+// Already signed in? Go straight to the posts.
+loadList().catch(() => show('login'));
+</script>
+</body>
+</html>

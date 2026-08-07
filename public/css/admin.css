@@ -1,0 +1,78 @@
+/* Admin-only additions on top of pages.css. Nobody but the author sees these,
+   so they stay plain — legible fields, obvious buttons, no decoration. */
+
+.admin-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+.admin-bar h1 { margin: 0; }
+
+label { display: block; margin: 16px 0 5px; font-size: 0.82rem; color: var(--ink-soft); }
+input[type="text"], textarea {
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.95rem;
+}
+textarea { min-height: 420px; line-height: 1.6; resize: vertical; }
+input:focus, textarea:focus { outline: none; border-color: rgba(255, 207, 138, 0.6); }
+.field-hint { font-size: 0.76rem; color: var(--ink-soft); margin: 5px 2px 0; }
+
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 20px; }
+.checkbox { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; font-size: 0.9rem; }
+.checkbox input { width: 18px; height: 18px; accent-color: #ffcf8a; }
+
+button {
+  padding: 11px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+button.primary {
+  background: linear-gradient(135deg, rgba(255, 175, 110, 0.4), rgba(120, 160, 240, 0.2));
+  border-color: rgba(255, 207, 138, 0.45);
+}
+button.danger { color: #ff9a9a; border-color: rgba(255, 154, 154, 0.35); }
+button.link { background: none; border: none; padding: 6px 8px; color: var(--ink-soft); font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: default; }
+
+.post-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+.post-row h2 { margin: 0 0 3px; font-size: 1rem; color: var(--ink); }
+.post-row .meta { margin: 0; }
+.tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+.tag.live { background: rgba(140, 220, 160, 0.18); color: #a9e8bd; }
+.tag.draft { background: rgba(255, 255, 255, 0.1); color: var(--ink-soft); }
+
+.msg { margin: 16px 0; font-size: 0.9rem; }
+.msg.error { color: #ff9a9a; }
+.msg.ok { color: #a9e8bd; }
+.hidden { display: none !important; }
