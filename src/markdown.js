@@ -12,10 +12,15 @@ export function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-// Inline: **bold**, *italic*, [text](href). Only http(s) and same-site links
-// are allowed through; anything else renders as plain text.
+// Inline: ![alt](src), **bold**, *italic*, [text](href). Only http(s) and
+// same-site targets are allowed through; anything else renders as plain text.
+// Images must run BEFORE links — ![x](y) also matches the link pattern.
 function inline(text) {
   return text
+    .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (m, alt, src) => {
+      if (!/^(https?:\/\/|\/)/.test(src)) return alt;
+      return `<img src="${src}" alt="${alt}" loading="lazy" />`;
+    })
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, href) => {
       const safe = /^(https?:\/\/|\/)/.test(href);
       if (!safe) return label;
@@ -53,6 +58,9 @@ export function renderMarkdown(src) {
         .map((l) => l.trim().slice(5).trim())
         .join(' ');
       out.push(`<blockquote>${inline(text)}</blockquote>`);
+    } else if (/^!\[[^\]]*\]\([^)\s]+\)$/.test(block)) {
+      // An image on its own line stands alone, not wrapped in a paragraph.
+      out.push(inline(block));
     } else {
       out.push(`<p>${inline(block.replace(/\n/g, ' '))}</p>`);
     }
