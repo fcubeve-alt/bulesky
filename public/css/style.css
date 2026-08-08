@@ -170,6 +170,11 @@ body.has-video #mist { display: none; }
   filter: blur(1px);
   pointer-events: none;
 }
+.lantern {
+  /* the basket art, hoisted so the lit state below can layer a glow over the
+     exact same drawing instead of duplicating this data URI */
+  --basket: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2060%2046%27%3E%3Cg%20stroke%3D%27%23e2c19a%27%20stroke-width%3D%271.4%27%20stroke-linecap%3D%27round%27%3E%3Cline%20x1%3D%2719%27%20y1%3D%271%27%20x2%3D%2724%27%20y2%3D%2721%27%2F%3E%3Cline%20x1%3D%2741%27%20y1%3D%271%27%20x2%3D%2736%27%20y2%3D%2721%27%2F%3E%3C%2Fg%3E%3Crect%20x%3D%2722.5%27%20y%3D%2720%27%20width%3D%2715%27%20height%3D%2711%27%20rx%3D%272.4%27%20fill%3D%27%238a5a2b%27%2F%3E%3Crect%20x%3D%2722.5%27%20y%3D%2720%27%20width%3D%2715%27%20height%3D%274.2%27%20rx%3D%272%27%20fill%3D%27%23a9702f%27%2F%3E%3Cg%20stroke%3D%27%236b431f%27%20stroke-width%3D%270.9%27%3E%3Cline%20x1%3D%2727.3%27%20y1%3D%2721%27%20x2%3D%2727.3%27%20y2%3D%2731%27%2F%3E%3Cline%20x1%3D%2732.7%27%20y1%3D%2721%27%20x2%3D%2732.7%27%20y2%3D%2731%27%2F%3E%3C%2Fg%3E%3Cline%20x1%3D%2730%27%20y1%3D%2731%27%20x2%3D%2730%27%20y2%3D%2743%27%20stroke%3D%27%23d8b98a%27%20stroke-width%3D%271.1%27%20stroke-linecap%3D%27round%27%2F%3E%3Ccircle%20cx%3D%2730%27%20cy%3D%2744.4%27%20r%3D%271.4%27%20fill%3D%27%23d8b98a%27%2F%3E%3C%2Fsvg%3E");
+}
 .lantern::after { /* hot-air-balloon rigging: ropes + wicker basket */
   content: "";
   position: absolute;
@@ -178,7 +183,7 @@ body.has-video #mist { display: none; }
   width: 62%;
   height: 46%;
   transform: translateX(-50%);
-  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2060%2046%27%3E%3Cg%20stroke%3D%27%23e2c19a%27%20stroke-width%3D%271.4%27%20stroke-linecap%3D%27round%27%3E%3Cline%20x1%3D%2719%27%20y1%3D%271%27%20x2%3D%2724%27%20y2%3D%2721%27%2F%3E%3Cline%20x1%3D%2741%27%20y1%3D%271%27%20x2%3D%2736%27%20y2%3D%2721%27%2F%3E%3C%2Fg%3E%3Crect%20x%3D%2722.5%27%20y%3D%2720%27%20width%3D%2715%27%20height%3D%2711%27%20rx%3D%272.4%27%20fill%3D%27%238a5a2b%27%2F%3E%3Crect%20x%3D%2722.5%27%20y%3D%2720%27%20width%3D%2715%27%20height%3D%274.2%27%20rx%3D%272%27%20fill%3D%27%23a9702f%27%2F%3E%3Cg%20stroke%3D%27%236b431f%27%20stroke-width%3D%270.9%27%3E%3Cline%20x1%3D%2727.3%27%20y1%3D%2721%27%20x2%3D%2727.3%27%20y2%3D%2731%27%2F%3E%3Cline%20x1%3D%2732.7%27%20y1%3D%2721%27%20x2%3D%2732.7%27%20y2%3D%2731%27%2F%3E%3C%2Fg%3E%3Cline%20x1%3D%2730%27%20y1%3D%2731%27%20x2%3D%2730%27%20y2%3D%2743%27%20stroke%3D%27%23d8b98a%27%20stroke-width%3D%271.1%27%20stroke-linecap%3D%27round%27%2F%3E%3Ccircle%20cx%3D%2730%27%20cy%3D%2744.4%27%20r%3D%271.4%27%20fill%3D%27%23d8b98a%27%2F%3E%3C%2Fsvg%3E");
+  background-image: var(--basket);
   background-repeat: no-repeat;
   background-position: top center;
   background-size: 100% 100%;
@@ -190,7 +195,7 @@ body.has-video #mist { display: none; }
   line-height: 1.22;
   color: rgba(28, 18, 32, 0.92);
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
@@ -210,42 +215,28 @@ body.has-video #mist { display: none; }
 }
 .lantern.type-pain .lantern-text { color: rgba(16, 22, 44, 0.92); }
 .lantern:active { filter: brightness(1.1); }
-/* A streamer that hangs from the basket on a little string when a whisper has
-   been answered — a warm "someone stayed for this" cue, not a cold comment
-   count. A swallowtail bottom edge + a fabric wave make it read as a fluttering
-   ribbon rather than a rigid label. Only shown for warmth >= 1 (added from JS). */
-.lantern-ribbon {
-  position: absolute;
-  top: 134%;
-  left: 50%;
-  white-space: nowrap;
-  font-size: 0.56rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: #5a3d18;
-  background: linear-gradient(180deg, rgba(255, 228, 170, 0.97), rgba(255, 196, 120, 0.95));
-  padding: 3px 12px 7px;
-  /* swallowtail notch on the bottom edge → a pennant/streamer, not a card */
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.24);
-  pointer-events: none;
-  transform-origin: top center;
-  animation: ribbon-wave 3s ease-in-out infinite;
+/* "Someone answered" used to be a yellow pennant hanging off the basket. It
+   read as a web notification and broke the spell, so the signal moved into the
+   scene itself: the basket is lit, like someone is home in it. Binary on
+   purpose — one reply and twenty look identical. It says a stranger stopped
+   here, not how many. Drawn as a warm pool of light layered over the basket in
+   the same pseudo-element, so an answered whisper costs no extra DOM. */
+.lantern.answered::after {
+  background-image:
+    radial-gradient(
+      ellipse 26% 15% at 50% 55%,
+      rgba(255, 240, 200, 0.95) 0%,
+      rgba(255, 198, 112, 0.6) 45%,
+      rgba(255, 170, 70, 0) 100%
+    ),
+    var(--basket);
+  animation: basket-lit 3.6s ease-in-out infinite alternate;
 }
-.lantern-ribbon::before { /* short string tying the streamer to the basket */
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: -7px;
-  width: 1px;
-  height: 7px;
-  background: rgba(214, 184, 126, 0.85);
-  transform: translateX(-50%);
+@keyframes basket-lit {
+  from { filter: brightness(0.94); }
+  to { filter: brightness(1.14); }
 }
-.lantern-ribbon.warm { background: linear-gradient(180deg, rgba(255, 216, 150, 0.98), rgba(255, 172, 96, 0.96)); }
-@keyframes ribbon-wave {
-  0%, 100% { transform: translateX(-50%) rotate(-3.2deg) skewX(3deg); }
-  50% { transform: translateX(-50%) rotate(3.2deg) skewX(-3deg); }
+}
 }
 
 /* ---- Top bar ---- */
@@ -934,6 +925,26 @@ body.reading #now-playing { display: none; }
   pointer-events: none;
 }
 .read-actions > * { pointer-events: auto; }
+/* "If you can, leave a little warmth behind." — an invitation, never a demand:
+   its own line above the two actions, quiet enough to ignore. */
+.read-invite {
+  flex-basis: 100%;
+  max-width: fit-content; /* shrink to the sentence, then centre on its own line */
+  margin: 0 auto 6px;
+  padding: 5px 15px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-style: italic;
+  letter-spacing: 0.01em;
+  color: rgba(255, 235, 205, 0.88);
+  /* the same quiet backing as the now-playing strip: the whisper scrolls
+     behind this, and both have to stay readable */
+  background: rgba(8, 11, 26, 0.42);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
 /* One report control, used both next to a whisper's byline and at the end of
    each reply's. Needs its own pointer-events because the reading viewport lets
    taps fall through to close. */

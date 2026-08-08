@@ -223,7 +223,10 @@ export function initScene(canvas) {
 
 // ---- Whisper world: the whispers, as rising lanterns you can pan through ----
 
-const WARMTH_CAP = 12;
+// How many lights it takes for a whisper's halo to reach its warmest. Past
+// this it stops growing — the sky must stay readable, and a popularity contest
+// is the last thing this place needs.
+const LIGHT_CAP = 8;
 const PREVIEW_CHARS = 60;
 
 // Four explicit depth tiers (see docs/SKY_FEED.md §4). Using discrete tiers —
@@ -299,7 +302,7 @@ function poolCap() {
 // big bright ones rise close and sway past. `viewport` is the fixed clipping
 // element; `world` is the inner layer that holds the balloons. Tap vs. drag is
 // distinguished by movement distance.
-export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedMore }) {
+export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
   let items = [];
   let raf = null;
   let lastT = 0;
@@ -436,7 +439,6 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
   function applyWhisper(it, wsp) {
     it.wsp = wsp;
     const text = (wsp.content || '').trim();
-    const warmN = Math.min(1, ((wsp.warmth || 0) + (wsp.lights || 0) * 0.6) / WARMTH_CAP);
     const lenFactor = Math.min(1, text.length / 160);
     const base = 66 + lenFactor * 34; // ~66–100px, then × depth scale
     const shape = Math.random();
@@ -451,22 +453,18 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
     el.style.width = w + 'px';
     el.style.height = h + 'px';
     el.style.fontSize = (0.56 + lenFactor * 0.12).toFixed(3) + 'rem';
-    el.style.setProperty('--glow', (0.5 + warmN * 1.0).toFixed(2));
-    el.style.setProperty('--burn', (0.14 + warmN * 0.7).toFixed(2)); // burner brightens with warmth
+    // The two ways of caring read differently and never blur together:
+    //   a reply  → the basket is lit (below), on or off, never a count;
+    //   a light  → the envelope's halo warms up, capped so a popular whisper
+    //              glows a little more but never burns out the picture.
+    const litN = Math.min(1, (wsp.lights || 0) / LIGHT_CAP);
+    el.style.setProperty('--glow', (0.5 + litN * 0.85).toFixed(2));
+    el.style.setProperty('--burn', (0.12 + litN * 0.5).toFixed(2));
     el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');
     it.span.textContent = text.length > PREVIEW_CHARS ? text.slice(0, PREVIEW_CHARS) + '…' : text;
-    // A whisper that's been answered hangs a small streamer; rebuild it per bind.
-    if (it.ribbon) {
-      it.ribbon.remove();
-      it.ribbon = null;
-    }
-    if ((wsp.warmth || 0) >= 1 && typeof ribbonText === 'function') {
-      const ribbon = document.createElement('span');
-      ribbon.className = 'lantern-ribbon' + ((wsp.warmth || 0) >= 5 ? ' warm' : '');
-      ribbon.textContent = ribbonText(wsp.warmth || 0);
-      el.appendChild(ribbon);
-      it.ribbon = ribbon;
-    }
+    // Answered? Then someone is home: a warm light in the basket. One reply or
+    // twenty looks the same — this says "a stranger stopped here", not "N".
+    el.classList.toggle('answered', (wsp.warmth || 0) >= 1);
   }
 
   // Send a balloon up from just below the bottom edge carrying the next
@@ -544,7 +542,6 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
     const it = {
       el,
       span,
-      ribbon: null,
       wsp: null,
       w: 90,
       h: 90,

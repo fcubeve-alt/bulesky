@@ -80,6 +80,7 @@ const els = {
   readScroll: $('read-scroll'),
   readContent: $('read-content'),
   readAuthor: $('read-author'),
+  readInvite: $('read-invite'),
   readReplyBtn: $('read-reply-btn'),
   readLightBtn: $('read-light-btn'),
   readReportBtn: $('read-report-btn'),
@@ -161,6 +162,7 @@ function applyText() {
   els.confirmCopy.textContent = t('copyCode');
   els.confirmHint.textContent = t('confirmHint');
   els.confirmClose.textContent = t('close');
+  els.readInvite.textContent = t('readInvite');
   els.readReplyBtn.textContent = t('readReply');
   els.readLightBtn.textContent = t('leaveLight');
   els.replyCode.placeholder = t('replyCodePlaceholder');
@@ -308,12 +310,6 @@ async function sendReport(targetType, id, btn, onHidden) {
   } catch {
     showToast(t('errorGeneric'));
   }
-}
-
-// Ribbon text under an answered balloon — companionship phrasing, never a cold
-// "N comments" count.
-function ribbonText(warmth) {
-  return warmth >= 5 ? t('ribbonMany') : t('ribbon1');
 }
 
 // ---------- Compose ----------
@@ -740,7 +736,6 @@ function init() {
   backgrounds = initBackgrounds({ videoA: els.bgVideoA, videoB: els.bgVideoB, scrim: els.bgScrim });
   whisperWorld = createWhisperWorld(els.lanterns, els.world, {
     onTap: openDetail,
-    ribbonText,
     onNeedMore: requestFreshSample,
   });
   loadWhispers();
