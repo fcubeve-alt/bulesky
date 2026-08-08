@@ -1,4 +1,4 @@
-import { isAuthed, unauthorized } from '../../../src/admin-auth.js';
+import { isAuthed, unauthorized } from '../../../../src/admin-auth.js';
 
 // Generous for a downscaled photo, small enough that a stray full-resolution
 // upload is refused rather than parked in the database forever.
@@ -10,6 +10,30 @@ function json(data, status = 200) {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' },
   });
+}
+
+// Every uploaded image, with the posts that reference it. The bytes are never
+// sent here — only what is needed to decide whether one can go.
+export async function onRequestGet({ request, env }) {
+  if (!(await isAuthed(request, env))) return unauthorized();
+
+  const { results } = await env.DB.prepare(
+    `SELECT id, mime, bytes, created_at FROM images ORDER BY created_at DESC`
+  ).all();
+
+  const images = [];
+  for (const img of results || []) {
+    // Which posts embed it? Deleting one that is live would leave a broken
+    // picture in a published article, so the admin gets told before it does.
+    const { results: used } = await env.DB.prepare(
+      `SELECT title, slug, published FROM posts WHERE body LIKE ?`
+    )
+      .bind(`%](/media/${img.id})%`)
+      .all();
+    images.push({ ...img, url: `/media/${img.id}`, usedIn: used || [] });
+  }
+
+  return json({ images });
 }
 
 // Upload one image for use in a post. The editor sends a data URL because it
