@@ -247,8 +247,6 @@ body.has-video #mist { display: none; }
   from { filter: brightness(0.94); }
   to { filter: brightness(1.14); }
 }
-}
-}
 
 /* ---- Top bar ---- */
 .top-bar {
