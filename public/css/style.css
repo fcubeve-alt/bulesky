@@ -190,7 +190,7 @@ body.has-video #mist { display: none; }
   line-height: 1.22;
   color: rgba(28, 18, 32, 0.92);
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
@@ -330,7 +330,7 @@ body.has-video #mist { display: none; }
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(70px + var(--safe-bottom));
+  bottom: calc(104px + var(--safe-bottom));
   z-index: 19;
   max-width: 82vw;
   padding: 5px 12px;
@@ -419,8 +419,8 @@ body.has-video #mist { display: none; }
 .bottom-btn {
   flex: 1;
   border-radius: 999px;
-  padding: 13px 10px;
-  font-size: 0.94rem;
+  padding: 11px 10px;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--ink);
   cursor: pointer;
