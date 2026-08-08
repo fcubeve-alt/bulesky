@@ -42,10 +42,12 @@ export async function onRequestGet({ params, env }) {
 
   const hash = await voiceHash(text, bubble.type);
 
-  const cached = await env.DB.prepare(`SELECT mime, data FROM voice WHERE hash = ?`)
+  const { results: parts } = await env.DB.prepare(
+    `SELECT mime, data FROM voice_chunks WHERE hash = ? ORDER BY part ASC`
+  )
     .bind(hash)
-    .first();
-  if (cached) return audio(cached.data, cached.mime);
+    .all();
+  if (parts && parts.length) return audio(join(parts.map((p) => p.data)), parts[0].mime);
 
   // No key configured → say so plainly and let the browser fall back to its own
   // speech synthesis. A missing key must never look like a broken button.
@@ -72,16 +74,42 @@ export async function onRequestGet({ params, env }) {
   // race with another listener inserting the same hash) must not cost the
   // reader their audio.
   try {
-    await env.DB.prepare(
-      `INSERT OR IGNORE INTO voice (hash, mime, data, bytes, created_at) VALUES (?, ?, ?, ?, ?)`
-    )
-      .bind(hash, out.mime, out.bytes, out.bytes.length, Date.now())
-      .run();
+    const now = Date.now();
+    const rows = [];
+    for (let i = 0, part = 0; i < out.bytes.length; i += CHUNK_BYTES, part += 1) {
+      rows.push(
+        env.DB.prepare(
+          `INSERT OR IGNORE INTO voice_chunks (hash, part, mime, data, created_at) VALUES (?, ?, ?, ?, ?)`
+        ).bind(hash, part, out.mime, out.bytes.slice(i, i + CHUNK_BYTES), now)
+      );
+    }
+    // One batch, so a reading is either fully cached or not cached at all —
+    // half a reading in the table would be served as truncated audio forever.
+    await env.DB.batch(rows);
   } catch {
     /* cached next time */
   }
 
   return audio(out.bytes, out.mime);
+}
+
+// D1 caps a single BLOB — and a single row — at 2,000,000 bytes. A minute of
+// speech is more than that, so readings are split rather than risking an insert
+// that fails silently and quietly re-bills every play. Left well short of the
+// cap to leave room for the rest of the row.
+const CHUNK_BYTES = 900_000;
+
+function join(chunks) {
+  const parts = chunks.map((c) => (c instanceof Uint8Array ? c : new Uint8Array(c)));
+  if (parts.length === 1) return parts[0];
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const p of parts) {
+    out.set(p, at);
+    at += p.length;
+  }
+  return out;
 }
 
 function audio(data, mime) {
