@@ -1,17 +1,24 @@
-/* Styling for the official static pages (About / Privacy / Principles / Blog).
+/* Styling for the reading pages (About / Privacy / Principles / Blog).
    Deliberately separate from style.css: the app is a fixed, non-scrolling
-   fullscreen scene, these are ordinary scrollable documents. Colors and the
-   font stack are kept in sync with the app so the two feel like one place. */
+   fullscreen night scene, these are ordinary documents you sit and read. They
+   are light on purpose — long text on a dark background is tiring, and these
+   pages exist to be read all the way through.
+
+   Headings and UI keep the app's sans; body copy is set in a serif at a
+   comfortable measure, which is what makes a page feel like an article. */
 
 :root {
-  --ink: #eaf0ff;
-  --ink-soft: rgba(234, 240, 255, 0.66);
-  --warm: #ffcf8a;
-  --warm-deep: #ff9d5c;
-  --cool: #8fb6ff;
-  --panel-bg: rgba(12, 16, 34, 0.72);
-  --panel-border: rgba(255, 255, 255, 0.12);
-  --radius-md: 15px;
+  --paper: #ffffff;
+  --paper-soft: #faf8f4;
+  --ink: #23201b;
+  --ink-soft: #6b6459;
+  --ink-faint: #8d867a;
+  --accent: #a3641a;
+  --accent-deep: #7d4a10;
+  --line: #e8e3db;
+  --radius-md: 14px;
+  --sans: "Nunito", "PingFang SC", "Hiragino Sans GB", "Noto Sans", "Segoe UI", system-ui, sans-serif;
+  --serif: Georgia, "Iowan Old Style", "Times New Roman", "Songti SC", "Noto Serif SC", serif;
 }
 
 * { box-sizing: border-box; }
@@ -21,23 +28,22 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   min-height: 100%;
+  background: var(--paper);
   color: var(--ink);
-  font-family: "Nunito", "PingFang SC", "Hiragino Sans GB", "Noto Sans", "Segoe UI", system-ui, sans-serif;
-  font-size: 17px;
-  line-height: 1.75;
-  background:
-    radial-gradient(120% 80% at 50% 0%, #131a38 0%, #0a0e22 45%, #05060f 100%)
-    #05060f fixed;
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.78;
+  -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--warm); text-decoration: none; }
+a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 /* ---- Shell ---- */
 .page {
-  max-width: 680px;
+  max-width: 660px;
   margin: 0 auto;
-  padding: 0 20px 72px;
+  padding: 0 22px 80px;
 }
 
 .page-header {
@@ -45,113 +51,170 @@ a:hover { text-decoration: underline; }
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 22px 0 34px;
+  padding: 26px 0 40px;
+  font-family: var(--sans);
 }
 .brand-link {
   color: var(--ink);
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
 }
-.brand-link:hover { text-decoration: none; color: var(--warm); }
-.page-nav { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.8rem; }
-.page-nav a { color: var(--ink-soft); }
-.page-nav a[aria-current="page"] { color: var(--warm); }
+.brand-link:hover { text-decoration: none; color: var(--accent); }
+.page-nav { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.84rem; }
+.page-nav a { color: var(--ink-soft); font-weight: 600; }
+.page-nav a[aria-current="page"] { color: var(--accent); }
 
 /* ---- Type ---- */
 h1 {
-  font-size: 1.9rem;
-  line-height: 1.3;
-  margin: 0 0 10px;
-  letter-spacing: -0.01em;
+  font-family: var(--sans);
+  font-size: 2.1rem;
+  line-height: 1.22;
+  letter-spacing: -0.015em;
+  margin: 0 0 12px;
 }
 h2 {
-  font-size: 1.15rem;
-  margin: 38px 0 10px;
-  color: var(--warm);
-  letter-spacing: 0.01em;
+  font-family: var(--sans);
+  font-size: 1.24rem;
+  line-height: 1.35;
+  margin: 46px 0 12px;
+  letter-spacing: -0.005em;
 }
-h3 { font-size: 1rem; margin: 26px 0 6px; }
-p { margin: 0 0 16px; }
-ul { margin: 0 0 16px; padding-left: 20px; }
-li { margin-bottom: 8px; }
-strong { color: #fff; }
+h3 {
+  font-family: var(--sans);
+  font-size: 1.04rem;
+  margin: 32px 0 6px;
+}
+p { margin: 0 0 22px; }
+ul { margin: 0 0 22px; padding-left: 22px; }
+li { margin-bottom: 12px; }
+li::marker { color: var(--accent); }
+strong { font-weight: 700; color: #100e0b; }
+em { font-style: italic; }
 
 .lede {
-  font-size: 1.08rem;
-  color: rgba(234, 240, 255, 0.86);
-  margin-bottom: 30px;
+  font-size: 1.16rem;
+  line-height: 1.7;
+  color: #3c372f;
+  margin-bottom: 34px;
 }
 .meta {
-  font-size: 0.78rem;
-  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 0.8rem;
   letter-spacing: 0.04em;
-  margin: 0 0 26px;
+  color: var(--ink-faint);
+  margin: 0 0 30px;
 }
 
 .note {
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 16px 18px;
-  margin: 26px 0;
-  font-size: 0.94rem;
+  padding: 20px 22px;
+  margin: 32px 0;
+  font-size: 0.98rem;
 }
 .note p:last-child { margin-bottom: 0; }
-.note-warm { border-color: rgba(255, 179, 102, 0.32); background: rgba(255, 179, 102, 0.09); }
+.note h3:first-child { margin-top: 0; }
+.note-warm { background: #fdf3e4; border-color: #f0dcbc; }
 
 blockquote {
-  margin: 26px 0;
-  padding-left: 18px;
-  border-left: 2px solid rgba(255, 207, 138, 0.5);
-  color: rgba(234, 240, 255, 0.86);
+  margin: 32px 0;
+  padding: 4px 0 4px 22px;
+  border-left: 3px solid var(--accent);
+  font-size: 1.12rem;
   font-style: italic;
+  color: #433d34;
+}
+blockquote p:last-child { margin-bottom: 0; }
+
+hr { border: 0; border-top: 1px solid var(--line); margin: 48px 0; }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
 }
 
-hr {
-  border: 0;
-  border-top: 1px solid var(--panel-border);
-  margin: 42px 0;
-}
-
-/* ---- Blog index ---- */
+/* ---- Blog index: each post is a card you can obviously click ---- */
 .post-list { list-style: none; margin: 0; padding: 0; }
-.post-list li { margin-bottom: 26px; }
-.post-list h2 { margin: 0 0 4px; font-size: 1.1rem; color: var(--ink); }
-.post-list a:hover h2 { color: var(--warm); }
-.post-list p { margin: 0; color: var(--ink-soft); font-size: 0.94rem; }
-.post-list a { display: block; color: inherit; }
-.post-list a:hover { text-decoration: none; }
+.post-list li { margin-bottom: 18px; }
+.post-list a {
+  display: block;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.post-list a:hover {
+  text-decoration: none;
+  border-color: #d8cdb9;
+  box-shadow: 0 6px 22px rgba(60, 45, 20, 0.09);
+  transform: translateY(-2px);
+}
+.post-list h2 {
+  margin: 0 0 6px;
+  font-size: 1.22rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.post-list a:hover h2 { color: var(--accent-deep); }
+.post-list .meta { margin: 0 0 8px; }
+.post-list p { margin: 0; font-size: 0.98rem; line-height: 1.65; color: #4a443b; }
+/* "Read →" — the affordance that says this whole card is a link. */
+.post-list a::after {
+  content: "Read →";
+  display: block;
+  margin-top: 12px;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent);
+}
 
 /* ---- Call to action back into the app ---- */
 .cta {
   display: inline-block;
-  margin: 10px 0 4px;
-  padding: 13px 26px;
+  margin: 12px 0 4px;
+  padding: 14px 30px;
   border-radius: 999px;
-  font-weight: 700;
-  color: var(--ink);
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(135deg, rgba(255, 175, 110, 0.26), rgba(120, 160, 240, 0.14));
-  box-shadow: 0 0 22px rgba(255, 168, 92, 0.22);
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #40270a;
+  background: linear-gradient(135deg, #ffd6a0, #ffb066);
+  box-shadow: 0 6px 18px rgba(255, 154, 74, 0.32);
 }
-.cta:hover { text-decoration: none; box-shadow: 0 0 30px rgba(255, 168, 92, 0.34); }
+.cta:hover {
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(255, 154, 74, 0.45);
+}
 
 /* ---- Footer ---- */
 .page-footer {
-  border-top: 1px solid var(--panel-border);
-  margin-top: 54px;
-  padding-top: 22px;
-  font-size: 0.8rem;
-  color: var(--ink-soft);
+  border-top: 1px solid var(--line);
+  margin-top: 60px;
+  padding-top: 26px;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--ink-faint);
 }
-.page-footer nav { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; }
-.page-footer a { color: var(--ink-soft); }
-.page-footer a:hover { color: var(--warm); }
+.page-footer nav { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; }
+.page-footer a { color: var(--ink-soft); font-weight: 600; }
+.page-footer p { margin: 0; }
 
 @media (max-width: 520px) {
-  body { font-size: 16px; }
-  h1 { font-size: 1.6rem; }
-  .page-header { flex-direction: column; align-items: flex-start; gap: 8px; padding-bottom: 26px; }
+  body { font-size: 18px; }
+  .page { padding: 0 18px 64px; }
+  h1 { font-size: 1.72rem; }
+  h2 { font-size: 1.14rem; margin-top: 38px; }
+  .lede { font-size: 1.08rem; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; padding-bottom: 30px; }
+  .post-list a { padding: 18px 19px; }
 }

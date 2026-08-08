@@ -448,7 +448,7 @@ function renderRead(bubble, replies, rect) {
       // Every reply carries its own report button, counted separately from the
       // whisper it sits under.
       const flag = document.createElement('button');
-      flag.className = 'reply-report';
+      flag.className = 'report-pill';
       const flagged = hasReported('reply', r.id);
       flag.textContent = flagged ? t('reported') : t('report');
       flag.disabled = flagged;

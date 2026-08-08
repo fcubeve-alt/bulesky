@@ -25,7 +25,7 @@ export function pageShell({ title, description, canonical, body, current = '/blo
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#070a18" />
+<meta name="theme-color" content="#ffffff" />
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(description)}" />
 <link rel="canonical" href="${escapeHtml(canonical)}" />
@@ -38,7 +38,7 @@ export function pageShell({ title, description, canonical, body, current = '/blo
 <meta property="og:image" content="${SITE}/icons/icon.svg" />
 <meta name="twitter:card" content="summary" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/pages.css?v=1" />
+<link rel="stylesheet" href="/css/pages.css?v=2" />
 ${jsonLd}
 </head>
 <body>

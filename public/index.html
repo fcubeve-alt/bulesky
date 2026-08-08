@@ -23,7 +23,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read19" />
+<link rel="stylesheet" href="/css/style.css?v=read20" />
 </head>
 <body>
 
@@ -177,7 +177,12 @@
   <div class="read-viewport">
     <div id="read-scroll" class="read-scroll">
       <div id="read-content" class="read-content"></div>
-      <div id="read-author" class="read-author"></div>
+      <!-- Byline + report, laid out exactly like a reply's: the report sits
+           next to the name it belongs to, not adrift in the action bar. -->
+      <div class="read-byline">
+        <div id="read-author" class="read-author"></div>
+        <button id="read-report-btn" class="report-pill"></button>
+      </div>
       <h3 id="detail-replies-title" class="read-replies-title"></h3>
       <div id="read-replies" class="read-replies"></div>
     </div>
@@ -186,7 +191,6 @@
   <div class="read-actions">
     <button id="read-reply-btn" class="btn-primary btn-small"></button>
     <button id="read-light-btn" class="btn-secondary btn-small light-btn"></button>
-    <button id="read-report-btn" class="report-btn"></button>
   </div>
 </div>
 
