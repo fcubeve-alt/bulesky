@@ -38,7 +38,7 @@ export function pageShell({ title, description, canonical, body, current = '/blo
 <meta property="og:image" content="${SITE}/icons/icon.svg" />
 <meta name="twitter:card" content="summary" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/pages.css?v=2" />
+<link rel="stylesheet" href="/css/pages.css?v=3" />
 ${jsonLd}
 </head>
 <body>
