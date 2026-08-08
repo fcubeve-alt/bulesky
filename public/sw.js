@@ -6,7 +6,7 @@
 // version first and only falls back to cache when offline, so updates reach
 // users immediately while the app still works without a connection.
 
-const CACHE_NAME = 'bulesky-runtime-v43';
+const CACHE_NAME = 'bulesky-runtime-v44';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -27,6 +27,14 @@ self.addEventListener('fetch', (event) => {
 
   // Never cache the API — the shared sky must always be live.
   if (request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
+
+  // Stay out of the way of video and music entirely. Two reasons, both real:
+  // the Cache API cannot store the 206 Partial Content responses a <video>
+  // asks for, so the put below just fails; and the 'no-cache' revalidation
+  // added further down would force every byte range of an 88MB video library
+  // back to the network. The browser's own HTTP cache handles media properly —
+  // this is one place where doing nothing is faster than helping.
+  if (url.pathname.startsWith('/video/') || url.pathname.startsWith('/music/')) return;
 
   // Revalidate same-origin assets with the server ('no-cache') instead of
   // trusting the browser's HTTP cache. Otherwise a long-lived cached JS module

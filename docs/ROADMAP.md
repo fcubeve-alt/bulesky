@@ -191,6 +191,27 @@
 
 ---
 
+## 7e. 首屏打开速度 —— ✅ 已修(2026-08)
+> 用户反馈:"第一次点开我们的网站……要等一下下几秒钟"。测出来问题**全在背景视频**,和代码、API、气球都无关。
+
+**测量方法**(别靠感觉,`playwright-core` + CDP 限速 4 Mbps / 100ms,iPhone viewport,`serviceWorkers: 'block'` 模拟真·首访):冷启动**一次要下 33–98 MB**,全是 `.mp4`。HTML+CSS+JS 加起来才 0.16 MB。
+
+三个原因,三个改法:
+1. **`<video preload="auto">`** —— 等于叫浏览器把整个文件吞下去。改成 **`preload="none"`**;`backgrounds.js` 本来就自己 set `.src` 再 `play()`,不依赖预加载。只有 `prepareNext()` 里把待命层临时设回 `auto`。
+2. **`playFirst()` 里立刻调 `prepareNext()`** —— 首屏就并行下**两个**视频抢带宽。改成等当前这条真的 `playing` 之后再等 5s(没触发就 12s 兜底)。
+   - ⚠️ 这带出一个坑并已修:视频出错时的 `error` → `advance()` 会切到**还没来得及准备的待命层**,天空变黑。`advance()` 现在会先检查 `standby` 有没有 src,没有就当场 `prepareNext()`。
+3. **片子本身就太大**(根因)—— 素材站给的是广播码率:一条 12 秒的河流 1920×1080 **16.4 Mbps / 24MB**,而它是**静音、盖着暗色蒙版、在 390px 宽的手机上**播。`tools/shrink-video.mjs`:长边 1280、CRF 30、去音轨、`+faststart`。**388 MB → 88 MB**,单条均值 8.8MB → 2.0MB,画面在蒙版下看不出区别。幂等,已经瘦的会跳过。
+   - **每周抓取的新片必须也过一遍**,否则一周就退回原样 —— 已加进 `fetch-media.yml`(runner 自带 ffmpeg)。
+
+**Service Worker 别碰媒体**:`/video/`、`/music/` 现在直接 `return` 不拦。两个实打实的理由——Cache API 存不了 `<video>` 要的 **206 Partial Content**(那句 `cache.put` 一直在静默失败);而且原来那句 `cache: 'no-cache'` 会**强制每一段字节都回源重验**。这里"不帮忙"就是最快的。
+
+**结果**(同一套测量):冷启动 **33–98 MB → 1.1–4.1 MB**,第一颗气球 ~940ms;第二次访问 ~260–290ms。
+> 测量环境的坑:Playwright 自带的 Chromium **没有 H.264**(`DEMUXER_ERROR_NO_SUPPORTED_STREAMS`),所以脚本里"视频播起来了吗"永远是 NEVER —— 那是测试浏览器的限制,不是站点的问题。流量数字仍然有效(浏览器照样把字节下完了才解码失败)。要验证画面得用真机或带专有编解码的 Chrome。
+
+**还没做**:`public/music` 还有 244 MB,单曲最大 18 MB。它只在用户点了音乐按钮之后才下载,所以**不影响首屏**;但对用户流量不友好,想省的话同样可以转 128kbps。
+
+---
+
 ## 8. 待拍板 / 开放问题
 1. ~~**AI 语义审核**:接哪家?~~ ✅ 已定并已上线:**Cloudflare Workers AI**,只在举报时调用(见 §7c)。发布时的全量语义审核仍未做。
 2. **SEO 官方页面体系**:确认放三期(先把 App 体验做扎实)。

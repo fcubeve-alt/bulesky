@@ -44,15 +44,29 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
 
   // Load the *next* clip into the standby layer ahead of time so it is
   // buffered and ready to play before we ever crossfade to it.
+  //
+  // preload is flipped to 'auto' only here. The markup ships preload="none" so
+  // that opening the site does not start swallowing a second video while the
+  // first one is still fighting for bandwidth — buffering ahead is worth doing,
+  // but never during the first paint.
   function prepareNext() {
     if (options.length < 2) return;
     const nextIdx = (index + 1) % options.length;
     const standby = layers[1 - active];
     if (standby.dataset.idx === String(nextIdx) && standby.readyState >= 3) return;
     standby.dataset.idx = String(nextIdx);
+    standby.preload = 'auto';
     standby.src = options[nextIdx].src;
     standby.classList.remove('hidden');
     standby.load();
+  }
+
+  // Hold the pre-buffer back until the visible clip is actually moving, so the
+  // opening seconds of a visit are spent on one video instead of two.
+  let prepareTimer = 0;
+  function prepareNextSoon(delay) {
+    clearTimeout(prepareTimer);
+    prepareTimer = setTimeout(prepareNext, delay);
   }
 
   // Move on after MAX_DWELL_MS even if the clip is longer than that, so a
@@ -71,6 +85,12 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
     switching = true;
     const standby = layers[1 - active];
     const outgoing = layers[active];
+
+    // The pre-buffer is now held back for the opening seconds of a visit, so a
+    // clip that fails early can call us before the standby has any source at
+    // all. Crossfading to it would leave the sky black. Load it now instead.
+    clearTimeout(prepareTimer);
+    if (!standby.getAttribute('src')) prepareNext();
 
     const go = () => {
       standby.play().catch(() => {});
@@ -124,7 +144,12 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
     if (p && p.catch) p.catch(() => {});
     updateLoop();
     armDwell();
-    prepareNext();
+    // Wait for this clip to be genuinely playing before touching the next one.
+    // The timer is the floor, not the trigger: on a slow phone 'playing' is the
+    // thing worth waiting for, and the timeout only covers the case where it
+    // never fires at all.
+    cur.addEventListener('playing', () => prepareNextSoon(5000), { once: true });
+    prepareNextSoon(12000);
   }
 
   // Advancing happens when the visible clip ends. Both layers carry the

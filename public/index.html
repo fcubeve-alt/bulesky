@@ -29,8 +29,13 @@
 
 <!-- Background: a crossfade playlist of scenery videos over a dark fallback.
      Two stacked layers alternate so clips dissolve into one another. -->
-<video id="bg-video-a" class="bg-video hidden" muted playsinline autoplay preload="auto" aria-hidden="true"></video>
-<video id="bg-video-b" class="bg-video hidden" muted playsinline autoplay preload="auto" aria-hidden="true"></video>
+<!-- preload="none" on purpose. These clips average ~9MB (the largest is 24MB),
+     and "auto" told the browser to swallow whole files before the page was even
+     usable — a cold visit pulled 67–159MB in its first seconds and the video
+     still never reached a playable state on a 4G phone. backgrounds.js sets
+     .src and calls play()/load() itself, so nothing here needs preloading. -->
+<video id="bg-video-a" class="bg-video hidden" muted playsinline autoplay preload="none" aria-hidden="true"></video>
+<video id="bg-video-b" class="bg-video hidden" muted playsinline autoplay preload="none" aria-hidden="true"></video>
 <div id="bg-scrim" class="hidden" aria-hidden="true"></div>
 <div id="sky-bg" aria-hidden="true"></div>
 

@@ -36,6 +36,13 @@ jobs:
           JAMENDO_CLIENT_ID: ${{ secrets.JAMENDO_CLIENT_ID }}
         run: node tools/fetch-media.js
 
+      # Stock clips arrive at broadcast bitrates — one 12-second river clip came
+      # in at 1920x1080, 16.4 Mbps, 24MB, for something that plays muted behind
+      # a scrim. Without this step every weekly fetch would slowly undo the work
+      # of making the site open quickly. ffmpeg is preinstalled on the runner.
+      - name: Shrink new scenery clips
+        run: node tools/shrink-video.mjs
+
       - name: Commit new media
         id: commit
         run: |
