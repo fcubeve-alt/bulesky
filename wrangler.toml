@@ -7,3 +7,9 @@ binding = "DB"
 database_name = "bulesky-db"
 # Replace with the ID printed by `wrangler d1 create bulesky-db`.
 database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# Workers AI — used by /api/report to judge a reported whisper or reply.
+# If this binding is missing, reporting still works: the report counter and the
+# three-report auto-hide are unaffected, only the "hide immediately" path is.
+[ai]
+binding = "AI"

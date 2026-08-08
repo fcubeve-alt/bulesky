@@ -223,33 +223,76 @@ export function initScene(canvas) {
 
 // ---- Whisper world: the whispers, as rising lanterns you can pan through ----
 
-const WARMTH_CAP = 12;
-const PREVIEW_CHARS = 20;
+// How many lights it takes for a whisper's halo to reach its warmest. Past
+// this it stops growing — the sky must stay readable, and a popularity contest
+// is the last thing this place needs.
+const LIGHT_CAP = 8;
+const PREVIEW_CHARS = 60;
 
 // Four explicit depth tiers (see docs/SKY_FEED.md §4). Using discrete tiers —
 // rather than one flat random spread — guarantees the sky always has real
 // layers: a scatter of tiny dim dots far back, some mid, a few big readable
 // ones up front. Each balloon lands in a tier by weight, then jitters within.
+// `rise` is in PIXELS PER SECOND and is fixed per tier, not per balloon. That
+// is what makes "no two balloons in the same layer ever overlap" hold: same
+// tier = same speed = the gap set between them at spawn never changes. Layers
+// differ (far slow, near fast), and layers passing over each other is exactly
+// what reads as depth.
+// Weights are 7 big : 3 small out of every ten balloons — the sky is for
+// reading, and a small far dot can't be read. The two near tiers carry the
+// text; the two far ones are there for depth.
 const DEPTH_TIERS = [
-  { zMin: 0.04, zMax: 0.16, weight: 5 }, // far: tiny dim dots, slowest — most common
-  { zMin: 0.3, zMax: 0.46, weight: 4 }, // mid-far
-  { zMin: 0.58, zMax: 0.76, weight: 3 }, // mid-near
-  { zMin: 0.88, zMax: 1.0, weight: 2 }, // near: big, bright, fastest — fewest
+  { zMin: 0.05, zMax: 0.16, weight: 1, rise: 15 }, // far: tiny dim dots, slowest
+  { zMin: 0.3, zMax: 0.44, weight: 2, rise: 21 }, // mid-far
+  { zMin: 0.58, zMax: 0.74, weight: 4, rise: 28 }, // mid-near
+  { zMin: 0.88, zMax: 1.0, weight: 3, rise: 36 }, // near: big, bright, fastest
 ];
 const DEPTH_TIER_TOTAL = DEPTH_TIERS.reduce((s, t) => s + t.weight, 0);
-function pickTierZ() {
-  let r = Math.random() * DEPTH_TIER_TOTAL;
-  for (const t of DEPTH_TIERS) {
-    r -= t.weight;
-    if (r <= 0) return t.zMin + Math.random() * (t.zMax - t.zMin);
+// Seconds a balloon spends on screen, per pixel of travel — the average of
+// 1/rise, NOT 1 / average-rise. Slow balloons linger, so they are
+// over-represented on screen at any instant; averaging the speeds instead of
+// the durations undercounts the population and makes the sky thin out.
+const SEC_PER_PX = DEPTH_TIERS.reduce((s, t) => s + t.weight / t.rise, 0) / DEPTH_TIER_TOTAL;
+// Layers are dealt from a shuffled bag, not rolled independently each time.
+// Independent rolls produce runs — six far balloons in a row, then four big
+// near ones — and the sky visibly lurches between "all tiny dots" and "all
+// giants". A bag guarantees the mix over every 14 balloons while keeping the
+// order unpredictable.
+let tierBag = [];
+function pickTierIndex() {
+  if (!tierBag.length) {
+    DEPTH_TIERS.forEach((t, i) => {
+      for (let n = 0; n < t.weight; n++) tierBag.push(i);
+    });
+    for (let i = tierBag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [tierBag[i], tierBag[j]] = [tierBag[j], tierBag[i]];
+    }
   }
-  return 0.88 + Math.random() * 0.12;
+  return tierBag.pop();
 }
 
-// How many balloons live on screen at once. Fewer on a narrow phone (so they
-// don't overlap), more on a wide desktop. See docs/SKY_FEED.md §2 & §6.
+// How wide the pannable world is, as a multiple of the screen. Nobody drags a
+// phone screen sideways by habit, so what matters is how the sky looks
+// standing still — a world much wider than the screen quietly parks half the
+// balloons out of sight. Just enough extra to have somewhere to drag to.
+const WORLD_SPREAD = 1.3;
+
+// How many balloons should be visible ON SCREEN, without dragging: enough that
+// there is always something to read, few enough that a phone doesn't turn into
+// a heap. See docs/SKY_FEED.md §2 & §6.
+// Calibrated against what the browser actually renders in the viewport, not
+// against the model — the model runs about 20% optimistic on a phone.
+function visibleTarget() {
+  return window.innerWidth < 640 ? 10 : 19;
+}
+// The pool covers what you can't see too: the share of the world sitting
+// off-screen left and right, one balloon entering from below and one clearing
+// the top, plus slack so the spawner almost always has one parked when its
+// beat comes round. Without that slack the cadence stutters exactly when the
+// sky is fullest.
 function poolCap() {
-  return window.innerWidth < 640 ? 14 : 20;
+  return Math.round(visibleTarget() * WORLD_SPREAD * 1.35) + 2;
 }
 
 // The whispers live in a layered depth field, not on a flat plane. Each
@@ -259,9 +302,10 @@ function poolCap() {
 // big bright ones rise close and sway past. `viewport` is the fixed clipping
 // element; `world` is the inner layer that holds the balloons. Tap vs. drag is
 // distinguished by movement distance.
-export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedMore }) {
+export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
   let items = [];
   let raf = null;
+  let lastT = 0;
   let worldW = 0;
   let panX = 0;
   let minPan = 0;
@@ -321,19 +365,73 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
     return wsp;
   }
 
+  // How wide this balloon actually reads on screen, including how far it sways.
+  function halfSpan(it) {
+    return (it.w * (0.3 + it.z0 * 1.0)) / 2 + it.swayAmp + 8;
+  }
+
+  function halfHeight(it) {
+    return (it.h * (0.3 + it.z0 * 1.0)) / 2;
+  }
+
+  // Pick a horizontal spot that keeps this balloon clear of the others IN ITS
+  // OWN TIER (SKY_FEED §9).
+  //
+  // Same tier = identical rise speed, so every gap decided here is frozen for
+  // the balloon's whole flight: get it right once and they can never collide.
+  // That also means only the neighbours it is level with matter — a same-tier
+  // balloon already a few heights above will stay exactly that far above
+  // forever, so it doesn't constrain the choice at all. Checking against the
+  // whole tier instead (the obvious version of this) asks a phone-width sky to
+  // fit four big near balloons side by side, fails, and freezes the overlap in
+  // place. Different tiers are ignored on purpose: one layer drifting across
+  // another is the depth cue, not a defect.
+  function pickFreeX(it) {
+    const max = Math.max(1, worldW - it.w);
+    const mine = halfSpan(it);
+    const myMidY = it.y + halfHeight(it);
+    const rivals = items.filter(
+      (o) =>
+        o !== it &&
+        o.wsp &&
+        o.tier === it.tier &&
+        Math.abs(myMidY - (o.y + halfHeight(o))) < halfHeight(it) + halfHeight(o) + 8
+    );
+    if (!rivals.length) return rand(0, max);
+
+    let best = rand(0, max);
+    let bestGap = -Infinity;
+    for (let attempt = 0; attempt < 24; attempt++) {
+      const x = attempt === 0 ? best : rand(0, max);
+      let gap = Infinity;
+      for (const o of rivals) {
+        const need = mine + halfSpan(o);
+        gap = Math.min(gap, Math.abs(x + it.w / 2 - (o.baseX + o.w / 2)) - need);
+      }
+      if (gap >= 0) return x;
+      if (gap > bestGap) {
+        bestGap = gap;
+        best = x;
+      }
+    }
+    return best;
+  }
+
   // Seat a balloon in one of the four depth tiers (SKY_FEED §4–5): sets its
   // depth, its rise speed (near noticeably faster, far slowest — the staggered
   // pace that reads as 3D), its horizontal spot, and its depth styling. Every
   // tier stays populated, so there are always tiny dim dots far back and a few
   // big readable ones up front — all still tappable.
   function seatDepth(it) {
-    const z0 = pickTierZ();
-    it.z0 = z0;
-    it.rise = 0.05 + z0 * 0.3; // far ~0.05 (slow) → near ~0.35 (faster): staggered by layer
-    it.baseX = rand(0, Math.max(1, worldW - it.w));
-    it.el.style.opacity = (0.38 + z0 * 0.62).toFixed(2);
-    it.el.style.filter = z0 < 0.34 ? `blur(${((0.34 - z0) * 5).toFixed(2)}px)` : '';
-    it.el.style.zIndex = String(Math.round(z0 * 100));
+    const ti = pickTierIndex();
+    const tier = DEPTH_TIERS[ti];
+    it.tier = ti;
+    it.z0 = tier.zMin + Math.random() * (tier.zMax - tier.zMin);
+    it.rise = tier.rise; // px per second, fixed for the whole tier
+    it.baseX = pickFreeX(it);
+    it.el.style.opacity = (0.38 + it.z0 * 0.62).toFixed(2);
+    it.el.style.filter = it.z0 < 0.34 ? `blur(${((0.34 - it.z0) * 5).toFixed(2)}px)` : '';
+    it.el.style.zIndex = String(Math.round(it.z0 * 100));
   }
 
   // Point an existing balloon at a (new) whisper: size, colour, glow, preview
@@ -341,9 +439,8 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
   function applyWhisper(it, wsp) {
     it.wsp = wsp;
     const text = (wsp.content || '').trim();
-    const warmN = Math.min(1, ((wsp.warmth || 0) + (wsp.lights || 0) * 0.6) / WARMTH_CAP);
     const lenFactor = Math.min(1, text.length / 160);
-    const base = 74 + lenFactor * 42; // ~74–116px, then × depth scale
+    const base = 66 + lenFactor * 34; // ~66–100px, then × depth scale
     const shape = Math.random();
     let w = base;
     let h = base;
@@ -356,38 +453,90 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
     el.style.width = w + 'px';
     el.style.height = h + 'px';
     el.style.fontSize = (0.56 + lenFactor * 0.12).toFixed(3) + 'rem';
-    el.style.setProperty('--glow', (0.5 + warmN * 1.0).toFixed(2));
-    el.style.setProperty('--burn', (0.14 + warmN * 0.7).toFixed(2)); // burner brightens with warmth
     el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');
     it.span.textContent = text.length > PREVIEW_CHARS ? text.slice(0, PREVIEW_CHARS) + '…' : text;
-    // A whisper that's been answered hangs a small streamer; rebuild it per bind.
-    if (it.ribbon) {
-      it.ribbon.remove();
-      it.ribbon = null;
-    }
-    if ((wsp.warmth || 0) >= 1 && typeof ribbonText === 'function') {
-      const ribbon = document.createElement('span');
-      ribbon.className = 'lantern-ribbon' + ((wsp.warmth || 0) >= 5 ? ' warm' : '');
-      ribbon.textContent = ribbonText(wsp.warmth || 0);
-      el.appendChild(ribbon);
-      it.ribbon = ribbon;
-    }
+    applyWarmth(it);
   }
 
-  // (Re)enter a balloon from below carrying the next whisper. On firstTime it is
-  // scattered across the whole height so the sky looks alive immediately.
-  function respawn(it, firstTime) {
+  // The two ways of caring read differently and never blur together:
+  //   a reply  → the basket is lit, on or off, never a count;
+  //   a light  → the envelope's halo warms up, capped so a much-visited
+  //              whisper glows a little more but never burns out the picture.
+  // Split out from applyWhisper because it also runs the instant the reader
+  // leaves a light or a reply — see markWhisper().
+  function applyWarmth(it) {
+    const wsp = it.wsp;
+    if (!wsp) return;
+    const litN = Math.min(1, (wsp.lights || 0) / LIGHT_CAP);
+    it.el.style.setProperty('--glow', (0.5 + litN * 0.85).toFixed(2));
+    it.el.style.setProperty('--burn', (0.12 + litN * 0.5).toFixed(2));
+    it.el.classList.toggle('answered', (wsp.warmth || 0) >= 1);
+  }
+
+  // Send a balloon up from just below the bottom edge carrying the next
+  // whisper. Returns false when there is nothing to carry.
+  function launch(it) {
     const wsp = nextWhisper();
     if (!wsp) {
-      it.wsp = null;
-      it.el.style.display = 'none';
-      return;
+      release(it);
+      return false;
     }
     it.el.style.display = '';
     applyWhisper(it, wsp);
+    it.y = window.innerHeight + 8 + rand(0, 10); // seatDepth reads this
     seatDepth(it);
+    return true;
+  }
+
+  // Park a balloon that has drifted off the top. It waits, invisible, until the
+  // spawner's next beat — which is what keeps arrivals evenly spaced instead of
+  // bunched up behind whichever balloon happened to exit.
+  function release(it) {
+    it.wsp = null;
+    it.el.style.display = 'none';
+  }
+
+  // Balloons actually in front of the viewer right now (not the ones still
+  // below the bottom edge or already past the top).
+  function onScreenCount() {
     const H = window.innerHeight;
-    it.y = firstTime ? rand(-H * 0.05, H * 1.02) : H + rand(20, 160);
+    const W = window.innerWidth;
+    let n = 0;
+    for (const it of items) {
+      if (!it.wsp || it.y >= H || it.y <= -it.h) continue;
+      // Count only what is in front of the viewer right now: the rest of the
+      // world is off to the side until they drag to it.
+      const cx = it.baseX + it.w / 2 + panX * (0.24 + it.z0 * 0.76);
+      if (cx > -it.w && cx < W + it.w) n += 1;
+    }
+    return n;
+  }
+
+  // Launch the next parked balloon, if there is one.
+  function launchOne() {
+    const free = items.find((it) => !it.wsp);
+    return free ? launch(free) : false;
+  }
+
+  // One balloon every `spawnInterval` seconds. The interval is derived, not
+  // guessed: a balloon crosses the screen in about `travel / AVG_RISE` seconds,
+  // so releasing one every (that ÷ pool size) keeps the pool's worth of
+  // balloons in the air at a steady, even cadence (SKY_FEED §9).
+  let spawnInterval = 3;
+  let spawnAcc = 0;
+  function computeCadence() {
+    // Rate is set by the VISIBLE span, not the whole flight: a fifth of the
+    // journey happens below the bottom edge and above the top one, and those
+    // balloons are not on screen keeping anyone company. Using the full travel
+    // here is what left the sky about 20% emptier than asked for.
+    const visibleSpan = window.innerHeight;
+    // Rate is set for the whole world; the on-screen share of it then lands
+    // near visibleTarget().
+    const target = Math.max(
+      1,
+      Math.min(visibleTarget() * WORLD_SPREAD, Math.round(items.length / 1.35))
+    );
+    spawnInterval = (visibleSpan * SEC_PER_PX) / target;
   }
 
   function makeItem() {
@@ -399,12 +548,13 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
     const it = {
       el,
       span,
-      ribbon: null,
       wsp: null,
       w: 90,
       h: 90,
       y: 0,
       z0: 0,
+      tier: 0,
+      pulseTimer: 0,
       baseX: 0,
       rise: 0,
       zPhase: rand(0, Math.PI * 2),
@@ -431,7 +581,7 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
     // balloons breathe, but not so wide the sky feels empty or the depth tiers
     // get scattered so you never see near + far together (SKY_FEED §6). Depth
     // (near big, far tiny), not width, does most of the decluttering.
-    worldW = Math.round(W * 1.9);
+    worldW = Math.round(W * WORLD_SPREAD);
     world.style.width = worldW + 'px';
     world.style.transform = 'none';
     minPan = Math.min(0, W - worldW);
@@ -442,23 +592,60 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
     const target = Math.min(poolCap(), Math.max(1, deck.length));
     while (items.length < target) items.push(makeItem());
     layout();
-    for (const it of items) respawn(it, true);
+    computeCadence();
+    // Seed the sky mid-flight. Space them by REMAINING FLIGHT TIME, not by
+    // screen position: they rise at different speeds, so evenly-spaced dots
+    // would still leave the top on a clumped schedule and the stream would
+    // stutter for the first minute. Spacing the exits by exactly one beat means
+    // the cadence is right from the first second.
+    const H = window.innerHeight;
+    items.forEach((it, i) => {
+      if (!launch(it)) return;
+      // Stagger them along their own flight path, one slot each, so the first
+      // screen is already as full as the steady state — waiting for the
+      // spawner to fill an empty sky would take a whole flight time. The
+      // jitter keeps two balloons from lining up at identical heights.
+      const frac = (i + 0.5) / items.length + rand(-0.02, 0.02);
+      it.y = H * 1.02 - Math.max(0, Math.min(1, frac)) * (H * 1.25 + it.h * 2.2);
+      it.baseX = pickFreeX(it); // re-choose now that its real height is known
+    });
+    spawnAcc = 0;
   }
 
   function frame(t) {
     const time = t * 0.001;
+    const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
+    lastT = t;
+
+    // Even cadence: one balloon per beat, independent of who happened to leave.
+    // The beat comes from average flight time, which is close but not exact, so
+    // it is nudged by how far the sky is from its target: a little slower when
+    // it is full, a little quicker when it is thinning. Stretching the beat
+    // keeps the stream even — simply skipping beats when full would hold the
+    // count down but bring back the bunching this whole scheme exists to fix.
+    const err = onScreenCount() - visibleTarget();
+    // A one-balloon deadband: correcting for being a single balloon off would
+    // wobble the beat constantly for no visible gain.
+    const drift = Math.abs(err) < 2 ? 0 : Math.max(-0.3, Math.min(0.5, err * 0.1));
+    const beat = spawnInterval * (1 + drift);
+    spawnAcc += dt;
+    while (spawnAcc >= beat) {
+      spawnAcc -= beat;
+      if (!launchOne()) break;
+    }
+
     for (const it of items) {
       if (!it.wsp) continue;
-      it.y -= it.rise;
-      // Off the top → rebind to the next whisper and re-enter from the bottom.
+      it.y -= it.rise * dt; // px/second, so speed doesn't depend on frame rate
+      // Off the top → park it and let the spawner send it up again on its beat.
       if (it.y < -it.h * 2.2) {
-        respawn(it, false);
+        release(it);
         continue;
       }
       // Gentle depth "breathing" — balloons drift a little toward and away from
       // the viewer, so the field feels alive in 3D rather than fixed.
       const z = Math.max(0, Math.min(1, it.z0 + Math.sin(time * it.zFreq + it.zPhase) * it.zAmp));
-      const scale = 0.26 + z * 1.24; // far ~0.3× (tiny dot), near ~1.5× — strong layered depth
+      const scale = 0.3 + z * 1.0; // far ~0.35× (tiny dot), near ~1.3× — layered, never bloated
       const sway = Math.sin(time * it.swayFreq + it.swayPhase) * it.swayAmp * (0.4 + z);
       const bob = Math.cos(time * it.bobFreq + it.bobPhase) * it.bobAmp;
       // Near layers slide a lot under a drag; the far layer barely moves.
@@ -492,7 +679,7 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
       }
       if (grew) {
         layout();
-        for (const it of items) if (!it.wsp) respawn(it, true);
+        computeCadence();
       }
       if (!deck.length) {
         for (const it of items) {
@@ -501,15 +688,53 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
         }
       }
     },
+    // Someone just left a light or a reply on this whisper: show it on the
+    // balloon NOW. Waiting for the next deck refresh meant up to a minute of
+    // nothing, on a balloon that had probably recycled onto a different
+    // whisper by then — so leaving a light looked like it did nothing at all.
+    // Returns false when no balloon is currently carrying it.
+    markWhisper(id, changes) {
+      if (id == null) return false;
+      for (const w of deck) if (w.id === id) Object.assign(w, changes);
+      let live = false;
+      for (const it of items) {
+        if (it.wsp && it.wsp.id === id) {
+          Object.assign(it.wsp, changes);
+          applyWarmth(it);
+          live = true;
+        }
+      }
+      return live;
+    },
+    // A brief warm flare on the balloon carrying this whisper. One extra light
+    // only widens the halo by a few pixels — true to the "no numbers" rule, but
+    // far too quiet to read as "that worked". This is the moment of feedback;
+    // the halo is the lasting state. Returns false if no balloon carries it.
+    pulse(id) {
+      let found = false;
+      for (const it of items) {
+        if (!it.wsp || it.wsp.id !== id) continue;
+        found = true;
+        it.el.classList.remove('just-warmed');
+        void it.el.offsetWidth; // restart the animation if it is already running
+        it.el.classList.add('just-warmed');
+        clearTimeout(it.pulseTimer);
+        it.pulseTimer = setTimeout(() => it.el.classList.remove('just-warmed'), 1300);
+      }
+      return found;
+    },
     // Surface a whisper right away (the author's own new post). It jumps into
     // the deck ahead of the queue and the balloon nearest the top re-enters
     // carrying it, so the author sees their own balloon within a moment.
     pin(wsp) {
       if (!wsp || wsp.id == null) return;
       pinned.push(wsp);
+      // Straight up on the next frame, not on the next beat: recycle whichever
+      // balloon is closest to leaving if none is parked (SKY_FEED §7).
+      if (launchOne()) return;
       let top = null;
       for (const it of items) if (it.wsp && (!top || it.y < top.y)) top = it;
-      if (top) respawn(top, false);
+      if (top) launch(top);
     },
     get pannable() {
       return worldW > window.innerWidth + 4;

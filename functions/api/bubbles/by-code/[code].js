@@ -14,13 +14,19 @@ export async function onRequestGet({ params, env }) {
   if (!code) return json({ error: 'empty_code' }, 400);
 
   const { results } = await env.DB.prepare(
-    `SELECT id, type, content, lang, warmth, crisis_flag, created_at
-       FROM bubbles WHERE code = ? AND hidden = 0 ORDER BY created_at DESC`
+    `SELECT id, type, content, lang, warmth, crisis_flag, hidden, created_at
+       FROM bubbles WHERE code = ? ORDER BY created_at DESC`
   )
     .bind(code)
     .all();
 
   if (!results || results.length === 0) return json({ error: 'not_found', bubbles: [] }, 404);
 
-  return json({ bubbles: results });
+  // Same rule as GET /api/bubbles?code=: hidden whispers stay unreadable even
+  // for their author, but are listed as `removed` rather than disappearing.
+  return json({
+    bubbles: results.map((b) =>
+      b.hidden ? { id: b.id, type: b.type, created_at: b.created_at, removed: 1 } : b
+    ),
+  });
 }

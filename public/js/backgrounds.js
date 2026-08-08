@@ -8,8 +8,12 @@
 // The background is video only; with no videos yet a plain dark gradient
 // (#sky-bg) shows behind the whispers.
 
-const STORAGE_KEY = 'bulesky_bg_index';
 const AUTO_KEY = 'bulesky_bg_auto';
+// Longest a single clip stays on screen before dissolving to the next. Stock
+// scenery clips run 30–60s, and waiting out every one of them meant a five
+// minute visit showed five backgrounds out of forty — the library looked tiny
+// because you never reached it.
+const MAX_DWELL_MS = 34000;
 
 export function initBackgrounds({ videoA, videoB, scrim }) {
   const layers = [videoA, videoB];
@@ -18,14 +22,6 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
   let active = 0; // which layer (0/1) is currently visible
   let autoOn = localStorage.getItem(AUTO_KEY) !== '0'; // default on
   let switching = false;
-
-  function persist() {
-    try {
-      localStorage.setItem(STORAGE_KEY, String(index));
-    } catch {
-      /* ignore */
-    }
-  }
 
   // When we're not advancing (auto off, or only one clip) the visible clip
   // should loop itself; when advancing, it must fire 'ended' so we can move on.
@@ -59,6 +55,15 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
     standby.load();
   }
 
+  // Move on after MAX_DWELL_MS even if the clip is longer than that, so a
+  // session walks through the library instead of sitting on three long clips.
+  let dwellTimer = 0;
+  function armDwell() {
+    clearTimeout(dwellTimer);
+    if (!(autoOn && options.length > 1)) return;
+    dwellTimer = setTimeout(() => advance(), MAX_DWELL_MS);
+  }
+
   // Reveal the standby layer (already prepared) and retire the outgoing one.
   function advance() {
     if (switching) return;
@@ -75,7 +80,7 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
       index = parseInt(standby.dataset.idx, 10);
       if (!Number.isFinite(index)) index = 0;
       updateLoop();
-      persist();
+      armDwell();
       switching = false;
       // Retire the old layer once the fade has finished, then buffer the next.
       setTimeout(() => {
@@ -118,7 +123,7 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
     const p = cur.play();
     if (p && p.catch) p.catch(() => {});
     updateLoop();
-    persist();
+    armDwell();
     prepareNext();
   }
 
@@ -140,7 +145,17 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.videos)) {
+          // Shuffle per session. The playlist used to run in manifest order
+          // from wherever you left off last time, so every visit replayed the
+          // same few neighbours and the other forty clips were effectively
+          // invisible. Same idea as the per-viewer balloon deck: a different
+          // order for every visit is what makes the library feel like a
+          // library.
           options = data.videos.filter((v) => v && v.src);
+          for (let i = options.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [options[i], options[j]] = [options[j], options[i]];
+          }
         }
       }
     } catch {
@@ -151,10 +166,7 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
       showDarkFallback();
       return;
     }
-    let start = 0;
-    const saved = parseInt(localStorage.getItem(STORAGE_KEY) || '', 10);
-    if (Number.isFinite(saved) && saved >= 0 && saved < options.length) start = saved;
-    playFirst(start);
+    playFirst(Math.floor(Math.random() * options.length));
   })();
 
   return {
@@ -172,6 +184,7 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
         /* ignore */
       }
       updateLoop();
+      armDwell();
       if (autoOn && options.length > 1) {
         const cur = layers[active];
         if (cur.ended || cur.paused) advance();

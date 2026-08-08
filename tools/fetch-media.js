@@ -23,15 +23,22 @@ const MUSIC_DIR = path.join(ROOT, 'public', 'music');
 // Accumulate a large curated library over many runs (don't overwrite good
 // clips). We only prune once these caps are exceeded; the owner curates by
 // asking to remove specific items.
-const MAX_VIDEOS = 40;
-const MAX_AUDIO = 40;
+// Size, not taste, is what caps these. The library already weighs ~576 MB in
+// git (video ~344, music ~232); every clip also has to ride along in every CI
+// checkout. Variety comes from ROTATION — each run brings new clips in and
+// drops the oldest — not from an ever-growing pile. Raise these knowingly.
+const MAX_VIDEOS = 60;
+const MAX_AUDIO = 60;
 const MAX_VIDEO_BYTES = 24 * 1024 * 1024; // Cloudflare Pages per-file limit is 25 MB
 const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
 // Curated classical pieces can be longer (a Chaconne runs ~14 min), so give
 // them a larger budget — still under the 25 MB Cloudflare Pages per-file cap.
 const CLASSICAL_MAX_BYTES = 22 * 1024 * 1024;
-const VIDEOS_PER_RUN = 4;
-const AUDIO_PER_RUN = 4;
+// Two a week, per the owner: enough that the sky keeps changing, slow enough
+// that the repo does not balloon. The library reaches its cap in a few months
+// and then rotates — newest in, oldest out.
+const VIDEOS_PER_RUN = 2;
+const AUDIO_PER_RUN = 2;
 const CLASSICAL_PER_RUN = 8;
 
 const UA = 'bulesky-media-fetcher/1.0 (starry-mind; contact: repo owner)';

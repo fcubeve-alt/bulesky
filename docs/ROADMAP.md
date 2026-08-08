@@ -125,7 +125,16 @@
 
 ---
 
-## 7b. 下一步立即要做:官方页面 + 隐私 + 博客(用户点名,关系推广)
+## 7b. 官方页面 + 隐私 + 博客 —— ✅ 已完成(2026-08)
+> 已上线文件:`public/robots.txt`、`public/sitemap.xml`、`public/about.html`、`public/privacy.html`、`public/principles.html`、`public/blog/index.html` + 3 篇起步文章、共享样式 `public/css/pages.css`;App 底部加了低调页脚链接(`.site-links`),首访须知加了"搜索引擎不收录"一条(5 语)。
+>
+> **遗留待办**:`privacy.html` 里的联系邮箱 `hello@cubewithin.com` 需真正开通(或换成别的地址)。
+>
+> 博客后来改成了后台发布(见 §7d),不再是静态文件。
+>
+> ~~②《原则》页写的"人工复核"…~~ 已按《举报与内容安全规则》补充文档处理,见 §7c。
+>
+> 以下为当时的需求原文,保留备查。
 > 当前 App 是单页(只有 `/`,由 Cloudflare Pages 从 `public/` 提供)。以下是要新建的**静态官方页面**(可被搜索引擎收录),与用户内容(私密、不收录)分开。这些页面在新对话里直接建,别再讨论方案。
 
 **A. 隐私三件套(优先)**
@@ -147,8 +156,41 @@
 
 ---
 
+## 7c. 举报与内容安全 —— ✅ 已完成(2026-08,依《举报与内容安全规则》补充需求文档)
+
+**举报入口**:气泡本体一个(阅读页底部那排,`#read-report-btn`),每条回复各一个(`.reply-report`);两边计数互不影响。一台设备对同一条只能报一次(`localStorage` 的 `reported_items`,键形如 `bubble:12` / `reply:34`),报完变灰显示"已举报"。**不做二次确认**——多一步只会少收到举报。
+
+**隐藏规则(两条路,满足任一即隐藏)** —— `functions/api/report.js`:
+1. **AI**:每一次举报(不只第一次)都跑一次 Workers AI 二分类(`@cf/meta/llama-3.1-8b-instruct`,`[ai]` binding 在 `wrangler.toml`)。判定违规 → 立即隐藏。
+2. **人数兜底**:累计 3 次举报 → 强制隐藏,不管 AI 怎么说。
+   - AI 不可用 / 报错 / 没绑定 → **fail open**(当作没问题),举报计数和 3 次兜底照常工作。**绝不能让 AI 故障把举报功能一起弄坏**。
+   - 成本:只在有人举报时才调用,量级≈举报数,可忽略。
+
+**隐藏后**:对所有人不可见,**包括作者本人**(防"平台留着辱骂给当事人看"的截图风险)。但暗号查询里**不静默消失**,列一行"这条内容因违反社区准则已被处理"(`removedNotice`,5 语),不可点。后端在 `/api/bubbles?code=` 与 `/api/bubbles/by-code/[code]` 两处都做了 redact。
+
+**危机提示**:`#crisis-banner` 在"倾诉"发布页**常驻**,不做关键词触发式弹出(命中才提示是事后干预,且规避太容易)。文案按 `navigator.language` 走现有 `detectLang()`,5 语之外默认英文;各语言保留本地号码,并统一加一条 findahelpline.com 链接兜住其余国家。
+
+**关键词过滤**:维持现状(英文为主),不扩展其他语言——非英文内容的安全由"举报 + AI 语义判断"兜底,AI 不受语言限制。
+
+**阅读页可暂停**:文字以约 50px/s 上升,62×22px 的举报按钮根本点不中。**点一下正文或某条回复会冻结上升(再点恢复)**,`.read-scroll.paused`。改动前请确认这条仍成立,否则每条回复的举报按钮等于不存在。
+
+---
+
+## 7d. 博客后台(CMS)—— ✅ 已完成(2026-08)
+> 用户要求:"我要在后台可以发博客"。博客从静态 HTML 改为 **D1 + Pages Functions**,写文章不再需要改代码、发版。
+
+- **后台**:`/admin.html`(`noindex` + `robots.txt` Disallow)。列表 / 新建 / 编辑 / 发布 / 撤回 / 删除;Markdown 正文,标题自动生成 URL(可改),摘要选填(留空取第一段)。
+- **登录**:单一密码 `ADMIN_PASSWORD`(Pages secret,由 deploy workflow 从 GitHub secret 同步)。密码只用于校验和签名,**不入库、不进 cookie**;cookie 是 `<过期时间>.<HMAC-SHA256>`,两周过期,HttpOnly + Secure + SameSite=Strict(`src/admin-auth.js`)。**没配 `ADMIN_PASSWORD` 时任何人都进不去**(而不是所有人都能进)。
+- **前台**:`/blog/`(列表)、`/blog/<slug>`(正文)由 `functions/blog/` 渲染,套用与官方页同一套 `pages.css` 外壳(`src/blog-page.js`);草稿对读者一律 404。`/sitemap.xml` 改成动态,发布即进 sitemap。
+- **Markdown**:`src/markdown.js` 只支持 `##`/`###`/列表/引用/`---`/粗斜体/链接。**先转义再解析**,链接只放行 `http(s)` 和站内 `/`;JSON-LD 里另外把 `<` 转成 `<`(否则标题里一个 `</script>` 就能越狱)。
+- **原来的 3 篇**:源文件在 `content/blog/*.md`,`node tools/gen-post-seed.mjs` 生成 `migrations/0007_seed_posts.sql` 灌进 D1(`INSERT OR IGNORE`,重跑迁移不会覆盖你在后台改过的内容)。改种子文章正常做法是**直接在后台改**,不用动 md。
+- **缓存**:文章页 `cache-control: max-age=60` —— 撤回一篇已发布的文章,已经打开过的浏览器最多还能看到 60 秒。
+- **`public/_routes.json`**:只有 `/api/*`、`/blog`、`/blog/*`、`/sitemap.xml` 走 Functions,其余静态资源直出。**新增动态路由记得加进来**。
+
+---
+
 ## 8. 待拍板 / 开放问题
-1. **AI 语义审核(二/三期)**:接哪家?推荐 **Cloudflare Workers AI**(便宜、同账号、低延迟);备选 OpenAI。需确认投入与成本。
+1. ~~**AI 语义审核**:接哪家?~~ ✅ 已定并已上线:**Cloudflare Workers AI**,只在举报时调用(见 §7c)。发布时的全量语义审核仍未做。
 2. **SEO 官方页面体系**:确认放三期(先把 App 体验做扎实)。
 3. ~~传递微光~~ ✅ 已定:阅读页内的独立动作、不显数字、每设备每球一次(见 §2②)。
 4. **飘带文案措辞**:上线前定稿中/英两版(如 `已经有 N 个人为 TA 停留` / `N people stayed for this`)。

@@ -170,6 +170,11 @@ body.has-video #mist { display: none; }
   filter: blur(1px);
   pointer-events: none;
 }
+.lantern {
+  /* the basket art, hoisted so the lit state below can layer a glow over the
+     exact same drawing instead of duplicating this data URI */
+  --basket: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2060%2046%27%3E%3Cg%20stroke%3D%27%23e2c19a%27%20stroke-width%3D%271.4%27%20stroke-linecap%3D%27round%27%3E%3Cline%20x1%3D%2719%27%20y1%3D%271%27%20x2%3D%2724%27%20y2%3D%2721%27%2F%3E%3Cline%20x1%3D%2741%27%20y1%3D%271%27%20x2%3D%2736%27%20y2%3D%2721%27%2F%3E%3C%2Fg%3E%3Crect%20x%3D%2722.5%27%20y%3D%2720%27%20width%3D%2715%27%20height%3D%2711%27%20rx%3D%272.4%27%20fill%3D%27%238a5a2b%27%2F%3E%3Crect%20x%3D%2722.5%27%20y%3D%2720%27%20width%3D%2715%27%20height%3D%274.2%27%20rx%3D%272%27%20fill%3D%27%23a9702f%27%2F%3E%3Cg%20stroke%3D%27%236b431f%27%20stroke-width%3D%270.9%27%3E%3Cline%20x1%3D%2727.3%27%20y1%3D%2721%27%20x2%3D%2727.3%27%20y2%3D%2731%27%2F%3E%3Cline%20x1%3D%2732.7%27%20y1%3D%2721%27%20x2%3D%2732.7%27%20y2%3D%2731%27%2F%3E%3C%2Fg%3E%3Cline%20x1%3D%2730%27%20y1%3D%2731%27%20x2%3D%2730%27%20y2%3D%2743%27%20stroke%3D%27%23d8b98a%27%20stroke-width%3D%271.1%27%20stroke-linecap%3D%27round%27%2F%3E%3Ccircle%20cx%3D%2730%27%20cy%3D%2744.4%27%20r%3D%271.4%27%20fill%3D%27%23d8b98a%27%2F%3E%3C%2Fsvg%3E");
+}
 .lantern::after { /* hot-air-balloon rigging: ropes + wicker basket */
   content: "";
   position: absolute;
@@ -178,7 +183,7 @@ body.has-video #mist { display: none; }
   width: 62%;
   height: 46%;
   transform: translateX(-50%);
-  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2060%2046%27%3E%3Cg%20stroke%3D%27%23e2c19a%27%20stroke-width%3D%271.4%27%20stroke-linecap%3D%27round%27%3E%3Cline%20x1%3D%2719%27%20y1%3D%271%27%20x2%3D%2724%27%20y2%3D%2721%27%2F%3E%3Cline%20x1%3D%2741%27%20y1%3D%271%27%20x2%3D%2736%27%20y2%3D%2721%27%2F%3E%3C%2Fg%3E%3Crect%20x%3D%2722.5%27%20y%3D%2720%27%20width%3D%2715%27%20height%3D%2711%27%20rx%3D%272.4%27%20fill%3D%27%238a5a2b%27%2F%3E%3Crect%20x%3D%2722.5%27%20y%3D%2720%27%20width%3D%2715%27%20height%3D%274.2%27%20rx%3D%272%27%20fill%3D%27%23a9702f%27%2F%3E%3Cg%20stroke%3D%27%236b431f%27%20stroke-width%3D%270.9%27%3E%3Cline%20x1%3D%2727.3%27%20y1%3D%2721%27%20x2%3D%2727.3%27%20y2%3D%2731%27%2F%3E%3Cline%20x1%3D%2732.7%27%20y1%3D%2721%27%20x2%3D%2732.7%27%20y2%3D%2731%27%2F%3E%3C%2Fg%3E%3Cline%20x1%3D%2730%27%20y1%3D%2731%27%20x2%3D%2730%27%20y2%3D%2743%27%20stroke%3D%27%23d8b98a%27%20stroke-width%3D%271.1%27%20stroke-linecap%3D%27round%27%2F%3E%3Ccircle%20cx%3D%2730%27%20cy%3D%2744.4%27%20r%3D%271.4%27%20fill%3D%27%23d8b98a%27%2F%3E%3C%2Fsvg%3E");
+  background-image: var(--basket);
   background-repeat: no-repeat;
   background-position: top center;
   background-size: 100% 100%;
@@ -210,42 +215,39 @@ body.has-video #mist { display: none; }
 }
 .lantern.type-pain .lantern-text { color: rgba(16, 22, 44, 0.92); }
 .lantern:active { filter: brightness(1.1); }
-/* A streamer that hangs from the basket on a little string when a whisper has
-   been answered — a warm "someone stayed for this" cue, not a cold comment
-   count. A swallowtail bottom edge + a fabric wave make it read as a fluttering
-   ribbon rather than a rigid label. Only shown for warmth >= 1 (added from JS). */
-.lantern-ribbon {
-  position: absolute;
-  top: 134%;
-  left: 50%;
-  white-space: nowrap;
-  font-size: 0.56rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: #5a3d18;
-  background: linear-gradient(180deg, rgba(255, 228, 170, 0.97), rgba(255, 196, 120, 0.95));
-  padding: 3px 12px 7px;
-  /* swallowtail notch on the bottom edge → a pennant/streamer, not a card */
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.24);
-  pointer-events: none;
-  transform-origin: top center;
-  animation: ribbon-wave 3s ease-in-out infinite;
+/* The moment a reader's light or reply lands: the balloon flares warm and
+   settles. The lasting change (halo width, lit basket) is deliberately quiet,
+   which makes it unreadable as feedback on its own — this is what tells you it
+   worked. Far balloons lose their depth blur for the second it runs; a flash is
+   the point, so that is fine. */
+@keyframes warm-flare {
+  0% { filter: brightness(1); }
+  30% { filter: brightness(1.6) saturate(1.12); }
+  100% { filter: brightness(1); }
 }
-.lantern-ribbon::before { /* short string tying the streamer to the basket */
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: -7px;
-  width: 1px;
-  height: 7px;
-  background: rgba(214, 184, 126, 0.85);
-  transform: translateX(-50%);
+.lantern.just-warmed { animation: warm-flare 1.2s ease-out; }
+/* "Someone answered" used to be a yellow pennant hanging off the basket. It
+   read as a web notification and broke the spell, so the signal moved into the
+   scene itself: the basket is lit, like someone is home in it. Binary on
+   purpose — one reply and twenty look identical. It says a stranger stopped
+   here, not how many. Drawn as a warm pool of light layered over the basket in
+   the same pseudo-element, so an answered whisper costs no extra DOM. */
+.lantern.answered::after {
+  background-image:
+    radial-gradient(
+      ellipse 26% 15% at 50% 55%,
+      rgba(255, 240, 200, 0.95) 0%,
+      rgba(255, 198, 112, 0.6) 45%,
+      rgba(255, 170, 70, 0) 100%
+    ),
+    var(--basket);
+  animation: basket-lit 3.6s ease-in-out infinite alternate;
 }
-.lantern-ribbon.warm { background: linear-gradient(180deg, rgba(255, 216, 150, 0.98), rgba(255, 172, 96, 0.96)); }
-@keyframes ribbon-wave {
-  0%, 100% { transform: translateX(-50%) rotate(-3.2deg) skewX(3deg); }
-  50% { transform: translateX(-50%) rotate(3.2deg) skewX(-3deg); }
+@keyframes basket-lit {
+  from { filter: brightness(0.94); }
+  to { filter: brightness(1.14); }
+}
+}
 }
 
 /* ---- Top bar ---- */
@@ -330,7 +332,7 @@ body.has-video #mist { display: none; }
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(70px + var(--safe-bottom));
+  bottom: calc(104px + var(--safe-bottom));
   z-index: 19;
   max-width: 82vw;
   padding: 5px 12px;
@@ -362,15 +364,65 @@ body.has-video #mist { display: none; }
   bottom: 0;
   z-index: 20;
   display: flex;
-  gap: 12px;
-  padding: 12px 16px calc(14px + var(--safe-bottom));
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px calc(10px + var(--safe-bottom));
   background: linear-gradient(180deg, rgba(6, 9, 22, 0) 0%, rgba(6, 9, 22, 0.7) 60%, rgba(4, 6, 16, 0.92) 100%);
 }
+.bottom-actions { display: flex; gap: 12px; }
+/* The ⓘ panel's way out to the official pages — the findable entrance; the
+   footer row below is the quiet one. */
+/* The ⓘ panel borrows the reading view's skin — the same warm translucent
+   card and dark ink as a whisper — so the two feel like one surface instead of
+   two different greys. */
+#about-panel {
+  background: rgba(255, 244, 204, 0.44);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.24);
+}
+#about-panel .mini-close { color: rgba(59, 47, 24, 0.6); }
+#about-panel-text {
+  padding-right: 20px; /* keep the first line clear of the × */
+  color: #3b2f18;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(255, 250, 235, 0.6);
+}
+.panel-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(59, 47, 24, 0.18);
+}
+.panel-links a {
+  padding: 7px 2px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #6a4a12;
+  text-decoration: none;
+  text-shadow: 0 1px 3px rgba(255, 250, 235, 0.55);
+}
+.panel-links a:active { color: #a3641a; }
+
+/* Quiet links out to the official pages (About / Principles / Privacy / Blog). */
+.site-links {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  color: rgba(234, 240, 255, 0.4);
+}
+.site-links a { color: inherit; text-decoration: none; }
+.site-links a:active { color: var(--warm); }
+.site-links a + a::before { content: '·'; margin-right: 10px; opacity: 0.6; }
 .bottom-btn {
   flex: 1;
   border-radius: 999px;
-  padding: 13px 10px;
-  font-size: 0.94rem;
+  padding: 11px 10px;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--ink);
   cursor: pointer;
@@ -435,6 +487,14 @@ body.has-video #mist { display: none; }
   transition: background 0.14s ease;
 }
 .find-result-row:active { background: rgba(255, 255, 255, 0.12); }
+/* A whisper of yours that was hidden for breaking the guidelines: listed, but
+   unreadable and not tappable. */
+.find-result-row.removed {
+  color: var(--ink-soft);
+  font-style: italic;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: default;
+}
 .share-qr {
   display: block;
   width: 180px;
@@ -506,6 +566,16 @@ label { display: block; font-size: 0.84rem; color: var(--ink-soft); margin: 4px 
   margin-bottom: 12px;
 }
 .crisis-banner p { margin: 0; font-size: 0.79rem; line-height: 1.5; color: #ffd9ad; }
+/* Hotlines are national, not linguistic — this link carries whoever we don't
+   have a number for. */
+#crisis-link {
+  display: inline-block;
+  margin-top: 5px;
+  font-size: 0.76rem;
+  color: var(--warm);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .form-error { color: #ff9a9a; font-size: 0.82rem; margin: 6px 2px; }
 
 .sheet-actions { display: flex; gap: 10px; margin-top: 16px; }
@@ -709,6 +779,12 @@ body.reading #now-playing { display: none; }
   from { transform: translate(-50%, var(--read-from, 88vh)); }
   to   { transform: translate(-50%, -100%); }
 }
+/* The text drifts up at ~50px/s, which is fine to read and impossible to aim
+   at. Tapping the whisper or a reply freezes the rise (tap again to resume) so
+   the per-reply report button is a still target. Those two need their own
+   pointer-events because the viewport lets taps fall through to close. */
+.read-scroll.paused { animation-play-state: paused; }
+.read-content, .read-reply { pointer-events: auto; }
 /* Soft pale-yellow backing with dark ink text, so the words stay legible
    over ANY background (bright or dark) while feeling warm, like lamplight. */
 .read-content {
@@ -785,7 +861,6 @@ body.reading #now-playing { display: none; }
   align-items: center;
   gap: 6px;
   width: fit-content;
-  margin-top: 10px;
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -861,6 +936,49 @@ body.reading #now-playing { display: none; }
   pointer-events: none;
 }
 .read-actions > * { pointer-events: auto; }
+/* "If you can, leave a little warmth behind." — an invitation, never a demand:
+   its own line above the two actions, quiet enough to ignore. */
+.read-invite {
+  flex-basis: 100%;
+  max-width: fit-content; /* shrink to the sentence, then centre on its own line */
+  margin: 0 auto 6px;
+  padding: 5px 15px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-style: italic;
+  letter-spacing: 0.01em;
+  color: rgba(255, 235, 205, 0.88);
+  /* the same quiet backing as the now-playing strip: the whisper scrolls
+     behind this, and both have to stay readable */
+  background: rgba(8, 11, 26, 0.42);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+/* One report control, used both next to a whisper's byline and at the end of
+   each reply's. Needs its own pointer-events because the reading viewport lets
+   taps fall through to close. */
+.report-pill {
+  pointer-events: auto;
+  margin-left: 4px;
+  min-height: 28px;
+  padding: 4px 11px;
+  border: 1px solid rgba(59, 47, 24, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  color: rgba(59, 47, 24, 0.72);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.report-pill:disabled, .report-pill.reported {
+  color: rgba(59, 47, 24, 0.4);
+  background: rgba(255, 255, 255, 0.16);
+  cursor: default;
+}
+/* A whisper's byline row: "from ab***" and its report button together. */
+.read-byline { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
 .read-actions .link-btn { color: rgba(226, 234, 255, 0.75); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); }
 /* "Leave a light" — a zero-effort warm response for readers who don't type.
    No number, no rank; once left (per device) it settles into a soft glow. */

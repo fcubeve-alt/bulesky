@@ -23,7 +23,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read16" />
+<link rel="stylesheet" href="/css/style.css?v=read27" />
 </head>
 <body>
 
@@ -46,8 +46,22 @@
     <button id="find-icon" class="icon-btn" aria-label="Find my whispers">🔍</button>
     <button id="share-icon" class="icon-btn" aria-label="Scan to open">▦</button>
     <button id="coffee-icon" class="icon-btn" aria-label="Buy a coffee">☕</button>
+    <button id="about-icon" class="icon-btn" aria-label="About this sky">ⓘ</button>
   </div>
 </header>
+
+<!-- Way out to the official pages, from inside the sky. The footer links at
+     the bottom are easy to miss; this is the findable one. -->
+<div id="about-panel" class="mini-panel hidden">
+  <button class="mini-close" id="about-close" aria-label="Close">×</button>
+  <p id="about-panel-text" class="hint"></p>
+  <nav class="panel-links">
+    <a href="/about.html">About</a>
+    <a href="/principles.html">Community principles</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/blog/">Blog</a>
+  </nav>
+</div>
 
 <!-- Mini panels -->
 <div id="find-panel" class="mini-panel hidden">
@@ -102,8 +116,18 @@
 
 <!-- Bottom invitation -->
 <nav class="bottom-bar">
-  <button id="entry-pain" class="bottom-btn" data-type="pain"></button>
-  <button id="entry-wish" class="bottom-btn" data-type="wish"></button>
+  <div class="bottom-actions">
+    <button id="entry-pain" class="bottom-btn" data-type="pain"></button>
+    <button id="entry-wish" class="bottom-btn" data-type="wish"></button>
+  </div>
+  <!-- Quiet footer to the official pages. English on purpose: the pages
+       themselves are English, so a localized label would mislead. -->
+  <p class="site-links">
+    <a href="/about.html">About</a>
+    <a href="/principles.html">Principles</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/blog/">Blog</a>
+  </p>
 </nav>
 
 <!-- Compose sheet -->
@@ -113,7 +137,12 @@
   <button class="mini-close sheet-close" id="compose-close" aria-label="Close">×</button>
   <div id="compose-title" class="cx-lead"></div>
   <p id="compose-sub" class="cx-sub"></p>
-  <div id="crisis-banner" class="crisis-banner hidden"><p id="crisis-text"></p></div>
+  <!-- Always on while composing a sorrow — never triggered by keywords, so it
+       is there before the first word rather than after it. -->
+  <div id="crisis-banner" class="crisis-banner hidden">
+    <p id="crisis-text"></p>
+    <a id="crisis-link" href="https://findahelpline.com" target="_blank" rel="noopener noreferrer"></a>
+  </div>
   <div class="field">
     <textarea id="compose-content" class="big-input" rows="4" maxlength="1000"></textarea>
     <span id="compose-count" class="field-count">0 / 1000</span>
@@ -148,13 +177,21 @@
   <div class="read-viewport">
     <div id="read-scroll" class="read-scroll">
       <div id="read-content" class="read-content"></div>
-      <div id="read-author" class="read-author"></div>
+      <!-- Byline + report, laid out exactly like a reply's: the report sits
+           next to the name it belongs to, not adrift in the action bar. -->
+      <div class="read-byline">
+        <div id="read-author" class="read-author"></div>
+        <button id="read-report-btn" class="report-pill"></button>
+      </div>
       <h3 id="detail-replies-title" class="read-replies-title"></h3>
       <div id="read-replies" class="read-replies"></div>
     </div>
   </div>
   <button class="read-close" id="read-close" aria-label="Close">×</button>
   <div class="read-actions">
+    <!-- A quiet invitation, never a demand. Full-width so it sits on its own
+         line above the two actions. -->
+    <p id="read-invite" class="read-invite"></p>
     <button id="read-reply-btn" class="btn-primary btn-small"></button>
     <button id="read-light-btn" class="btn-secondary btn-small light-btn"></button>
   </div>

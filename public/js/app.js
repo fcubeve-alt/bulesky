@@ -28,6 +28,10 @@ const els = {
   findInput: $('find-input'),
   findSubmit: $('find-submit'),
   findResult: $('find-result'),
+  aboutIcon: $('about-icon'),
+  aboutPanel: $('about-panel'),
+  aboutClose: $('about-close'),
+  aboutPanelText: $('about-panel-text'),
   coffeePanel: $('coffee-panel'),
   coffeeClose: $('coffee-close'),
   coffeeText: $('coffee-text'),
@@ -55,6 +59,7 @@ const els = {
   composeSub: $('compose-sub'),
   crisisBanner: $('crisis-banner'),
   crisisText: $('crisis-text'),
+  crisisLink: $('crisis-link'),
   composeContent: $('compose-content'),
   composeCount: $('compose-count'),
   composeCodeLabel: $('compose-code-label'),
@@ -75,8 +80,10 @@ const els = {
   readScroll: $('read-scroll'),
   readContent: $('read-content'),
   readAuthor: $('read-author'),
+  readInvite: $('read-invite'),
   readReplyBtn: $('read-reply-btn'),
   readLightBtn: $('read-light-btn'),
+  readReportBtn: $('read-report-btn'),
   detailRepliesTitle: $('detail-replies-title'),
   readReplies: $('read-replies'),
   replyOverlay: $('reply-overlay'),
@@ -112,7 +119,13 @@ const ERROR_KEYS = {
   code_taken: 'errorCodeTaken',
 };
 
-const state = { composeType: 'pain', composeOpenedAt: 0, detailBubbleId: null };
+const state = {
+  composeType: 'pain',
+  composeOpenedAt: 0,
+  detailBubbleId: null,
+  detailBubble: null,
+  detailWarmed: false, // did the reader leave a light or a reply on this one?
+};
 let whisperWorld = null;
 let backgrounds = null;
 
@@ -136,6 +149,7 @@ function applyText() {
   els.findLabel.textContent = t('findLabel');
   els.findInput.placeholder = t('codePlaceholder');
   els.findSubmit.textContent = t('findSubmit');
+  els.aboutPanelText.textContent = t('aboutPanelIntro');
   els.coffeeText.textContent = t('coffeeText');
   els.coffeeLink.textContent = t('coffeeLink');
   els.shareTitle.textContent = t('shareTitle');
@@ -144,6 +158,7 @@ function applyText() {
   els.entryPain.textContent = t('entryPain');
   els.entryWish.textContent = t('entryWish');
   els.crisisText.textContent = t('crisisText');
+  els.crisisLink.textContent = t('crisisMore');
   els.composeSub.textContent = t('composeSub');
   els.composeCodeLabel.textContent = t('composeNameChip');
   els.composeCode.placeholder = t('codePlaceholder');
@@ -153,6 +168,7 @@ function applyText() {
   els.confirmCopy.textContent = t('copyCode');
   els.confirmHint.textContent = t('confirmHint');
   els.confirmClose.textContent = t('close');
+  els.readInvite.textContent = t('readInvite');
   els.readReplyBtn.textContent = t('readReply');
   els.readLightBtn.textContent = t('leaveLight');
   els.replyCode.placeholder = t('replyCodePlaceholder');
@@ -249,10 +265,57 @@ function rememberLight(id) {
   localStorage.setItem('lit_bubbles', JSON.stringify([...s]));
 }
 
-// Ribbon text under an answered balloon — companionship phrasing, never a cold
-// "N comments" count.
-function ribbonText(warmth) {
-  return warmth >= 5 ? t('ribbonMany') : t('ribbon1');
+// ---------- Reporting ----------
+
+// One report per device per item, kept in localStorage as "bubble:12" /
+// "reply:34" so a whisper and its replies are counted separately. Reporting is
+// deliberately one tap with no confirmation dialog: an extra step mostly buys
+// fewer reports, not better ones.
+function reportedKeys() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem('reported_items') || '[]'));
+  } catch {
+    return new Set();
+  }
+}
+function reportKey(targetType, id) {
+  return `${targetType}:${id}`;
+}
+function hasReported(targetType, id) {
+  return reportedKeys().has(reportKey(targetType, id));
+}
+function rememberReported(targetType, id) {
+  const s = reportedKeys();
+  s.add(reportKey(targetType, id));
+  localStorage.setItem('reported_items', JSON.stringify([...s]));
+}
+
+function markReportButton(btn) {
+  btn.textContent = t('reported');
+  btn.disabled = true;
+  btn.classList.add('reported');
+}
+
+// Send one report. The server answers whether the content ended up hidden —
+// either because the moderation model confirmed the violation on this very
+// report, or because it has now been flagged enough times.
+async function sendReport(targetType, id, btn, onHidden) {
+  if (hasReported(targetType, id)) return;
+  rememberReported(targetType, id);
+  markReportButton(btn);
+  try {
+    const res = await fetch('/api/report', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ targetType, targetId: id }),
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(t('errorGeneric'));
+    showToast(t('reportedToast'));
+    if (data.hidden) onHidden();
+  } catch {
+    showToast(t('errorGeneric'));
+  }
 }
 
 // ---------- Compose ----------
@@ -350,10 +413,16 @@ function maskName(code) {
 }
 
 function renderRead(bubble, replies, rect) {
+  // Only forget "they left something here" when this is a different whisper —
+  // replying re-renders this same view, and wiping the flag there swallowed the
+  // flare that should greet the sky on close.
+  if (state.detailBubbleId !== bubble.id) state.detailWarmed = false;
   state.detailBubbleId = bubble.id;
+  state.detailBubble = bubble;
   els.readOverlay.dataset.type = bubble.type;
   els.readContent.textContent = bubble.content;
   setLightButtonState(bubble.id);
+  setReportButtonState(bubble.id);
   if (bubble.code) {
     els.readAuthor.textContent = `${t('byLabel')} ${maskName(bubble.code)}`;
     els.readAuthor.classList.remove('hidden');
@@ -383,6 +452,19 @@ function renderRead(bubble, replies, rect) {
       const who = document.createElement('div');
       who.className = 'read-reply-author';
       who.textContent = `${t('byLabel')} ${r.code ? maskName(r.code) : t('anonymous')}`;
+      // Every reply carries its own report button, counted separately from the
+      // whisper it sits under.
+      const flag = document.createElement('button');
+      flag.className = 'report-pill';
+      const flagged = hasReported('reply', r.id);
+      flag.textContent = flagged ? t('reported') : t('report');
+      flag.disabled = flagged;
+      flag.classList.toggle('reported', flagged);
+      flag.addEventListener('click', (e) => {
+        e.stopPropagation(); // a tap on the overlay closes the reading view
+        sendReport('reply', r.id, flag, () => item.remove());
+      });
+      who.appendChild(flag);
       item.append(body, who);
       els.readReplies.appendChild(item);
     }
@@ -418,9 +500,24 @@ function openRead() {
 }
 
 function closeRead() {
+  // If they left something behind, flare the balloon as the sky comes back —
+  // the change happened while this view was covering it.
+  if (state.detailWarmed && state.detailBubbleId) {
+    whisperWorld.pulse(state.detailBubbleId);
+    state.detailWarmed = false;
+  }
   els.readOverlay.classList.add('hidden');
   els.readOverlay.classList.remove('lit');
+  els.readScroll.classList.remove('paused');
   document.body.classList.remove('reading');
+}
+
+// Reflect whether this device has already reported the open whisper.
+function setReportButtonState(id) {
+  const done = hasReported('bubble', id);
+  els.readReportBtn.textContent = done ? t('reported') : t('report');
+  els.readReportBtn.disabled = done;
+  els.readReportBtn.classList.toggle('reported', done);
 }
 
 // Reflect whether this device has already left a light on the open whisper.
@@ -443,6 +540,26 @@ function flySpark() {
 
 // Leave a light: a soft, numberless "I read this, I'm here" for readers who
 // don't want to type. One per device per whisper.
+// Push new warmth onto the balloon carrying the whisper being read, right now.
+// The server has already recorded it, but the sky only refetches every so often
+// and a balloon in flight keeps the whisper it was bound to — so without this,
+// leaving a light or a reply changed nothing you could see. If no balloon is
+// carrying it any more (it recycled while you were reading), pin the whisper so
+// one rises with the change on it.
+function warmOpenWhisper(changes) {
+  const id = state.detailBubbleId;
+  if (!id || !state.detailBubble) return;
+  Object.assign(state.detailBubble, changes);
+  state.detailWarmed = true;
+  if (whisperWorld.markWhisper(id, changes)) {
+    // The reading view is transparent — the balloon is right there behind the
+    // text, so flare it the moment they tap, not only when the view closes.
+    whisperWorld.pulse(id);
+  } else {
+    whisperWorld.pin({ ...state.detailBubble });
+  }
+}
+
 async function leaveLight() {
   const id = state.detailBubbleId;
   if (!id || hasLeftLight(id)) return;
@@ -453,8 +570,12 @@ async function leaveLight() {
   els.readOverlay.classList.add('lit');
   flySpark();
   showToast(t('lightThanks'));
+  warmOpenWhisper({ lights: (state.detailBubble?.lights || 0) + 1 });
   try {
-    await fetch(`/api/bubbles/${id}/lights`, { method: 'POST' });
+    const res = await fetch(`/api/bubbles/${id}/lights`, { method: 'POST' });
+    const data = await res.json();
+    // Take the server's count — someone else may have left one too.
+    if (Number.isFinite(data?.lights)) warmOpenWhisper({ lights: data.lights });
   } catch {
     // Best-effort; the on-device "already left" state stands regardless.
   }
@@ -479,6 +600,8 @@ async function submitReply() {
     const data = await res.json();
     if (!res.ok) return showError(els.replyError, t(ERROR_KEYS[data.error] || 'errorGeneric'));
     closeSheet(els.replyOverlay, els.replySheet);
+    // Light the basket immediately — this whisper now has an answer.
+    warmOpenWhisper({ warmth: (state.detailBubble?.warmth || 0) + 1 });
     await openDetail(state.detailBubbleId);
     loadWhispers();
   } catch {
@@ -522,6 +645,16 @@ function renderFindResults(bubbles) {
   for (const b of bubbles) {
     const row = document.createElement('button');
     row.className = 'find-result-row';
+    // A whisper that was hidden for breaking the guidelines stays unreadable
+    // even here, for its own author — but it is listed, so it doesn't look
+    // like the lookup lost it.
+    if (b.removed) {
+      row.classList.add('removed');
+      row.textContent = t('removedNotice');
+      row.disabled = true;
+      els.findResult.appendChild(row);
+      continue;
+    }
     const icon = b.type === 'wish' ? '✦ ' : '❁ ';
     const text = (b.content || '').trim();
     row.textContent = icon + text.slice(0, 42) + (text.length > 42 ? '…' : '');
@@ -646,7 +779,6 @@ function init() {
   backgrounds = initBackgrounds({ videoA: els.bgVideoA, videoB: els.bgVideoB, scrim: els.bgScrim });
   whisperWorld = createWhisperWorld(els.lanterns, els.world, {
     onTap: openDetail,
-    ribbonText,
     onNeedMore: requestFreshSample,
   });
   loadWhispers();
@@ -693,15 +825,41 @@ function init() {
   els.readOverlay.addEventListener('click', (e) => {
     if (e.target === els.readOverlay || e.target.classList.contains('read-viewport')) closeRead();
   });
+  // Tapping the text holds it still — for a slow re-read, and so the report
+  // button on a reply can actually be hit. Tap again to let it drift on.
+  els.readScroll.addEventListener('click', () => {
+    els.readScroll.classList.toggle('paused');
+  });
   els.readReplyBtn.addEventListener('click', openReplySheet);
   els.readLightBtn.addEventListener('click', leaveLight);
+  els.readReportBtn.addEventListener('click', () => {
+    const id = state.detailBubbleId;
+    if (!id) return;
+    // A whisper that gets hidden leaves the sky, so close the view it was
+    // being read in and re-deal the deck.
+    sendReport('bubble', id, els.readReportBtn, () => {
+      closeRead();
+      loadWhispers();
+    });
+  });
   els.replyClose.addEventListener('click', () => closeSheet(els.replyOverlay, els.replySheet));
   els.replySubmit.addEventListener('click', submitReply);
   wireOverlayClose(els.replyOverlay, els.replySheet);
 
+  els.aboutIcon.addEventListener('click', () => {
+    els.aboutPanel.classList.toggle('hidden');
+    els.findPanel.classList.add('hidden');
+    els.coffeePanel.classList.add('hidden');
+    els.musicPanel.classList.add('hidden');
+    els.bgPanel.classList.add('hidden');
+    els.sharePanel.classList.add('hidden');
+  });
+  els.aboutClose.addEventListener('click', () => els.aboutPanel.classList.add('hidden'));
+
   els.findIcon.addEventListener('click', () => {
     els.findResult.innerHTML = '';
     els.findPanel.classList.toggle('hidden');
+    els.aboutPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
     els.bgPanel.classList.add('hidden');
@@ -713,6 +871,7 @@ function init() {
 
   els.coffeeIcon.addEventListener('click', () => {
     els.coffeePanel.classList.toggle('hidden');
+    els.aboutPanel.classList.add('hidden');
     els.findPanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
     els.bgPanel.classList.add('hidden');
@@ -722,6 +881,7 @@ function init() {
 
   els.shareIcon.addEventListener('click', () => {
     els.sharePanel.classList.toggle('hidden');
+    els.aboutPanel.classList.add('hidden');
     els.findPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
@@ -732,6 +892,7 @@ function init() {
 
   els.bgIcon.addEventListener('click', () => {
     els.bgPanel.classList.toggle('hidden');
+    els.aboutPanel.classList.add('hidden');
     els.findPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
@@ -749,6 +910,7 @@ function init() {
 
   els.musicIcon.addEventListener('click', () => {
     els.musicPanel.classList.toggle('hidden');
+    els.aboutPanel.classList.add('hidden');
     els.findPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');
     els.bgPanel.classList.add('hidden');

@@ -1,0 +1,13 @@
+# Are you all right? — cubewithin.com
+#
+# Public brand, private content. Only the official pages are meant to be
+# indexed: the home screen, About, Principles, Privacy and the blog. Whispers,
+# wishes and replies have no pages of their own — they are only ever served
+# through the API below, which crawlers are asked to stay out of.
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin.html
+
+Sitemap: https://cubewithin.com/sitemap.xml
