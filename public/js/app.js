@@ -206,7 +206,10 @@ function wireOverlayClose(overlay, sheet) {
 
 async function loadWhispers() {
   try {
-    const res = await fetch('/api/bubbles?limit=80');
+    // 40, not 80: the refresh below replaces the deck every 90s and a balloon
+    // rises every ~3.4s, so only the first ~26 of a sample were ever dealt —
+    // the rest was downloaded and thrown away.
+    const res = await fetch('/api/bubbles?limit=40');
     const data = await res.json();
     const whispers = data.bubbles || [];
     whisperWorld.setWhispers(whispers);
