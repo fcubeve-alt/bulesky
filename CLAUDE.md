@@ -4,6 +4,7 @@
 - **The drifting sky / balloon feed** (`public/js/scene.js`, `.lantern*` in `public/css/style.css`, the `/api/bubbles` list in `functions/api/bubbles/index.js`, and the fetch/pin/refresh in `public/js/app.js`): **read `docs/SKY_FEED.md` first**, then verify every rule there still holds after your change. It captures hard-won decisions (per-viewer weighted sampling, the capped "river", 3–4 depth tiers, per-layer rise speed, mobile width/drag, author-pin). Do not regress one rule while fixing another.
 - **举报 / 内容安全**(`functions/api/report.js`、阅读页的举报按钮、隐藏后的可见性):改前先读 `docs/ROADMAP.md` §7c —— AI 判断与"3 次兜底"是两条**互相独立**的隐藏路径,AI 出错必须 fail open。
 - **博客与后台**(`functions/blog/`、`functions/api/admin/`、`public/admin.html`、`src/markdown.js`):见 `docs/ROADMAP.md` §7d。博客内容在 D1,不在文件里;新增动态路由要同步改 `public/_routes.json`。
+- **背景视频 / 首屏速度**(`public/js/backgrounds.js`、`public/index.html` 里两个 `<video>`、`public/sw.js`、`tools/shrink-video.mjs`):改前先读 `docs/ROADMAP.md` §7e。`preload="none"`、延后 `prepareNext()`、SW 不拦 `/video/` 与 `/music/` —— 这三条都是拿限速实测换来的,别随手改回去。新加的片子必须过 `tools/shrink-video.mjs`。
 - Product strategy & roadmap: `docs/ROADMAP.md`.
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
