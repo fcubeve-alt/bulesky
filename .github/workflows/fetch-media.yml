@@ -17,9 +17,13 @@ jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
+      # Work on whichever branch this run was started from, so a dispatch on a
+      # feature branch fetches into THAT branch and deploys THAT branch. The
+      # ref used to be hardcoded, which meant a media run could quietly deploy
+      # a different branch's code over whatever was live.
       - uses: actions/checkout@v4
         with:
-          ref: claude/lingxingkong-prd-t1x2mg
+          ref: ${{ github.ref_name }}
 
       - uses: actions/setup-node@v4
         with:
@@ -43,7 +47,7 @@ jobs:
             echo "No new media."
           else
             git commit -m "chore: auto-fetch background media"
-            git push origin claude/lingxingkong-prd-t1x2mg
+            git push origin "${{ github.ref_name }}"
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -56,4 +60,4 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
-            -d '{"ref":"claude/lingxingkong-prd-t1x2mg"}'
+            -d "{\"ref\":\"${{ github.ref_name }}\"}"
