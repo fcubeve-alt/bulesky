@@ -354,15 +354,31 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
   let nextIdx = 0;
   const pinned = []; // whispers to surface ASAP (e.g. the author's own new post)
 
+  // Is this whisper already up there on some balloon?
+  function airborne(id) {
+    for (const it of items) if (it.wsp && it.wsp.id === id) return true;
+    return false;
+  }
+
   function nextWhisper() {
-    if (pinned.length) return pinned.shift();
+    if (pinned.length) return pinned.shift(); // the author's own post jumps the queue
     if (!deck.length) return null;
-    const wsp = deck[nextIdx % deck.length];
-    nextIdx += 1;
-    // Finished a full pass of the deck → ask for a fresh sample so the balloons
-    // rising next are newly drawn, not the same batch looping (SKY_FEED §3).
-    if (nextIdx % deck.length === 0 && typeof onNeedMore === 'function') onNeedMore();
-    return wsp;
+    // Walk the deck in order. The deck is a random sample dealt by the server,
+    // in random order, so walking it is walking a random permutation: every
+    // balloon that rises carries something different, and a full pass asks for
+    // a brand new sample rather than looping the same batch (SKY_FEED §3).
+    for (let tries = 0; tries < deck.length; tries++) {
+      const wsp = deck[nextIdx % deck.length];
+      nextIdx += 1;
+      if (nextIdx % deck.length === 0 && typeof onNeedMore === 'function') onNeedMore();
+      // Skip anything already in the air. A refreshed sample can contain a
+      // whisper a balloon is still carrying, and the same words rising twice at
+      // once is exactly the repetition this whole scheme exists to avoid.
+      if (!airborne(wsp.id)) return wsp;
+    }
+    // Everything in the deck is already flying — only possible when the corpus
+    // is smaller than the pool. Better to fly fewer balloons than duplicates.
+    return null;
   }
 
   // How wide this balloon actually reads on screen, including how far it sways.
