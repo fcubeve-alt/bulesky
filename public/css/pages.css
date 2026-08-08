@@ -131,6 +131,15 @@ blockquote p:last-child { margin-bottom: 0; }
 
 hr { border: 0; border-top: 1px solid var(--line); margin: 48px 0; }
 
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 32px auto;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(60, 45, 20, 0.12);
+}
+
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.86em;
