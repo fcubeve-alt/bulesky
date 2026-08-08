@@ -1,11 +1,17 @@
-import { voiceHash, synthesize } from '../../../src/tts.js';
+import { voiceHash, pickVoice, synthesize } from '../../../src/tts.js';
 
 // Read a whisper aloud. Returns audio, never JSON on success.
 //
-// Cost is bounded by design rather than by a rate limiter: a reading is cached
-// under a hash of its own text, so a whisper can only ever be paid for once no
-// matter how many people press play or how often. The set of whispers is
-// finite, so the total bill is too.
+// Generated lazily and kept forever. Publishing a whisper costs nothing — the
+// text is simply stored — and a whisper nobody ever presses Listen on is never
+// synthesised at all. The first listener pays for it once; everyone after them
+// is served the same bytes out of the database.
+//
+// So cost is bounded by the shape of the thing rather than by a rate limiter: a
+// whisper can only ever be paid for once no matter how many people press play
+// or how often, and the set of whispers is finite, so the total is too. Nothing
+// here scales with traffic — only with how many distinct whispers have ever
+// been listened to.
 //
 // A hidden whisper is not readable here either — same rule as the detail
 // endpoint, so a reported-and-removed whisper cannot be laundered back into
@@ -58,9 +64,13 @@ export async function onRequestGet({ params, env }) {
     });
   }
 
+  // Only reached on a cache miss, so the narrator is chosen once per whisper —
+  // same budget as the audio itself.
+  const narrator = await pickVoice(text, env);
+
   let out;
   try {
-    out = await synthesize(text, bubble.type, env.OPENAI_API_KEY);
+    out = await synthesize(text, bubble.type, narrator, env.OPENAI_API_KEY);
   } catch (e) {
     // Same posture as the AI moderation call: the provider having a bad day is
     // not a reason for the reader to get nothing. The client falls back.
@@ -79,8 +89,9 @@ export async function onRequestGet({ params, env }) {
     for (let i = 0, part = 0; i < out.bytes.length; i += CHUNK_BYTES, part += 1) {
       rows.push(
         env.DB.prepare(
-          `INSERT OR IGNORE INTO voice_chunks (hash, part, mime, data, created_at) VALUES (?, ?, ?, ?, ?)`
-        ).bind(hash, part, out.mime, out.bytes.slice(i, i + CHUNK_BYTES), now)
+          `INSERT OR IGNORE INTO voice_chunks (hash, part, mime, data, created_at, voice)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        ).bind(hash, part, out.mime, out.bytes.slice(i, i + CHUNK_BYTES), now, narrator)
       );
     }
     // One batch, so a reading is either fully cached or not cached at all —
