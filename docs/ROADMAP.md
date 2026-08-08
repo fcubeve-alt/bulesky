@@ -183,10 +183,11 @@
 - **登录**:单一密码 `ADMIN_PASSWORD`(Pages secret,由 deploy workflow 从 GitHub secret 同步)。密码只用于校验和签名,**不入库、不进 cookie**;cookie 是 `<过期时间>.<HMAC-SHA256>`,两周过期,HttpOnly + Secure + SameSite=Strict(`src/admin-auth.js`)。**没配 `ADMIN_PASSWORD` 时任何人都进不去**(而不是所有人都能进)。
 - **前台**:`/blog/`(列表)、`/blog/<slug>`(正文)由 `functions/blog/` 渲染,套用与官方页同一套 `pages.css` 外壳(`src/blog-page.js`);草稿对读者一律 404。`/sitemap.xml` 改成动态,发布即进 sitemap。
 - **图片**(2026-08 加):后台「Add image」按钮,或**直接往正文框里 Ctrl+V 粘贴**。图片先在浏览器里用 canvas 压到长边 1600px 再上传(手机照片动辄 3–8MB,而正文栏只有 660px 宽);PNG 压完仍超 500KB 就转 JPEG。存在 D1 的 `images` 表,公开地址 `/media/<id>`,`immutable` 长缓存(一个 id 永远对应同一份字节)。**以后图多了要换 R2,只需换存储,`/media/<id>` 这个地址不变。**
+- **图片管理 / 删除**(2026-08 加):后台列表页右上「Images」进图库,每张图显示缩略图、`/media/<id>`、大小、日期,以及**它被哪几篇文章用着**(`WHERE body LIKE '%](/media/<id>)%'`)。删除必须知道这件事——一张图上传后就公开可访问,和有没有文章引用无关;而直接删掉一张正在用的图,只会在已发布的文章里留下一个碎图,后台自己是看不出来的。所以 `DELETE /api/admin/images/<id>` 在有文章引用时**默认拒绝**(`409 in_use`),前端的确认框先把文章标题念给你听,你点确认它才带 `?force=1` 再发一次。**注意 `immutable` 长缓存**:删掉的图,已经看过的浏览器还会拿缓存显示很久——删除只保证不再有新的人看到。
 - **Markdown**:`src/markdown.js` 只支持 `##`/`###`/列表/引用/`---`/粗斜体/链接/图片 `![说明](/media/1)`。图片解析必须排在链接**前面**(`![x](y)` 也匹配链接的正则)。**先转义再解析**,链接只放行 `http(s)` 和站内 `/`;JSON-LD 里另外把 `<` 转成 `<`(否则标题里一个 `</script>` 就能越狱)。
 - **原来的 3 篇**:源文件在 `content/blog/*.md`,`node tools/gen-post-seed.mjs` 生成 `migrations/0007_seed_posts.sql` 灌进 D1(`INSERT OR IGNORE`,重跑迁移不会覆盖你在后台改过的内容)。改种子文章正常做法是**直接在后台改**,不用动 md。
 - **缓存**:文章页 `cache-control: max-age=60` —— 撤回一篇已发布的文章,已经打开过的浏览器最多还能看到 60 秒。
-- **`public/_routes.json`**:只有 `/api/*`、`/blog`、`/blog/*`、`/sitemap.xml` 走 Functions,其余静态资源直出。**新增动态路由记得加进来**。
+- **`public/_routes.json`**:只有 `/api/*`、`/blog`、`/blog/*`、`/media/*`、`/sitemap.xml` 走 Functions,其余静态资源直出。**新增动态路由记得加进来**。
 
 ---
 

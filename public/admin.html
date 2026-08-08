@@ -35,13 +35,26 @@
 <main id="view-list" class="hidden">
   <div class="admin-bar">
     <h1>Posts</h1>
-    <button id="new-post" class="primary" type="button">New post</button>
+    <div class="row" style="margin:0">
+      <button id="open-images" type="button">Images</button>
+      <button id="new-post" class="primary" type="button">New post</button>
+    </div>
   </div>
   <div id="posts"></div>
   <p id="list-msg" class="msg hidden"></p>
 </main>
 
-<!-- 3. Editor -->
+<!-- 3. Images -->
+<main id="view-images" class="hidden">
+  <div class="admin-bar">
+    <h1>Images</h1>
+    <button id="images-back" class="link" type="button">← All posts</button>
+  </div>
+  <div id="image-list"></div>
+  <p id="images-msg" class="msg hidden"></p>
+</main>
+
+<!-- 4. Editor -->
 <main id="view-edit" class="hidden">
   <div class="admin-bar">
     <h1 id="edit-title">New post</h1>
@@ -90,7 +103,12 @@
 
 <script type="module">
 const $ = (id) => document.getElementById(id);
-const views = { login: $('view-login'), list: $('view-list'), edit: $('view-edit') };
+const views = {
+  login: $('view-login'),
+  list: $('view-list'),
+  images: $('view-images'),
+  edit: $('view-edit'),
+};
 let editingId = null;
 let slugTouched = false;
 
@@ -113,6 +131,7 @@ const ERRORS = {
   empty_body: 'A post needs a body.',
   title_too_long: 'That title is too long.',
   body_too_long: 'That post is too long.',
+  in_use: 'That image is still used in a post.',
 };
 
 // isLogin: a 401 from the sign-in call means "wrong password", not "your
@@ -323,6 +342,67 @@ $('delete').addEventListener('click', async () => {
     say($('edit-msg'), e.message);
   }
 });
+
+// ---- Image library ----
+// Deleting matters: an upload is public at /media/<id> the moment it lands,
+// whether or not any post uses it.
+async function loadImages() {
+  const { images } = await api('/api/admin/images');
+  const box = $('image-list');
+  box.textContent = '';
+  if (!images.length) {
+    say($('images-msg'), 'No images uploaded yet.', 'ok');
+    show('images');
+    return;
+  }
+  say($('images-msg'), '');
+  for (const img of images) {
+    const row = document.createElement('div');
+    row.className = 'post-row image-item';
+
+    const thumb = document.createElement('img');
+    thumb.src = img.url;
+    thumb.alt = '';
+    thumb.loading = 'lazy';
+
+    const left = document.createElement('div');
+    const h = document.createElement('h2');
+    h.textContent = img.url;
+    const meta = document.createElement('p');
+    meta.className = 'meta';
+    const where = img.usedIn.length
+      ? `used in ${img.usedIn.map((p) => p.title).join(', ')}`
+      : 'not used in any post';
+    meta.textContent = `${Math.max(1, Math.round(img.bytes / 1024))} KB · ${fmt(img.created_at)} · ${where}`;
+    left.append(h, meta);
+
+    const del = document.createElement('button');
+    del.className = 'danger';
+    del.textContent = 'Delete';
+    del.addEventListener('click', async () => {
+      const warn = img.usedIn.length
+        ? `This image is used in: ${img.usedIn.map((p) => p.title).join(', ')}.\n\nDeleting it will leave a broken picture there. Delete anyway?`
+        : 'Delete this image? This cannot be undone.';
+      if (!confirm(warn)) return;
+      try {
+        await api(`/api/admin/images/${img.id}${img.usedIn.length ? '?force=1' : ''}`, { method: 'DELETE' });
+        await loadImages();
+      } catch (e) {
+        say($('images-msg'), e.message);
+      }
+    });
+
+    const wrap = document.createElement('div');
+    wrap.className = 'image-item-main';
+    wrap.append(thumb, left);
+    row.append(wrap, del);
+    box.appendChild(row);
+  }
+  show('images');
+}
+
+$('open-images').addEventListener('click', () => loadImages().catch(() => {}));
+$('images-back').addEventListener('click', () => loadList().catch(() => {}));
 
 $('new-post').addEventListener('click', () => fillEditor(null));
 $('back').addEventListener('click', () => loadList().catch(() => {}));
