@@ -224,7 +224,7 @@ export function initScene(canvas) {
 // ---- Whisper world: the whispers, as rising lanterns you can pan through ----
 
 const WARMTH_CAP = 12;
-const PREVIEW_CHARS = 42;
+const PREVIEW_CHARS = 60;
 
 // Four explicit depth tiers (see docs/SKY_FEED.md §4). Using discrete tiers —
 // rather than one flat random spread — guarantees the sky always has real
@@ -235,9 +235,12 @@ const PREVIEW_CHARS = 42;
 // tier = same speed = the gap set between them at spawn never changes. Layers
 // differ (far slow, near fast), and layers passing over each other is exactly
 // what reads as depth.
+// Weights are 7 big : 3 small out of every ten balloons — the sky is for
+// reading, and a small far dot can't be read. The two near tiers carry the
+// text; the two far ones are there for depth.
 const DEPTH_TIERS = [
-  { zMin: 0.05, zMax: 0.16, weight: 3, rise: 15 }, // far: tiny dim dots, slowest
-  { zMin: 0.3, zMax: 0.44, weight: 4, rise: 21 }, // mid-far
+  { zMin: 0.05, zMax: 0.16, weight: 1, rise: 15 }, // far: tiny dim dots, slowest
+  { zMin: 0.3, zMax: 0.44, weight: 2, rise: 21 }, // mid-far
   { zMin: 0.58, zMax: 0.74, weight: 4, rise: 28 }, // mid-near
   { zMin: 0.88, zMax: 1.0, weight: 3, rise: 36 }, // near: big, bright, fastest
 ];
@@ -447,9 +450,7 @@ export function createWhisperWorld(viewport, world, { onTap, ribbonText, onNeedM
     el.className = `lantern type-${wsp.type}`;
     el.style.width = w + 'px';
     el.style.height = h + 'px';
-    // Longer whispers get a slightly smaller face, so more of the text fits
-    // without the balloon having to grow to match.
-    el.style.fontSize = (0.6 - lenFactor * 0.05).toFixed(3) + 'rem';
+    el.style.fontSize = (0.56 + lenFactor * 0.12).toFixed(3) + 'rem';
     el.style.setProperty('--glow', (0.5 + warmN * 1.0).toFixed(2));
     el.style.setProperty('--burn', (0.14 + warmN * 0.7).toFixed(2)); // burner brightens with warmth
     el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');

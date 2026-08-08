@@ -190,7 +190,7 @@ body.has-video #mist { display: none; }
   line-height: 1.22;
   color: rgba(28, 18, 32, 0.92);
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
