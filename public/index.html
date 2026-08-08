@@ -23,7 +23,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read18" />
+<link rel="stylesheet" href="/css/style.css?v=read19" />
 </head>
 <body>
 
@@ -46,8 +46,22 @@
     <button id="find-icon" class="icon-btn" aria-label="Find my whispers">🔍</button>
     <button id="share-icon" class="icon-btn" aria-label="Scan to open">▦</button>
     <button id="coffee-icon" class="icon-btn" aria-label="Buy a coffee">☕</button>
+    <button id="about-icon" class="icon-btn" aria-label="About this sky">ⓘ</button>
   </div>
 </header>
+
+<!-- Way out to the official pages, from inside the sky. The footer links at
+     the bottom are easy to miss; this is the findable one. -->
+<div id="about-panel" class="mini-panel hidden">
+  <button class="mini-close" id="about-close" aria-label="Close">×</button>
+  <p id="about-panel-text" class="hint"></p>
+  <nav class="panel-links">
+    <a href="/about.html">About</a>
+    <a href="/principles.html">Community principles</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/blog/">Blog</a>
+  </nav>
+</div>
 
 <!-- Mini panels -->
 <div id="find-panel" class="mini-panel hidden">

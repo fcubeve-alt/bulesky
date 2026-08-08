@@ -28,6 +28,10 @@ const els = {
   findInput: $('find-input'),
   findSubmit: $('find-submit'),
   findResult: $('find-result'),
+  aboutIcon: $('about-icon'),
+  aboutPanel: $('about-panel'),
+  aboutClose: $('about-close'),
+  aboutPanelText: $('about-panel-text'),
   coffeePanel: $('coffee-panel'),
   coffeeClose: $('coffee-close'),
   coffeeText: $('coffee-text'),
@@ -138,6 +142,7 @@ function applyText() {
   els.findLabel.textContent = t('findLabel');
   els.findInput.placeholder = t('codePlaceholder');
   els.findSubmit.textContent = t('findSubmit');
+  els.aboutPanelText.textContent = t('aboutPanelIntro');
   els.coffeeText.textContent = t('coffeeText');
   els.coffeeLink.textContent = t('coffeeLink');
   els.shareTitle.textContent = t('shareTitle');
@@ -803,9 +808,20 @@ function init() {
   els.replySubmit.addEventListener('click', submitReply);
   wireOverlayClose(els.replyOverlay, els.replySheet);
 
+  els.aboutIcon.addEventListener('click', () => {
+    els.aboutPanel.classList.toggle('hidden');
+    els.findPanel.classList.add('hidden');
+    els.coffeePanel.classList.add('hidden');
+    els.musicPanel.classList.add('hidden');
+    els.bgPanel.classList.add('hidden');
+    els.sharePanel.classList.add('hidden');
+  });
+  els.aboutClose.addEventListener('click', () => els.aboutPanel.classList.add('hidden'));
+
   els.findIcon.addEventListener('click', () => {
     els.findResult.innerHTML = '';
     els.findPanel.classList.toggle('hidden');
+    els.aboutPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
     els.bgPanel.classList.add('hidden');
@@ -817,6 +833,7 @@ function init() {
 
   els.coffeeIcon.addEventListener('click', () => {
     els.coffeePanel.classList.toggle('hidden');
+    els.aboutPanel.classList.add('hidden');
     els.findPanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
     els.bgPanel.classList.add('hidden');
@@ -826,6 +843,7 @@ function init() {
 
   els.shareIcon.addEventListener('click', () => {
     els.sharePanel.classList.toggle('hidden');
+    els.aboutPanel.classList.add('hidden');
     els.findPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
@@ -836,6 +854,7 @@ function init() {
 
   els.bgIcon.addEventListener('click', () => {
     els.bgPanel.classList.toggle('hidden');
+    els.aboutPanel.classList.add('hidden');
     els.findPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');
     els.musicPanel.classList.add('hidden');
@@ -853,6 +872,7 @@ function init() {
 
   els.musicIcon.addEventListener('click', () => {
     els.musicPanel.classList.toggle('hidden');
+    els.aboutPanel.classList.add('hidden');
     els.findPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');
     els.bgPanel.classList.add('hidden');

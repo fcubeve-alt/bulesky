@@ -368,6 +368,26 @@ body.has-video #mist { display: none; }
   background: linear-gradient(180deg, rgba(6, 9, 22, 0) 0%, rgba(6, 9, 22, 0.7) 60%, rgba(4, 6, 16, 0.92) 100%);
 }
 .bottom-actions { display: flex; gap: 12px; }
+/* The ⓘ panel's way out to the official pages — the findable entrance; the
+   footer row below is the quiet one. */
+#about-panel-text { padding-right: 20px; } /* keep the first line clear of the × */
+.panel-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
+}
+.panel-links a {
+  padding: 7px 2px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--warm);
+  text-decoration: none;
+}
+.panel-links a:active { color: var(--warm-deep); }
+
 /* Quiet links out to the official pages (About / Principles / Privacy / Blog). */
 .site-links {
   display: flex;
