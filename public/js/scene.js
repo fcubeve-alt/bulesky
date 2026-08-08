@@ -453,18 +453,24 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
     el.style.width = w + 'px';
     el.style.height = h + 'px';
     el.style.fontSize = (0.56 + lenFactor * 0.12).toFixed(3) + 'rem';
-    // The two ways of caring read differently and never blur together:
-    //   a reply  → the basket is lit (below), on or off, never a count;
-    //   a light  → the envelope's halo warms up, capped so a popular whisper
-    //              glows a little more but never burns out the picture.
-    const litN = Math.min(1, (wsp.lights || 0) / LIGHT_CAP);
-    el.style.setProperty('--glow', (0.5 + litN * 0.85).toFixed(2));
-    el.style.setProperty('--burn', (0.12 + litN * 0.5).toFixed(2));
     el.setAttribute('aria-label', wsp.type === 'pain' ? 'a sorrow' : 'a wish');
     it.span.textContent = text.length > PREVIEW_CHARS ? text.slice(0, PREVIEW_CHARS) + '…' : text;
-    // Answered? Then someone is home: a warm light in the basket. One reply or
-    // twenty looks the same — this says "a stranger stopped here", not "N".
-    el.classList.toggle('answered', (wsp.warmth || 0) >= 1);
+    applyWarmth(it);
+  }
+
+  // The two ways of caring read differently and never blur together:
+  //   a reply  → the basket is lit, on or off, never a count;
+  //   a light  → the envelope's halo warms up, capped so a much-visited
+  //              whisper glows a little more but never burns out the picture.
+  // Split out from applyWhisper because it also runs the instant the reader
+  // leaves a light or a reply — see markWhisper().
+  function applyWarmth(it) {
+    const wsp = it.wsp;
+    if (!wsp) return;
+    const litN = Math.min(1, (wsp.lights || 0) / LIGHT_CAP);
+    it.el.style.setProperty('--glow', (0.5 + litN * 0.85).toFixed(2));
+    it.el.style.setProperty('--burn', (0.12 + litN * 0.5).toFixed(2));
+    it.el.classList.toggle('answered', (wsp.warmth || 0) >= 1);
   }
 
   // Send a balloon up from just below the bottom edge carrying the next
@@ -548,6 +554,7 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
       y: 0,
       z0: 0,
       tier: 0,
+      pulseTimer: 0,
       baseX: 0,
       rise: 0,
       zPhase: rand(0, Math.PI * 2),
@@ -680,6 +687,41 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
           it.el.style.display = 'none';
         }
       }
+    },
+    // Someone just left a light or a reply on this whisper: show it on the
+    // balloon NOW. Waiting for the next deck refresh meant up to a minute of
+    // nothing, on a balloon that had probably recycled onto a different
+    // whisper by then — so leaving a light looked like it did nothing at all.
+    // Returns false when no balloon is currently carrying it.
+    markWhisper(id, changes) {
+      if (id == null) return false;
+      for (const w of deck) if (w.id === id) Object.assign(w, changes);
+      let live = false;
+      for (const it of items) {
+        if (it.wsp && it.wsp.id === id) {
+          Object.assign(it.wsp, changes);
+          applyWarmth(it);
+          live = true;
+        }
+      }
+      return live;
+    },
+    // A brief warm flare on the balloon carrying this whisper. One extra light
+    // only widens the halo by a few pixels — true to the "no numbers" rule, but
+    // far too quiet to read as "that worked". This is the moment of feedback;
+    // the halo is the lasting state. Returns false if no balloon carries it.
+    pulse(id) {
+      let found = false;
+      for (const it of items) {
+        if (!it.wsp || it.wsp.id !== id) continue;
+        found = true;
+        it.el.classList.remove('just-warmed');
+        void it.el.offsetWidth; // restart the animation if it is already running
+        it.el.classList.add('just-warmed');
+        clearTimeout(it.pulseTimer);
+        it.pulseTimer = setTimeout(() => it.el.classList.remove('just-warmed'), 1300);
+      }
+      return found;
     },
     // Surface a whisper right away (the author's own new post). It jumps into
     // the deck ahead of the queue and the balloon nearest the top re-enters

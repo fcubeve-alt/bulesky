@@ -215,6 +215,17 @@ body.has-video #mist { display: none; }
 }
 .lantern.type-pain .lantern-text { color: rgba(16, 22, 44, 0.92); }
 .lantern:active { filter: brightness(1.1); }
+/* The moment a reader's light or reply lands: the balloon flares warm and
+   settles. The lasting change (halo width, lit basket) is deliberately quiet,
+   which makes it unreadable as feedback on its own — this is what tells you it
+   worked. Far balloons lose their depth blur for the second it runs; a flash is
+   the point, so that is fine. */
+@keyframes warm-flare {
+  0% { filter: brightness(1); }
+  30% { filter: brightness(1.6) saturate(1.12); }
+  100% { filter: brightness(1); }
+}
+.lantern.just-warmed { animation: warm-flare 1.2s ease-out; }
 /* "Someone answered" used to be a yellow pennant hanging off the basket. It
    read as a web notification and broke the spell, so the signal moved into the
    scene itself: the basket is lit, like someone is home in it. Binary on

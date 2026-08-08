@@ -119,7 +119,13 @@ const ERROR_KEYS = {
   code_taken: 'errorCodeTaken',
 };
 
-const state = { composeType: 'pain', composeOpenedAt: 0, detailBubbleId: null };
+const state = {
+  composeType: 'pain',
+  composeOpenedAt: 0,
+  detailBubbleId: null,
+  detailBubble: null,
+  detailWarmed: false, // did the reader leave a light or a reply on this one?
+};
 let whisperWorld = null;
 let backgrounds = null;
 
@@ -407,7 +413,12 @@ function maskName(code) {
 }
 
 function renderRead(bubble, replies, rect) {
+  // Only forget "they left something here" when this is a different whisper —
+  // replying re-renders this same view, and wiping the flag there swallowed the
+  // flare that should greet the sky on close.
+  if (state.detailBubbleId !== bubble.id) state.detailWarmed = false;
   state.detailBubbleId = bubble.id;
+  state.detailBubble = bubble;
   els.readOverlay.dataset.type = bubble.type;
   els.readContent.textContent = bubble.content;
   setLightButtonState(bubble.id);
@@ -489,6 +500,12 @@ function openRead() {
 }
 
 function closeRead() {
+  // If they left something behind, flare the balloon as the sky comes back —
+  // the change happened while this view was covering it.
+  if (state.detailWarmed && state.detailBubbleId) {
+    whisperWorld.pulse(state.detailBubbleId);
+    state.detailWarmed = false;
+  }
   els.readOverlay.classList.add('hidden');
   els.readOverlay.classList.remove('lit');
   els.readScroll.classList.remove('paused');
@@ -523,6 +540,26 @@ function flySpark() {
 
 // Leave a light: a soft, numberless "I read this, I'm here" for readers who
 // don't want to type. One per device per whisper.
+// Push new warmth onto the balloon carrying the whisper being read, right now.
+// The server has already recorded it, but the sky only refetches every so often
+// and a balloon in flight keeps the whisper it was bound to — so without this,
+// leaving a light or a reply changed nothing you could see. If no balloon is
+// carrying it any more (it recycled while you were reading), pin the whisper so
+// one rises with the change on it.
+function warmOpenWhisper(changes) {
+  const id = state.detailBubbleId;
+  if (!id || !state.detailBubble) return;
+  Object.assign(state.detailBubble, changes);
+  state.detailWarmed = true;
+  if (whisperWorld.markWhisper(id, changes)) {
+    // The reading view is transparent — the balloon is right there behind the
+    // text, so flare it the moment they tap, not only when the view closes.
+    whisperWorld.pulse(id);
+  } else {
+    whisperWorld.pin({ ...state.detailBubble });
+  }
+}
+
 async function leaveLight() {
   const id = state.detailBubbleId;
   if (!id || hasLeftLight(id)) return;
@@ -533,8 +570,12 @@ async function leaveLight() {
   els.readOverlay.classList.add('lit');
   flySpark();
   showToast(t('lightThanks'));
+  warmOpenWhisper({ lights: (state.detailBubble?.lights || 0) + 1 });
   try {
-    await fetch(`/api/bubbles/${id}/lights`, { method: 'POST' });
+    const res = await fetch(`/api/bubbles/${id}/lights`, { method: 'POST' });
+    const data = await res.json();
+    // Take the server's count — someone else may have left one too.
+    if (Number.isFinite(data?.lights)) warmOpenWhisper({ lights: data.lights });
   } catch {
     // Best-effort; the on-device "already left" state stands regardless.
   }
@@ -559,6 +600,8 @@ async function submitReply() {
     const data = await res.json();
     if (!res.ok) return showError(els.replyError, t(ERROR_KEYS[data.error] || 'errorGeneric'));
     closeSheet(els.replyOverlay, els.replySheet);
+    // Light the basket immediately — this whisper now has an answer.
+    warmOpenWhisper({ warmth: (state.detailBubble?.warmth || 0) + 1 });
     await openDetail(state.detailBubbleId);
     loadWhispers();
   } catch {
