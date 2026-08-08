@@ -82,6 +82,22 @@ jobs:
           fi
           printf '%s' "$ADMIN_PASSWORD" | npx wrangler pages secret put ADMIN_PASSWORD --project-name=bulesky
 
+      # Reading whispers aloud. Without this the Listen button still works, but
+      # falls back to the browser's own flat synthesis instead of the directed,
+      # emotional reading the feature exists for — so a missing key is a warning
+      # rather than a failed deploy.
+      - name: Sync the text-to-speech key to the Pages project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "::warning::OPENAI_API_KEY is not set — Listen falls back to the browser's robotic voice. Add it under Settings → Secrets and variables → Actions."
+            exit 0
+          fi
+          printf '%s' "$OPENAI_API_KEY" | npx wrangler pages secret put OPENAI_API_KEY --project-name=bulesky
+
       - name: Deploy Pages project (frontend + API)
         id: pages
         env:

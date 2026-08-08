@@ -82,6 +82,7 @@ const els = {
   readAuthor: $('read-author'),
   readInvite: $('read-invite'),
   readReplyBtn: $('read-reply-btn'),
+  readListenBtn: $('read-listen-btn'),
   readLightBtn: $('read-light-btn'),
   readReportBtn: $('read-report-btn'),
   detailRepliesTitle: $('detail-replies-title'),
@@ -170,6 +171,7 @@ function applyText() {
   els.confirmClose.textContent = t('close');
   els.readInvite.textContent = t('readInvite');
   els.readReplyBtn.textContent = t('readReply');
+  els.readListenBtn.textContent = t('listen');
   els.readLightBtn.textContent = t('leaveLight');
   els.replyCode.placeholder = t('replyCodePlaceholder');
   els.replySubmit.textContent = t('replySubmit');
@@ -419,7 +421,12 @@ function renderRead(bubble, replies, rect) {
   // Only forget "they left something here" when this is a different whisper —
   // replying re-renders this same view, and wiping the flag there swallowed the
   // flare that should greet the sky on close.
-  if (state.detailBubbleId !== bubble.id) state.detailWarmed = false;
+  if (state.detailBubbleId !== bubble.id) {
+    state.detailWarmed = false;
+    // Opening a different whisper while one is being read aloud must not leave
+    // the old voice running underneath the new text.
+    stopSpeaking();
+  }
   state.detailBubbleId = bubble.id;
   state.detailBubble = bubble;
   els.readOverlay.dataset.type = bubble.type;
@@ -509,6 +516,9 @@ function closeRead() {
     whisperWorld.pulse(state.detailBubbleId);
     state.detailWarmed = false;
   }
+  // A voice must never outlive the view it belongs to — closing the whisper has
+  // to also close the reading of it, and give the music back.
+  stopSpeaking();
   els.readOverlay.classList.add('hidden');
   els.readOverlay.classList.remove('lit');
   els.readScroll.classList.remove('paused');
@@ -560,6 +570,93 @@ function warmOpenWhisper(changes) {
     whisperWorld.pulse(id);
   } else {
     whisperWorld.pin({ ...state.detailBubble });
+  }
+}
+
+// ---------- Listen ----------
+//
+// The whisper rises as text over a moving background, which is not always easy
+// to read — and some of this is easier to receive in a voice than on a screen.
+//
+// Two paths, and the difference matters. The server route returns a reading
+// spoken with actual direction ("unhurried, warm, a little sorrowful") and is
+// what this feature is for. If no TTS key is configured, or the provider fails,
+// we fall back to the browser's own speech synthesis — flat and robotic, but a
+// button that does nothing is worse. The fallback is a safety net, not the
+// design.
+let speech = { audio: null, utterance: null, id: null };
+
+function setListenState(mode) {
+  els.readListenBtn.classList.toggle('speaking', mode === 'speaking');
+  els.readListenBtn.classList.toggle('loading', mode === 'loading');
+  els.readListenBtn.textContent =
+    mode === 'speaking' ? t('listenStop') : mode === 'loading' ? t('listenLoading') : t('listen');
+}
+
+function stopSpeaking() {
+  if (speech.audio) {
+    speech.audio.pause();
+    speech.audio.src = '';
+    speech.audio = null;
+  }
+  if (speech.utterance) {
+    window.speechSynthesis.cancel();
+    speech.utterance = null;
+  }
+  speech.id = null;
+  ambient.duck(false);
+  setListenState('idle');
+}
+
+function speakInBrowser(text) {
+  if (!('speechSynthesis' in window)) {
+    showToast(t('listenUnavailable'));
+    stopSpeaking();
+    return;
+  }
+  // speak() can throw outright on some platforms. Without this the button would
+  // sit on "Stop" forever and the music would stay ducked with nothing playing
+  // over it — a dead end the reader cannot get out of except by closing.
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.92; // a touch slower than default; this is not an announcement
+    u.pitch = 0.95;
+    u.onend = stopSpeaking;
+    u.onerror = stopSpeaking;
+    speech.utterance = u;
+    setListenState('speaking');
+    window.speechSynthesis.speak(u);
+  } catch {
+    showToast(t('listenUnavailable'));
+    stopSpeaking();
+  }
+}
+
+async function toggleListen() {
+  const id = state.detailBubbleId;
+  if (!id) return;
+  if (speech.id === id) return stopSpeaking(); // tapping again stops it
+  stopSpeaking();
+
+  speech.id = id;
+  setListenState('loading');
+  ambient.duck(true);
+
+  const text = state.detailBubble?.content || '';
+  try {
+    const res = await fetch(`/api/voice/${id}`);
+    if (!res.ok) throw new Error(String(res.status));
+    const blob = await res.blob();
+    if (speech.id !== id) return; // they closed or switched while it synthesised
+    const audio = new Audio(URL.createObjectURL(blob));
+    audio.onended = stopSpeaking;
+    audio.onerror = () => speakInBrowser(text);
+    speech.audio = audio;
+    setListenState('speaking');
+    await audio.play();
+  } catch {
+    if (speech.id !== id) return;
+    speakInBrowser(text);
   }
 }
 
@@ -796,6 +893,9 @@ function init() {
   // media playing behind a closed page otherwise; resume when the user comes
   // back if music was on.
   document.addEventListener('visibilitychange', () => {
+    // A whisper being read aloud is subject to the same rule — nobody expects a
+    // voice to keep talking out of a phone they just put in their pocket.
+    if (document.hidden) stopSpeaking();
     if (document.hidden) ambient.suspend();
     else ambient.resume();
   });
@@ -834,6 +934,7 @@ function init() {
     els.readScroll.classList.toggle('paused');
   });
   els.readReplyBtn.addEventListener('click', openReplySheet);
+  els.readListenBtn.addEventListener('click', toggleListen);
   els.readLightBtn.addEventListener('click', leaveLight);
   els.readReportBtn.addEventListener('click', () => {
     const id = state.detailBubbleId;

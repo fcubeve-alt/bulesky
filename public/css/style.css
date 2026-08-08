@@ -994,6 +994,32 @@ body.reading #now-playing { display: none; }
   text-shadow: none;
   box-shadow: 0 0 18px 3px rgba(255, 190, 110, 0.55);
 }
+/* "Listen" — cooler than the warm light button on purpose, so the two actions
+   next to each other never read as the same kind of thing. */
+.listen-btn {
+  border: 1px solid rgba(178, 208, 255, 0.45);
+  background: rgba(150, 190, 255, 0.14);
+  color: #dbe8ff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+  transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+.listen-btn.speaking {
+  border-color: rgba(190, 220, 255, 0.9);
+  background: rgba(170, 205, 255, 0.9);
+  color: #16233a;
+  text-shadow: none;
+  box-shadow: 0 0 18px 3px rgba(150, 195, 255, 0.5);
+}
+/* Synthesis takes a second or two the first time a whisper is ever read. A
+   slow pulse says "working", where a spinner would say "loading a page". */
+.listen-btn.loading { animation: listen-wait 1.4s ease-in-out infinite; }
+@keyframes listen-wait {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .listen-btn.loading { animation: none; opacity: 0.7; }
+}
 @media (prefers-reduced-motion: reduce) {
   .read-viewport { pointer-events: auto; -webkit-mask-image: none; mask-image: none; overflow: auto; }
   .read-scroll { position: relative; transform: translate(-50%, 0); animation: none; padding: 16vh 0 24vh; }

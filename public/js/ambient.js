@@ -116,6 +116,17 @@ export function initAmbient(opts = {}) {
   const TARGET_VOLUME = 0.55;
   const CROSSFADE_SEC = 3; // overlap duration when moving between tracks
 
+  // While a whisper is being read aloud the music drops back to a bed instead
+  // of stopping — silence under a voice sounds like something broke, and the
+  // ambience is half of why the reading lands. Every place that sets a volume
+  // goes through vol() so a track change mid-reading cannot pop back to full.
+  const DUCK_LEVEL = 0.15;
+  let duckFactor = 1;
+  let duckTimer = 0;
+  function vol() {
+    return TARGET_VOLUME * duckFactor;
+  }
+
   function clearCross() {
     if (crossTimer) {
       clearInterval(crossTimer);
@@ -240,8 +251,8 @@ export function initAmbient(opts = {}) {
     crossTimer = setInterval(() => {
       i += 1;
       const k = Math.min(1, i / steps);
-      try { to.volume = TARGET_VOLUME * k; } catch {}
-      try { if (from) from.volume = Math.max(0, TARGET_VOLUME * (1 - k)); } catch {}
+      try { to.volume = vol() * k; } catch {}
+      try { if (from) from.volume = Math.max(0, vol() * (1 - k)); } catch {}
       if (i >= steps) {
         clearInterval(crossTimer);
         crossTimer = null;
@@ -299,7 +310,7 @@ export function initAmbient(opts = {}) {
     currentTrack = track;
     currentTitle = track.title || track.src.split('/').pop();
     p.src = track.src;
-    p.volume = TARGET_VOLUME;
+    p.volume = vol();
     p.play().catch(() => {});
     onChange();
   }
@@ -407,6 +418,34 @@ export function initAmbient(opts = {}) {
     // Pause/resume actual audio output without changing the "playing" intent.
     suspend,
     resume,
+    // Drop the music to a bed while something else is speaking, and bring it
+    // back afterwards. Ramped rather than stepped — a sudden volume jump is
+    // more noticeable than the music itself.
+    duck(on) {
+      clearInterval(duckTimer);
+      const target = on ? DUCK_LEVEL : 1;
+      const from = duckFactor;
+      const steps = 12;
+      let i = 0;
+      duckTimer = setInterval(() => {
+        i += 1;
+        duckFactor = from + (target - from) * (i / steps);
+        // Only the dominant player is audible outside a crossfade; a crossfade
+        // in progress reads vol() on every tick and settles correctly on its
+        // own.
+        if (!fading && players && players[cur]) {
+          try { players[cur].volume = vol(); } catch {}
+        }
+        if (synth && masterGain && ctx) {
+          try { masterGain.gain.setValueAtTime(0.3 * duckFactor, ctx.currentTime); } catch {}
+        }
+        if (i >= steps) {
+          clearInterval(duckTimer);
+          duckTimer = 0;
+          duckFactor = target;
+        }
+      }, 40);
+    },
     get isPlaying() {
       return playing;
     },

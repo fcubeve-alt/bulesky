@@ -23,7 +23,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read29" />
+<link rel="stylesheet" href="/css/style.css?v=read30" />
 </head>
 <body>
 
@@ -197,8 +197,14 @@
     <!-- A quiet invitation, never a demand. Full-width so it sits on its own
          line above the two actions. -->
     <p id="read-invite" class="read-invite"></p>
-    <button id="read-reply-btn" class="btn-primary btn-small"></button>
+    <!-- Three actions do not fit one phone row, so the order decides where the
+         line breaks: the two quiet ways to receive a whisper sit together, and
+         the one that asks you to write gets a line of its own underneath. -->
+    <!-- Listen. The text rises over a moving background, which is not always
+         easy to read; this is the other way in. -->
+    <button id="read-listen-btn" class="btn-secondary btn-small listen-btn"></button>
     <button id="read-light-btn" class="btn-secondary btn-small light-btn"></button>
+    <button id="read-reply-btn" class="btn-primary btn-small"></button>
   </div>
 </div>
 
