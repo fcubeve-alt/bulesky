@@ -120,7 +120,9 @@ export function initAmbient(opts = {}) {
   // of stopping — silence under a voice sounds like something broke, and the
   // ambience is half of why the reading lands. Every place that sets a volume
   // goes through vol() so a track change mid-reading cannot pop back to full.
-  const DUCK_LEVEL = 0.15;
+  // 12% — the reader asked for "10 to 15". Low enough that a voice sits clearly
+  // on top of it, present enough that the sky does not fall silent mid-sentence.
+  const DUCK_LEVEL = 0.12;
   let duckFactor = 1;
   let duckTimer = 0;
   function vol() {
@@ -211,9 +213,43 @@ export function initAmbient(opts = {}) {
     return t;
   }
 
+  // Volume, the only way that works everywhere.
+  //
+  // On iOS, HTMLMediaElement.volume is not settable at all — writes are ignored
+  // and reads always return 1, because Apple reserves audio level for the
+  // hardware buttons. Every volume change in here used to be a plain
+  // `element.volume = v`, which meant crossfades and ducking did nothing
+  // whatsoever on an iPhone while testing green on desktop. Routing each player
+  // through its own Web Audio GainNode gives us a level control iOS honours.
+  let gains = null;
+  function setLevel(idx, v) {
+    const level = Math.max(0, Math.min(1, v));
+    if (gains && gains[idx]) {
+      try {
+        gains[idx].gain.setValueAtTime(level, ctx.currentTime);
+        return;
+      } catch {
+        /* fall through to the element */
+      }
+    }
+    try { players[idx].volume = level; } catch { /* iOS: ignored anyway */ }
+  }
+
   function ensureAudio() {
     if (players) return;
     players = [new Audio(), new Audio()];
+    // Same-origin files, so no crossOrigin dance is needed to feed Web Audio.
+    try {
+      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+      gains = players.map((p) => {
+        const g = ctx.createGain();
+        g.gain.value = TARGET_VOLUME;
+        ctx.createMediaElementSource(p).connect(g).connect(ctx.destination);
+        return g;
+      });
+    } catch {
+      gains = null; // no Web Audio: fall back to element volume (desktop is fine)
+    }
     players.forEach((p, idx) => {
       p.preload = 'auto';
       // Once we know the duration, jump to the start of the highlight slice.
@@ -251,8 +287,8 @@ export function initAmbient(opts = {}) {
     crossTimer = setInterval(() => {
       i += 1;
       const k = Math.min(1, i / steps);
-      try { to.volume = vol() * k; } catch {}
-      try { if (from) from.volume = Math.max(0, vol() * (1 - k)); } catch {}
+      setLevel(toIdx, vol() * k);
+      if (from) setLevel(1 - toIdx, Math.max(0, vol() * (1 - k)));
       if (i >= steps) {
         clearInterval(crossTimer);
         crossTimer = null;
@@ -304,13 +340,14 @@ export function initAmbient(opts = {}) {
     cur = 0;
     const p = players[0];
     const other = players[1];
-    try { other.pause(); other.volume = 0; } catch {}
+    try { other.pause(); } catch {}
+    setLevel(1, 0);
     trackOf[0] = track;
     segEnds[0] = Number.isFinite(track.end) ? track.end : Infinity;
     currentTrack = track;
     currentTitle = track.title || track.src.split('/').pop();
     p.src = track.src;
-    p.volume = vol();
+    setLevel(0, vol());
     p.play().catch(() => {});
     onChange();
   }
@@ -433,9 +470,7 @@ export function initAmbient(opts = {}) {
         // Only the dominant player is audible outside a crossfade; a crossfade
         // in progress reads vol() on every tick and settles correctly on its
         // own.
-        if (!fading && players && players[cur]) {
-          try { players[cur].volume = vol(); } catch {}
-        }
+        if (!fading && players) setLevel(cur, vol());
         if (synth && masterGain && ctx) {
           try { masterGain.gain.setValueAtTime(0.3 * duckFactor, ctx.currentTime); } catch {}
         }

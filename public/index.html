@@ -23,7 +23,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="icon" href="/icons/icon.svg" />
-<link rel="stylesheet" href="/css/style.css?v=read30" />
+<link rel="stylesheet" href="/css/style.css?v=read31" />
 </head>
 <body>
 
@@ -193,16 +193,23 @@
     </div>
   </div>
   <button class="read-close" id="read-close" aria-label="Close">×</button>
+
+  <!-- Listen rides at the top, over the text rather than under it. Down in the
+       action bar it was the third of three buttons at the bottom of a screen
+       nobody was looking at, which is a strange place to put the alternative to
+       reading. Dismissable, because an offer that cannot be declined is a
+       nag. -->
+  <div id="listen-dock" class="listen-dock hidden">
+    <button id="read-listen-btn" class="listen-btn"></button>
+    <button id="listen-dismiss" class="listen-dismiss" aria-label="Hide">×</button>
+  </div>
+
   <div class="read-actions">
-    <!-- A quiet invitation, never a demand. Full-width so it sits on its own
-         line above the two actions. -->
-    <p id="read-invite" class="read-invite"></p>
-    <!-- Three actions do not fit one phone row, so the order decides where the
-         line breaks: the two quiet ways to receive a whisper sit together, and
-         the one that asks you to write gets a line of its own underneath. -->
-    <!-- Listen. The text rises over a moving background, which is not always
-         easy to read; this is the other way in. -->
-    <button id="read-listen-btn" class="btn-secondary btn-small listen-btn"></button>
+    <!-- Held back until the whisper has nearly finished rising. Sitting there
+         from the first second, it was read as furniture and missed entirely —
+         an invitation only lands once you have heard the thing it is inviting
+         you to answer. -->
+    <p id="read-invite" class="read-invite hidden"><span id="read-invite-text"></span><span class="invite-arrow" aria-hidden="true">↓</span></p>
     <button id="read-light-btn" class="btn-secondary btn-small light-btn"></button>
     <button id="read-reply-btn" class="btn-primary btn-small"></button>
   </div>

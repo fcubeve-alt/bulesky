@@ -83,6 +83,9 @@ const els = {
   readInvite: $('read-invite'),
   readReplyBtn: $('read-reply-btn'),
   readListenBtn: $('read-listen-btn'),
+  listenDock: $('listen-dock'),
+  listenDismiss: $('listen-dismiss'),
+  readInviteText: $('read-invite-text'),
   readLightBtn: $('read-light-btn'),
   readReportBtn: $('read-report-btn'),
   detailRepliesTitle: $('detail-replies-title'),
@@ -169,7 +172,7 @@ function applyText() {
   els.confirmCopy.textContent = t('copyCode');
   els.confirmHint.textContent = t('confirmHint');
   els.confirmClose.textContent = t('close');
-  els.readInvite.textContent = t('readInvite');
+  els.readInviteText.textContent = t('readInvite');
   els.readReplyBtn.textContent = t('readReply');
   els.readListenBtn.textContent = t('listen');
   els.readLightBtn.textContent = t('leaveLight');
@@ -480,11 +483,24 @@ function renderRead(bubble, replies, rect) {
     }
   }
 
+  // The invitation waits until the whisper is nearly done rising. Asking
+  // someone to respond before they have read the thing is what made this line
+  // invisible: it was furniture on screen from the first second.
+  clearTimeout(inviteTimer);
+  els.readInvite.classList.add('hidden');
+  els.readReplyBtn.classList.remove('inviting');
+  // The listen offer comes back for each new whisper even if it was dismissed
+  // on the last one — dismissing is "not this time", not "never again".
+  els.listenDock.classList.remove('hidden');
+
   // Scroll speed scales with how much there is to read, so long whispers
   // aren't rushed and short ones don't crawl.
   const chars = (bubble.content || '').length + replies.reduce((n, r) => n + (r.content || '').length, 0);
   const dur = Math.min(75, Math.max(20, Math.round(18 + chars * 0.06)));
   els.readScroll.style.setProperty('--read-dur', dur + 's');
+  // Around three quarters of the way through the rise, and never so late that a
+  // long whisper hides it until the reader has given up.
+  inviteTimer = setTimeout(showInvite, Math.min(24000, dur * 1000 * 0.72));
 
   // Start the rise from where the tapped balloon is, so the text appears
   // instantly and feels like it lifts off from the balloon — instead of
@@ -500,6 +516,12 @@ function renderRead(bubble, replies, rect) {
   els.readScroll.style.animation = 'none';
   void els.readScroll.offsetWidth; // force reflow
   els.readScroll.style.animation = '';
+}
+
+let inviteTimer = 0;
+function showInvite() {
+  els.readInvite.classList.remove('hidden');
+  els.readReplyBtn.classList.add('inviting');
 }
 
 function openRead() {
@@ -519,6 +541,7 @@ function closeRead() {
   // A voice must never outlive the view it belongs to — closing the whisper has
   // to also close the reading of it, and give the music back.
   stopSpeaking();
+  clearTimeout(inviteTimer);
   els.readOverlay.classList.add('hidden');
   els.readOverlay.classList.remove('lit');
   els.readScroll.classList.remove('paused');
@@ -586,6 +609,10 @@ function warmOpenWhisper(changes) {
 // design.
 let speech = { audio: null, utterance: null, id: null };
 
+// A touch under natural pace. This is someone's grief being read aloud, not an
+// announcement.
+const SPEECH_RATE = 0.88;
+
 function setListenState(mode) {
   els.readListenBtn.classList.toggle('speaking', mode === 'speaking');
   els.readListenBtn.classList.toggle('loading', mode === 'loading');
@@ -619,7 +646,7 @@ function speakInBrowser(text) {
   // over it — a dead end the reader cannot get out of except by closing.
   try {
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.92; // a touch slower than default; this is not an announcement
+      u.rate = SPEECH_RATE;
     u.pitch = 0.95;
     u.onend = stopSpeaking;
     u.onerror = stopSpeaking;
@@ -649,6 +676,12 @@ async function toggleListen() {
     const blob = await res.blob();
     if (speech.id !== id) return; // they closed or switched while it synthesised
     const audio = new Audio(URL.createObjectURL(blob));
+    // Both providers read faster than this material wants. Slowing playback
+    // rather than asking the provider for a slower render keeps every cached
+    // reading valid and works the same on either path; preservesPitch stops it
+    // sounding like a slowed-down tape.
+    audio.preservesPitch = true;
+    audio.playbackRate = SPEECH_RATE;
     audio.onended = stopSpeaking;
     audio.onerror = () => speakInBrowser(text);
     speech.audio = audio;
@@ -935,6 +968,10 @@ function init() {
   });
   els.readReplyBtn.addEventListener('click', openReplySheet);
   els.readListenBtn.addEventListener('click', toggleListen);
+  els.listenDismiss.addEventListener('click', () => {
+    stopSpeaking();
+    els.listenDock.classList.add('hidden');
+  });
   els.readLightBtn.addEventListener('click', leaveLight);
   els.readReportBtn.addEventListener('click', () => {
     const id = state.detailBubbleId;

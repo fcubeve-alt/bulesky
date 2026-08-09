@@ -249,7 +249,11 @@
 - **存储总量的天花板**:D1 免费版 500MB、付费版 10GB。真到了那一步,和博客图片是同一个搬法——**把字节搬去 R2,`voice_chunks` 退化成索引,`/api/voice/<id>` 这个地址不变**。现在还远没到。
 - **隐藏的悄悄话在这里也念不出来**(`hidden = 0` 同款过滤)。否则被举报下架的内容能从音频这条路绕回来被人听见。
 - **没配 key 时不许变成坏按钮**:后端返回 `503 not_configured`,前端**退回浏览器自带的 `speechSynthesis`**。那是机械音,是安全网不是设计目标——`OPENAI_API_KEY` 才是这个功能真正的开关。provider 报错(502)同样退回,和 §7c 举报 AI 的 fail-open 是一个态度。
-- **音乐做 duck 不做停**:`ambient.js` 新增 `duck(on)`,把音量压到 15% 当垫底,读完再淡回。人声底下完全静音听起来像坏了,而氛围本来就是这个产品一半的意义。**所有设音量的地方都改走 `vol()`**——否则朗读中途换歌会"啪"地跳回满音量。
+- **音乐做 duck 不做停**:`ambient.js` 的 `duck(on)` 把音量压到 **12%** 当垫底,读完再淡回。人声底下完全静音听起来像坏了。**所有设音量的地方都改走 `vol()`**——否则朗读中途换歌会"啪"地跳回满音量。
+- **⚠️ iOS 上 `element.volume` 根本不能用,这是踩过的坑**:iPhone 上 `HTMLMediaElement.volume` **写入被忽略、读出来永远是 1**(Apple 把音量留给物理按键,[官方文档](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/Using_HTML5_Audio_Video/Device-SpecificConsiderations/Device-SpecificConsiderations.html))。第一版 duck 和**整套 crossfade** 都是直接写 `element.volume`——**在桌面测试全绿,在 iPhone 上一点效果都没有**,用户实测反馈"背景音乐还是吵,你没调"。现在每个 player 各接一个 **Web Audio `GainNode`**(`createMediaElementSource → gain → destination`),`setLevel(idx, v)` 是唯一的音量入口。**以后任何"调音量"的需求都必须走 gain node,不能碰 `.volume`。**
+- **朗读速度在客户端调**(`SPEECH_RATE = 0.88` + `preservesPitch`),不在生成端调:两个 provider 通用,而且**不会让任何已缓存的音频失效**。
+- **Listen 按钮在顶部悬浮**(`.listen-dock`),不在底部动作栏——放底部时它是"一屏之外的第三个按钮",而它本来是给不想读字的人准备的替代入口。带 `×` 可以关掉(关掉只对当前这条生效,下一条还会出现)。
+- **"留下一点温度"那句话延后出现**:开场就摆在那儿会被当成装饰完全略过(用户原话:"人家根本没注意到这什么意思")。现在等升起动画走到约 72%(最多 24 秒)才淡入,带一个**持续跳动的 ↓ 箭头**,同时"留言"按钮开始呼吸式发光。请求别人回应,得先让人把话读完。
 - **声音不能活得比它所属的视图久**:关阅读页、切到另一颗气球、页面被切到后台,三处都调 `stopSpeaking()`。
 - **布局**:三个按钮在 390px 手机上放不下一行(91+146+157+间距 = 418px)。DOM 顺序决定折行位置,所以排成「听 + 留一点光」一行(两种安静的接收方式),「留言」自己占一行(唯一要求你动手写的动作)。
 

@@ -954,6 +954,38 @@ body.reading #now-playing { display: none; }
   border: 1px solid rgba(255, 255, 255, 0.08);
   pointer-events: none;
 }
+.read-invite.hidden { display: none; }
+/* Arriving late is the whole point, so it arrives visibly. */
+.read-invite { animation: invite-in 0.7s ease-out both; }
+@keyframes invite-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Points at "Leave a message" underneath, and keeps moving — a still arrow in
+   a view where everything else drifts upward disappears into the scenery. */
+.invite-arrow {
+  display: inline-block;
+  margin-left: 7px;
+  font-style: normal;
+  font-weight: 700;
+  color: #ffcf87;
+  animation: invite-nudge 1.25s ease-in-out infinite;
+}
+@keyframes invite-nudge {
+  0%, 100% { transform: translateY(-2px); opacity: 0.65; }
+  50% { transform: translateY(4px); opacity: 1; }
+}
+/* The arrow says where to look; this says what to press. */
+.read-actions .btn-primary.inviting {
+  animation: invite-glow 1.9s ease-in-out infinite;
+}
+@keyframes invite-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 200, 120, 0); }
+  50% { box-shadow: 0 0 16px 3px rgba(255, 200, 120, 0.55); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .read-invite, .invite-arrow, .read-actions .btn-primary.inviting { animation: none; }
+}
 /* One report control, used both next to a whisper's byline and at the end of
    each reply's. Needs its own pointer-events because the reading viewport lets
    taps fall through to close. */
@@ -994,13 +1026,45 @@ body.reading #now-playing { display: none; }
   text-shadow: none;
   box-shadow: 0 0 18px 3px rgba(255, 190, 110, 0.55);
 }
-/* "Listen" — cooler than the warm light button on purpose, so the two actions
-   next to each other never read as the same kind of thing. */
+/* Listen, docked at the top of the reading view rather than in the action bar.
+   Floats over the rising text so the offer is visible from the first moment. */
+.listen-dock {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 62px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(8, 11, 26, 0.5);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(178, 208, 255, 0.22);
+}
+.listen-dock.hidden { display: none; }
+.listen-dismiss {
+  border: 0;
+  background: none;
+  color: rgba(219, 232, 255, 0.5);
+  font-size: 1.05rem;
+  line-height: 1;
+  padding: 6px 10px 8px;
+  cursor: pointer;
+}
+/* "Listen" — cooler than the warm light button on purpose, so it never reads as
+   the same kind of thing as leaving warmth behind. */
 .listen-btn {
   border: 1px solid rgba(178, 208, 255, 0.45);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.82rem;
+  font-weight: 700;
   background: rgba(150, 190, 255, 0.14);
   color: #dbe8ff;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+  cursor: pointer;
   transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
 }
 .listen-btn.speaking {
