@@ -498,9 +498,14 @@ function renderRead(bubble, replies, rect) {
   const chars = (bubble.content || '').length + replies.reduce((n, r) => n + (r.content || '').length, 0);
   const dur = Math.min(75, Math.max(20, Math.round(18 + chars * 0.06)));
   els.readScroll.style.setProperty('--read-dur', dur + 's');
-  // Around three quarters of the way through the rise, and never so late that a
-  // long whisper hides it until the reader has given up.
-  inviteTimer = setTimeout(showInvite, Math.min(24000, dur * 1000 * 0.72));
+  // Timed off how long the words take to READ, not off the scroll animation.
+  // Tying it to the animation meant a two-line whisper — read and closed in
+  // about five seconds — never showed the invitation at all, because the scroll
+  // has a 20s floor regardless of how little there is in it. Roughly 55ms per
+  // character, held between 2.5 and 9 seconds: long enough that nobody is asked
+  // to respond before they have read, and short enough that it is always
+  // reached — including on the two-line whispers that people close fastest.
+  inviteTimer = setTimeout(showInvite, Math.min(9000, Math.max(2500, chars * 55)));
 
   // Start the rise from where the tapped balloon is, so the text appears
   // instantly and feels like it lifts off from the balloon — instead of
@@ -609,9 +614,9 @@ function warmOpenWhisper(changes) {
 // design.
 let speech = { audio: null, utterance: null, id: null };
 
-// A touch under natural pace. This is someone's grief being read aloud, not an
-// announcement.
-const SPEECH_RATE = 0.88;
+// Well under natural pace. This is someone's grief being read aloud, not an
+// announcement — 0.88 was still being heard as rushed.
+const SPEECH_RATE = 0.82;
 
 function setListenState(mode) {
   els.readListenBtn.classList.toggle('speaking', mode === 'speaking');

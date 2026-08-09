@@ -41,42 +41,52 @@ const DELIVERY = {
 // stops sounding like strangers.
 //
 // These particular OpenAI voices are a judgement call made without being able
-// to listen to them here — swapping any of the three is a one-line change and
-// costs nothing but a RECIPE bump.
+// to listen to them here — swapping either is a one-line change and costs
+// nothing but a RECIPE bump.
+// Two narrators, one of each. There used to be a third, "soft_neutral", which
+// was also the fallback — and since Deepgram's neutral voice is male, both it
+// and every case the classifier was unsure about came out male. Two thirds of
+// the roster and all the uncertainty being one man is not a sky of strangers.
 const VOICES = {
   warm_female: 'coral',
   gentle_male: 'ash',
-  soft_neutral: 'sage',
 };
-// The same three narrators in Deepgram's roster. Also picked without being able
-// to listen to them; both maps are one line each to change.
+// The same two in Deepgram's roster. Picked without being able to listen to
+// them; both maps are one line each to change.
 const AURA_VOICES = {
   warm_female: 'asteria',
   gentle_male: 'orpheus',
-  soft_neutral: 'arcas',
 };
-// Used whenever the choice cannot be made — no AI binding, a failed call, an
-// answer we do not recognise. Never a reason to refuse to read something.
-const DEFAULT_VOICE = 'soft_neutral';
+const NARRATORS = Object.keys(VOICES);
+
+// When the choice cannot be made — no AI binding, a failed call, an answer we
+// do not recognise — take one at random rather than always the same one. A
+// broken classifier should make the sky arbitrary, not monotonous. The result
+// is stored with the audio, so a whisper keeps whichever voice it was given.
+function fallbackNarrator() {
+  return NARRATORS[Math.floor(Math.random() * NARRATORS.length)];
+}
 
 const VOICE_MODEL = '@cf/meta/llama-3.1-8b-instruct';
 const VOICE_SYSTEM =
-  'You choose which of three narrators should read a short anonymous message ' +
-  'aloud on a quiet, healing website. Answer with exactly one of these three ' +
-  'words and nothing else: warm_female, gentle_male, soft_neutral.\n' +
-  'warm_female — grief, longing, heartbreak, missing someone, love, loneliness.\n' +
+  'You choose which of two narrators should read a short anonymous message ' +
+  'aloud on a quiet, healing website. Answer with exactly one of these two ' +
+  'words and nothing else: warm_female, gentle_male.\n' +
+  'warm_female — grief, longing, heartbreak, missing someone, love, loneliness, ' +
+  'tenderness.\n' +
   'gentle_male — steadiness, resolve, guilt, regret, apology, protectiveness, ' +
-  'someone holding themselves together.\n' +
-  'soft_neutral — anything reflective, ambiguous, hopeful or hard to place.';
+  'anger held in, someone holding themselves together.\n' +
+  'If it could genuinely be either, pick the one that fits the feeling better ' +
+  'rather than defaulting.';
 
 // Which narrator suits this whisper. Runs on Cloudflare Workers AI — already
 // bound for report moderation, effectively free, and only ever reached on a
 // cache miss, so it is paid for once per whisper exactly like the audio is.
 //
-// Fails open to the neutral voice: a classifier having a bad day must never
-// stop a whisper being read.
+// Fails open to a random narrator: a classifier having a bad day must never
+// stop a whisper being read, or quietly make every voice the same.
 export async function pickVoice(text, env) {
-  if (!env?.AI || !text) return DEFAULT_VOICE;
+  if (!env?.AI || !text) return fallbackNarrator();
   try {
     const res = await env.AI.run(VOICE_MODEL, {
       messages: [
@@ -87,9 +97,9 @@ export async function pickVoice(text, env) {
       temperature: 0,
     });
     const answer = String(res?.response || '').trim().toLowerCase();
-    return Object.keys(VOICES).find((k) => answer.includes(k)) || DEFAULT_VOICE;
+    return NARRATORS.find((k) => answer.includes(k)) || fallbackNarrator();
   } catch {
-    return DEFAULT_VOICE;
+    return fallbackNarrator();
   }
 }
 
@@ -115,7 +125,7 @@ const MIME = 'audio/aac';
 // every lookup just to discover we already had the audio. The roster and the
 // rules for choosing are covered by RECIPE instead, and the narrator that was
 // actually picked is stored next to the audio.
-const RECIPE = 'v4-providers';
+const RECIPE = 'v5-two-narrators';
 
 // Whichever provider will actually be used, so the hash can name it. Keeping
 // this decision in one place means the cache key and the synthesis can never
@@ -149,7 +159,7 @@ async function openaiSpeech(input, type, voiceKey, apiKey) {
     },
     body: JSON.stringify({
       model: MODEL,
-      voice: VOICES[voiceKey] || VOICES[DEFAULT_VOICE],
+      voice: VOICES[voiceKey] || VOICES.warm_female,
       input,
       instructions: DELIVERY[type] || DELIVERY.pain,
       response_format: FORMAT,
@@ -174,7 +184,7 @@ async function openaiSpeech(input, type, voiceKey, apiKey) {
 async function auraSpeech(input, voiceKey, ai) {
   const result = await ai.run(
     AURA_MODEL,
-    { text: input, speaker: AURA_VOICES[voiceKey] || AURA_VOICES[DEFAULT_VOICE], encoding: 'mp3' },
+    { text: input, speaker: AURA_VOICES[voiceKey] || AURA_VOICES.warm_female, encoding: 'mp3' },
     { returnRawResponse: true }
   );
   return { bytes: await toBytes(result), mime: 'audio/mpeg' };

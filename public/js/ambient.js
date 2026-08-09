@@ -235,12 +235,44 @@ export function initAmbient(opts = {}) {
     try { players[idx].volume = level; } catch { /* iOS: ignored anyway */ }
   }
 
+  // An AudioContext starts suspended until a user gesture resumes it — and once
+  // a media element is routed through the graph, its sound comes out ONLY via
+  // the graph. Creating the context without resuming it therefore does not
+  // lower the music, it silences it completely. That is exactly what shipped
+  // last time. Every path that starts audio calls this.
+  function resumeCtx() {
+    if (ctx && ctx.state === 'suspended') {
+      try { ctx.resume(); } catch { /* nothing else to try */ }
+    }
+  }
+
+  // Belt and braces. Routing a media element through Web Audio is permanent —
+  // the element can never be un-routed — so a context that somehow stays
+  // suspended means silence with no way back. Any later tap anywhere retries
+  // the resume, which is enough to recover a session that started wrong.
+  let watchdogArmed = false;
+  function armCtxWatchdog() {
+    if (watchdogArmed) return;
+    watchdogArmed = true;
+    const retry = () => {
+      resumeCtx();
+      if (ctx && ctx.state === 'running') {
+        document.removeEventListener('pointerdown', retry, true);
+        document.removeEventListener('touchend', retry, true);
+      }
+    };
+    document.addEventListener('pointerdown', retry, true);
+    document.addEventListener('touchend', retry, true);
+  }
+
   function ensureAudio() {
     if (players) return;
     players = [new Audio(), new Audio()];
     // Same-origin files, so no crossOrigin dance is needed to feed Web Audio.
     try {
       if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+      resumeCtx();
+      armCtxWatchdog();
       gains = players.map((p) => {
         const g = ctx.createGain();
         g.gain.value = TARGET_VOLUME;
@@ -305,6 +337,7 @@ export function initAmbient(opts = {}) {
     const track = pickTrack();
     if (!track) return;
     ensureAudio();
+    resumeCtx();
     fading = true;
     const from = players[cur];
     const toIdx = cur ^ 1;
@@ -336,6 +369,7 @@ export function initAmbient(opts = {}) {
     const track = pickTrack();
     if (!track) return;
     ensureAudio();
+    resumeCtx();
     clearCross();
     cur = 0;
     const p = players[0];
@@ -404,6 +438,7 @@ export function initAmbient(opts = {}) {
 
   function resume() {
     if (!playing) return;
+    resumeCtx();
     // Resume only the dominant player; a half-finished crossfade just settles.
     if (players && players[cur] && players[cur].paused) players[cur].play().catch(() => {});
     if (ctx && ctx.state === 'suspended') ctx.resume();
