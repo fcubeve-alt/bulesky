@@ -51,6 +51,22 @@ jobs:
           done
           echo
 
+      # Synthesis on its own, with a breadcrumb written before each risky call.
+      # A bare 502 here means the worker is being killed rather than failing —
+      # and the trail in the next probe says which call killed it.
+      - name: Synthesis alone
+        run: |
+          for mode in aura chain; do
+            echo "── ?probe=$mode ──"
+            curl -sS -w '\nHTTP %{http_code}\n' --max-time 60 \
+              "https://cubewithin.com/api/voice/1?probe=$mode" || echo "(request failed)"
+          done
+          echo
+          echo "── the trail it left ──"
+          curl -sS --max-time 30 "https://cubewithin.com/api/voice/1?probe=1" \
+            | grep -A2 '"detail"' | head -40 || true
+          echo
+
       - name: Blog and pages
         run: |
           for path in / /blog/ /sitemap.xml /robots.txt; do

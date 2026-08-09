@@ -329,11 +329,25 @@ function pickFromAccount(voices, voiceKey) {
 
 // What the account can actually speak with, for the probe. Ends the guessing:
 // one look tells whether ElevenLabs can work here at all, and with which voice.
+//
+// Does its own fetch rather than reusing accountVoices, because that one turns
+// every non-200 into an empty list — which is right for synthesis and useless
+// for diagnosis. "No voices" and "the key was rejected" look identical from an
+// empty array and need completely different fixes.
 export async function elevenVoiceReport(env) {
   if (!env?.ELEVENLABS_API_KEY) return null;
   try {
-    const voices = await accountVoices(env.ELEVENLABS_API_KEY);
+    const res = await fetch('https://api.elevenlabs.io/v1/voices', {
+      headers: { 'xi-api-key': env.ELEVENLABS_API_KEY },
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      return { status: res.status, detail: detail.slice(0, 200) };
+    }
+    const data = await res.json().catch(() => null);
+    const voices = Array.isArray(data?.voices) ? data.voices : [];
     return {
+      status: res.status,
       total: voices.length,
       usable: usableVoices(voices).length,
       voices: voices.slice(0, 12).map((v) => ({

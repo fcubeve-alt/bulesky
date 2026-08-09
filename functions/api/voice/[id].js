@@ -115,8 +115,63 @@ async function noteFailure(env, provider, detail) {
   }
 }
 
+// Breadcrumbs that survive the worker being killed.
+//
+// Every uncached reading now comes back as Cloudflare's own 16-byte 502 page
+// with nothing new in the failure log — which cannot happen from a throw, since
+// onRequestGet turns any throw into JSON. The worker is being terminated, and a
+// terminated worker runs no handler and flushes no waitUntil. So the record has
+// to be written and committed BEFORE the call that might not return, or there
+// is nothing to read afterwards.
+//
+// Awaited on purpose, and only on the diagnostic paths: this is slow, and it is
+// the slowness that makes it truthful.
+async function breadcrumb(env, step) {
+  try {
+    await env.DB.prepare(`INSERT INTO voice_errors (at, provider, detail) VALUES (?, ?, ?)`)
+      .bind(Date.now(), 'trace', String(step).slice(0, 400))
+      .run();
+  } catch {
+    /* diagnostics must never be the thing that breaks it */
+  }
+}
+
+function json(body, status = 200) {
+  return new Response(JSON.stringify(body, null, 1), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+  });
+}
+
+// Synthesis on its own, with a trail, and nothing cached.
+//
+// If this answers JSON, whatever failed failed in a way we can see and the
+// chain did its job. If it answers a bare 502, the call named in the last
+// breadcrumb is the one killing the worker. Either outcome is an answer, which
+// is more than the endpoint has produced so far.
+async function probeSynthesis(env, mode, text) {
+  // mode 'aura' forces the Workers AI path by handing synthesize an env that
+  // has nothing else in it — no new export, no second code path to keep honest.
+  const scoped = mode === 'aura' ? { AI: env.AI, VOICE_MODEL: env.VOICE_MODEL } : env;
+
+  await breadcrumb(env, `${mode}: calling synthesize, ${text.length} chars`);
+  try {
+    const out = await synthesize(text, 'pain', 'gentle_male', scoped);
+    await breadcrumb(env, `${mode}: ok, ${out.bytes.length} bytes ${out.mime} via ${out.provider}`);
+    return json({ ok: true, provider: out.provider, bytes: out.bytes.length, mime: out.mime, failures: out.failures });
+  } catch (e) {
+    const detail = String((e && e.message) || e);
+    await breadcrumb(env, `${mode}: threw ${detail.slice(0, 200)}`);
+    return json({ ok: false, detail }, 502);
+  }
+}
+
 async function readAloud({ request, params, env, waitUntil }) {
-  if (request && new URL(request.url).searchParams.get('probe') === '1') return await probe(env);
+  const mode = request ? new URL(request.url).searchParams.get('probe') : null;
+  if (mode === '1') return await probe(env);
+  if (mode === 'aura' || mode === 'chain') {
+    return await probeSynthesis(env, mode, 'This is a test of the reading voice.');
+  }
 
   const id = parseInt(params.id, 10);
   if (!Number.isFinite(id)) {
