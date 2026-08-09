@@ -57,10 +57,41 @@ async function cfRun(model, input) {
   );
   const body = await res.json().catch(() => null);
   if (!res.ok || !body || body.success === false) {
-    const why = body && body.errors ? JSON.stringify(body.errors).slice(0, 200) : res.status;
+    const errors = (body && body.errors) || [];
+    // Code 10000 here is not a bad token, it is a token without the right
+    // permission — the deploy token can reach Pages and D1 and still be refused
+    // by Workers AI. Saying so beats leaving someone to decode "Authentication
+    // error" from a log.
+    if (errors.some((e) => e && (e.code === 10000 || /auth/i.test(e.message || '')))) {
+      throw new Error(
+        `${model} → Cloudflare refused the token. CLOUDFLARE_API_TOKEN needs the ` +
+          `"Workers AI: Read" permission added to it (Cloudflare dashboard → My Profile → ` +
+          `API Tokens → edit the token → Permissions → Account · Workers AI · Read). ` +
+          `Nothing else about the token needs to change.`
+      );
+    }
+    const why = errors.length ? JSON.stringify(errors).slice(0, 200) : res.status;
     throw new Error(`${model} → ${why}`);
   }
   return body.result;
+}
+
+// Check the one thing most likely to be wrong before spending anything, so a
+// permissions problem is reported as itself rather than as "no text model
+// produced an article".
+async function checkAccess() {
+  try {
+    await cfRun(TEXT_MODELS[TEXT_MODELS.length - 1], {
+      messages: [{ role: 'user', content: 'hi' }],
+      max_tokens: 1,
+    });
+  } catch (e) {
+    if (/Workers AI: Read/.test(e.message)) {
+      console.error(`[write-post] ${e.message}`);
+      process.exit(1);
+    }
+    // Anything else — a busy model, a blip — is not worth refusing to start over.
+  }
 }
 
 // minLength guards against a model that answers with an apology or an empty
@@ -213,6 +244,7 @@ async function main() {
   need('ADMIN_PASSWORD', ADMIN_PASSWORD);
 
   const { topics } = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'topics.json'), 'utf8'));
+  await checkAccess();
   const cookie = await login();
   const taken = await publishedSlugs(cookie);
 
