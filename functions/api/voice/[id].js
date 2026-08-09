@@ -26,6 +26,12 @@ export async function onRequestGet(context) {
   try {
     return await readAloud(context);
   } catch (e) {
+    try {
+      const note = noteFailure(context.env, 'crash', String((e && e.message) || e));
+      if (typeof context.waitUntil === 'function') context.waitUntil(note);
+    } catch {
+      /* nothing left to try */
+    }
     return new Response(
       JSON.stringify({
         error: 'crashed',
@@ -40,22 +46,61 @@ export async function onRequestGet(context) {
 // What the environment actually looks like from inside the worker, for when a
 // failure needs explaining rather than guessing at. Says nothing secret: which
 // bindings exist, not what is in them.
-function probe(env) {
+async function probe(env) {
+  // The last few failures, straight from the database. Three rounds of "still
+  // no sound" have been spent guessing at what the error was, because a failure
+  // that falls back silently leaves no trace anyone can read afterwards.
+  let recentFailures = [];
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT at, provider, detail FROM voice_errors ORDER BY at DESC LIMIT 8`
+    ).all();
+    recentFailures = (results || []).map((r) => ({
+      when: new Date(r.at).toISOString().replace('T', ' ').slice(0, 19) + 'Z',
+      provider: r.provider,
+      detail: r.detail,
+    }));
+  } catch (e) {
+    recentFailures = [{ detail: `could not read voice_errors: ${String(e.message || e)}` }];
+  }
+
+  let cached = null;
+  try {
+    cached = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT hash) AS readings, COUNT(*) AS chunks, SUM(LENGTH(data)) AS bytes FROM voice_chunks`
+    ).first();
+  } catch (e) {
+    cached = { error: String(e.message || e) };
+  }
+
   return new Response(
     JSON.stringify({
+      cached,
+      recentFailures,
       hasDB: Boolean(env && env.DB),
       hasAI: Boolean(env && env.AI),
       hasElevenLabsKey: Boolean(env && env.ELEVENLABS_API_KEY),
       hasOpenAIKey: Boolean(env && env.OPENAI_API_KEY),
       provider: providerFor(env),
       model: auraModel(env),
-    }),
+    }, null, 1),
     { headers: { 'content-type': 'application/json; charset=utf-8' } }
   );
 }
 
+// Best effort. Diagnostics must never become the thing that breaks it.
+async function noteFailure(env, provider, detail) {
+  try {
+    await env.DB.prepare(`INSERT INTO voice_errors (at, provider, detail) VALUES (?, ?, ?)`)
+      .bind(Date.now(), String(provider || 'none'), String(detail).slice(0, 400))
+      .run();
+  } catch {
+    /* nothing to do */
+  }
+}
+
 async function readAloud({ request, params, env, waitUntil }) {
-  if (request && new URL(request.url).searchParams.get('probe') === '1') return probe(env);
+  if (request && new URL(request.url).searchParams.get('probe') === '1') return await probe(env);
 
   const id = parseInt(params.id, 10);
   if (!Number.isFinite(id)) {
@@ -115,7 +160,9 @@ async function readAloud({ request, params, env, waitUntil }) {
   } catch (e) {
     // Same posture as the AI moderation call: the provider having a bad day is
     // not a reason for the reader to get nothing. The client falls back.
-    return new Response(JSON.stringify({ error: 'tts_failed', detail: String(e.message || e) }), {
+    const detail = String((e && e.message) || e);
+    if (typeof waitUntil === 'function') waitUntil(noteFailure(env, providerFor(env), detail));
+    return new Response(JSON.stringify({ error: 'tts_failed', detail }), {
       status: 502,
       headers: { 'content-type': 'application/json; charset=utf-8' },
     });
@@ -126,6 +173,8 @@ async function readAloud({ request, params, env, waitUntil }) {
   // served as a permanently broken reading — the cache is forever, so what goes
   // into it has to be checked once here.
   if (!out.bytes || out.bytes.length < 2048) {
+    const short = `empty audio: ${out.bytes ? out.bytes.length : 0} bytes`;
+    if (typeof waitUntil === 'function') waitUntil(noteFailure(env, providerFor(env), short));
     return new Response(JSON.stringify({ error: 'tts_empty', bytes: out.bytes ? out.bytes.length : 0 }), {
       status: 502,
       headers: { 'content-type': 'application/json; charset=utf-8' },
