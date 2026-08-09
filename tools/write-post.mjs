@@ -20,8 +20,11 @@ import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const SITE = process.env.SITE_URL || 'https://cubewithin.com';
-const ACCOUNT = process.env.CLOUDFLARE_ACCOUNT_ID;
-const CF_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
+// Trimmed: a secret pasted with a trailing newline is invisible in the GitHub
+// UI and in the logs, and produces authentication failures that look like a
+// wrong token.
+const ACCOUNT = (process.env.CLOUDFLARE_ACCOUNT_ID || '').trim();
+const CF_TOKEN = (process.env.CLOUDFLARE_API_TOKEN || '').trim();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 // Overridable so the whole pipeline can be exercised against a stub before it
 // is ever pointed at the live site with real money behind it.
@@ -87,13 +90,55 @@ async function checkAccess() {
       messages: [{ role: 'user', content: 'hi' }],
       max_tokens: 1,
     });
+    return;
   } catch (e) {
-    if (/cannot call Workers AI/.test(e.message)) {
-      console.error(`[write-post] ${e.message}`);
-      process.exit(1);
-    }
-    // Anything else — a busy model, a blip — is not worth refusing to start over.
+    if (!/cannot call Workers AI/.test(e.message)) return; // a busy model is not a reason to stop
   }
+
+  // Workers AI refused us. There are three different problems that all surface
+  // as an authentication failure, and they need three different fixes, so ask
+  // Cloudflare which one it is instead of guessing.
+  const say = (...a) => console.error('[write-post]', ...a);
+  const ask = async (pathname) => {
+    try {
+      const r = await fetch(`${CF_API}/client/v4${pathname}`, {
+        headers: { authorization: `Bearer ${CF_TOKEN}` },
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    } catch (err) {
+      return { status: 0, body: { errors: [{ message: String(err.message || err) }] } };
+    }
+  };
+
+  say('Workers AI refused this token. Checking why…');
+  say(`token looks like: ${CF_TOKEN.length} chars, starts "${CF_TOKEN.slice(0, 4)}…"`);
+  say(`account id: ${ACCOUNT.length} chars, starts "${ACCOUNT.slice(0, 6)}…"`);
+
+  const verify = await ask('/user/tokens/verify');
+  if (verify.status === 200) {
+    say('✓ the token itself is valid and active.');
+  } else {
+    say(`✗ the token is not valid at all (HTTP ${verify.status}).`);
+    say('  → CLOUDFLARE_API_TOKEN in GitHub is wrong, expired, or revoked. Make a new');
+    say('    token and update the secret. This is not a permissions problem.');
+    process.exit(1);
+  }
+
+  const acct = await ask(`/accounts/${ACCOUNT}`);
+  if (acct.status === 200) {
+    say('✓ the token can see this account, so CLOUDFLARE_ACCOUNT_ID is right.');
+    say('✗ so the only thing missing is the Workers AI permission on the token.');
+    say('  → Cloudflare dashboard → My Profile → API Tokens → edit this token →');
+    say('    Permissions → Account · Workers AI · Edit → Continue to summary → Save.');
+    say('    If the row is already there, delete it, re-add it, and save again — a row');
+    say('    left unsaved on the form looks identical to a saved one.');
+  } else {
+    say(`✗ the token cannot see account ${ACCOUNT} (HTTP ${acct.status}).`);
+    say('  → CLOUDFLARE_ACCOUNT_ID is the wrong account, or this token is scoped to a');
+    say('    different one. Copy the Account ID from the Cloudflare dashboard sidebar');
+    say('    and update the secret.');
+  }
+  process.exit(1);
 }
 
 // minLength guards against a model that answers with an apology or an empty
