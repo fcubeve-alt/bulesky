@@ -228,7 +228,18 @@
 - **音色故意不进 hash**:音色是"读了文本才知道"的,若进 hash 就得每次查缓存前先分类一遍,等于白花钱。所以 hash 只覆盖 `RECIPE + 模型 + 类型 + 文本`,**实际选中的音色存在行里**(`voice` 列,便于以后调音)。
 - 分类器坏掉 → **一律退回 `soft_neutral`**(没绑定 / 抛异常 / 答非所问 / 空回答,四种都测过)。选不出音色绝不能变成"这条读不了"。
 
-**✅ 现状(2026-08 实测):`ELEVENLABS_API_KEY` 配上之后声音正常了,用户评价"比之前的声音要好"。** 在此之前 Workers AI 那条路一直返回 Cloudflare 的 HTML 502——**很可能是免费额度(每天 10,000 Neurons)被耗尽**:额度用尽时平台是直接终止 worker,不是抛异常,所以 endpoint 里的 try/catch 一次都没触发,报错永远是那张 HTML 而不是我们自己的 JSON。用户先想到这一点(*"前两次很顺利,后来改来改去还是不行,是不是额度用完了"*),而我连改三轮都在找代码 bug。**症状是"一开始能用、后来一直不能用"时,先查配额,再查代码。**
+**✅ 现状(2026-08 实测,GitHub runner 实拉):`HTTP 200, 168063 bytes`,内容是真 MP3(`ID3`/`Lavf` 头)。**
+
+**真凶是"选音色"那一步,不是"发声"那一步。** `/api/voice` 连续多天返回 Cloudflare 的 HTML 502,我先后猜过 iOS 手势、byte-range、Workers AI 额度、ElevenLabs 额度、ElevenLabs 音色库权限——**前两个和最后一个是真问题但都不是死因,两个"额度"猜测都是错的**。
+
+真正的原因:`pickVoice()` 每次缓存未命中都调一次 Workers AI 判断男声/女声,**不管配的是 ElevenLabs 还是 Aura 这一步都跑**。所以"换了服务商症状一模一样"根本不神秘——两条路共用了同一个零件,而我一直盯着不共用的那一半。平台杀 worker 时**不抛异常**,`pickVoice` 里那个 try/catch 从头到尾什么都没接住,只是让我误以为那里已经保护好了。
+
+**三条可复用的教训**:
+1. **两个不相干的服务商坏成同一个样子 → 去找它们共用的东西**,不要继续换服务商。
+2. **try/catch 挡不住平台级终止**。"这里已经包了 try/catch"不等于"这里不会静默死掉"。
+3. **静默降级的功能必须有失败留痕**。Listen 按设计失败就退浏览器朗读,对用户是对的,代价是连着几轮排查手上一点证据都没有——直到加了 `voice_errors` 表 + `?probe=1`,第一次就拿到了确切错误。
+
+**ElevenLabs 免费档不能用声音库音色**(`402 paid_plan_required`),所以写死 Rachel/Adam 的那版**一次都没成功过**;那"能用两三次"全是旧 provider 留下的缓存命中。现在优先取账号自己拥有的音色。
 
 **三个 provider,按"有没有 key"自动选**(因为"最好听的"和"不需要国外信用卡的"不是同一个):
 | | 配了 `OPENAI_API_KEY` | 什么都没配(默认) |
@@ -285,6 +296,7 @@
 - **⚠️ 需要给 API token 加权限,而且要 Edit 不是 Read**:实测只加 `Workers AI · Read` 仍然被拒(`code 10000`)——跑推理算写操作,要 **Account · Workers AI · Edit**。而且改完必须点 **Continue to summary → Save**,只在表单上加一行不生效。原文如下::`CLOUDFLARE_API_TOKEN` 原本是为部署 Pages / D1 建的,**调不了 Workers AI**——首次运行直接 `{"code":10000,"message":"Authentication error"}`。去 Cloudflare 面板 → My Profile → API Tokens → 编辑那个 token → Permissions 加一条 **Account · Workers AI · Read**,别的都不用动。脚本现在开跑前先探一次,缺权限就把这句话原样打出来,不用去翻日志。
 - **⚠️ 定时只在默认分支生效**:GitHub 的 `schedule` 只认仓库默认分支上的 workflow 文件。本仓库默认分支就是 `claude/lingxingkong-prd-t1x2mg`,所以没问题——但以后换默认分支要记得这条。cron 是 `1-5`(周一到周五),**周末不发**,所以周日看不到新文章是正常的。
 - **手动补发/试跑**:Actions 里手动运行,勾 `draft` 就只存草稿不发布。
+- **⚠️ 线上状态用 `Check the sky` 工作流查,别再让用户粘贴**:本会话的出站策略挡住了 `cubewithin.com`(`EGRESS_BLOCKED`,代理文档明确要求不要绕路),但 GitHub runner 没被挡。`.github/workflows/check-sky.yml` 会跑探针、拉一次真实音频、检查各页面,日志我能直接读。**排查线上问题先跑它,不要开口要截图。**
 
 ---
 
