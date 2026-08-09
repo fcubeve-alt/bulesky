@@ -161,7 +161,7 @@ const MIME = 'audio/aac';
 // every lookup just to discover we already had the audio. The roster and the
 // rules for choosing are covered by RECIPE instead, and the narrator that was
 // actually picked is stored next to the audio.
-const RECIPE = 'v9-elevenlabs';
+const RECIPE = 'v10-account-voices';
 
 // Whichever provider will actually be used, so the hash can name it. Keeping
 // this decision in one place means the cache key and the synthesis can never
@@ -229,10 +229,42 @@ async function openaiSpeech(input, type, voiceKey, apiKey) {
 // if the configured voice is rejected, ask the account which voices it actually
 // has and use one. Better a voice we did not choose than silence.
 const ELEVEN_MODEL = 'eleven_multilingual_v2';
+// These are Voice Library ids, and a free ElevenLabs account is not allowed to
+// use library voices through the API at all — it answers 402 "paid_plan_required"
+// every single time, which is exactly the "works twice then never again" the
+// owner reported (the two that worked were cache hits from an earlier provider).
+// So they are a preference, not a plan: the account's own voices are asked for
+// first and these are only used if that lookup fails.
 const ELEVEN_DEFAULT_VOICES = {
   warm_female: '21m00Tcm4TlvDq8ikWAM', // Rachel — calm, warm
   gentle_male: 'pNInz6obpgDQGcFmaJgB', // Adam — low, steady
 };
+
+// Voices actually attached to this account, which is what a free plan may use.
+// Looked up once per synthesis, and only on a cache miss, so it costs nothing
+// on replays.
+async function accountVoices(key) {
+  const res = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': key } });
+  if (!res.ok) return [];
+  const data = await res.json().catch(() => null);
+  return Array.isArray(data?.voices) ? data.voices : [];
+}
+
+// Match on the label the account carries rather than on a name, then fall back
+// to position: one voice each, so the sky still has two narrators even if the
+// labels are missing.
+function pickFromAccount(voices, voiceKey) {
+  if (!voices.length) return null;
+  const wants = voiceKey === 'gentle_male' ? 'male' : 'female';
+  const gendered = voices.filter((v) => {
+    const g = String(v?.labels?.gender || '').toLowerCase();
+    return g === wants;
+  });
+  if (gendered.length) return gendered[0].voice_id;
+  return voiceKey === 'gentle_male' && voices.length > 1
+    ? voices[1].voice_id
+    : voices[0].voice_id;
+}
 
 async function elevenRequest(voiceId, input, key) {
   return fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
@@ -257,16 +289,26 @@ async function elevenVoiceId(voiceKey, env) {
 
 async function elevenSpeech(input, voiceKey, env) {
   const key = env.ELEVENLABS_API_KEY;
-  let res = await elevenRequest(await elevenVoiceId(voiceKey, env), input, key);
 
-  if (!res.ok && (res.status === 400 || res.status === 404 || res.status === 422)) {
-    // Most likely an unknown voice id. Ask what this account actually has.
-    const list = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': key } });
-    if (list.ok) {
-      const data = await list.json().catch(() => null);
-      const first = data && Array.isArray(data.voices) && data.voices[0] && data.voices[0].voice_id;
-      if (first) res = await elevenRequest(first, input, key);
-    }
+  // Explicitly configured ids win — someone who has chosen a voice means it.
+  const configured =
+    voiceKey === 'gentle_male' ? env.ELEVENLABS_VOICE_MALE : env.ELEVENLABS_VOICE_FEMALE;
+
+  let voiceId = configured;
+  if (!voiceId) {
+    // Otherwise take one this account owns. Doing this first rather than as a
+    // recovery step is the difference between working on a free plan and not.
+    voiceId = pickFromAccount(await accountVoices(key).catch(() => []), voiceKey);
+  }
+  if (!voiceId) voiceId = ELEVEN_DEFAULT_VOICES[voiceKey] || ELEVEN_DEFAULT_VOICES.warm_female;
+
+  let res = await elevenRequest(voiceId, input, key);
+
+  // 402 is the free-plan library-voice refusal; the rest are unknown-id errors.
+  // Either way, the account's own list is the answer.
+  if (!res.ok && [400, 402, 404, 422].includes(res.status)) {
+    const fallback = pickFromAccount(await accountVoices(key).catch(() => []), voiceKey);
+    if (fallback && fallback !== voiceId) res = await elevenRequest(fallback, input, key);
   }
 
   if (!res.ok) {
