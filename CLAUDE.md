@@ -5,7 +5,7 @@
 - **举报 / 内容安全**(`functions/api/report.js`、阅读页的举报按钮、隐藏后的可见性):改前先读 `docs/ROADMAP.md` §7c —— AI 判断与"3 次兜底"是两条**互相独立**的隐藏路径,AI 出错必须 fail open。
 - **博客与后台**(`functions/blog/`、`functions/api/admin/`、`public/admin.html`、`src/markdown.js`):见 `docs/ROADMAP.md` §7d。博客内容在 D1,不在文件里;新增动态路由要同步改 `public/_routes.json`。
 - **背景视频 / 首屏速度**(`public/js/backgrounds.js`、`public/index.html` 里两个 `<video>`、`public/sw.js`、`tools/shrink-video.mjs`):改前先读 `docs/ROADMAP.md` §7e。`preload="none"`、延后 `prepareNext()`、SW 不拦 `/video/` 与 `/music/` —— 这三条都是拿限速实测换来的,别随手改回去。新加的片子必须过 `tools/shrink-video.mjs`。
-- **朗读 / Listen**(`src/tts.js`、`functions/api/voice/[id].js`、`ambient.js` 的 `duck()`、app.js 的 `toggleListen`):改前先读 `docs/ROADMAP.md` §7f。**懒生成 + 永久缓存是产品硬要求**——发布不生成、缓存命中时零外部调用、只能由 Listen 按钮触发(绝不自动播放);**表演指示(`DELIVERY`)就是这个功能本身**,别当成可有可无的参数删掉;音色故意不进 hash;没 key / 分类器坏掉都必须降级而不是变成坏按钮。
+- **朗读 / Listen**(`src/tts.js`、`functions/api/voice/[id].js`、`ambient.js` 的 `duck()`、app.js 的 `toggleListen`):改前先读 `docs/ROADMAP.md` §7f。**懒生成 + 永久缓存是产品硬要求**——发布不生成、缓存命中时零外部调用、只能由 Listen 按钮触发(绝不自动播放);**表演指示(`DELIVERY`)就是这个功能本身**,别当成可有可无的参数删掉;音色故意不进 hash;没 key / 分类器坏掉都必须降级而不是变成坏按钮。**provider 优先级:ElevenLabs > OpenAI > Workers AI**;Workers AI 那条路曾长期返回 Cloudflare HTML 502,疑似免费额度耗尽(平台直接杀 worker,try/catch 抓不到)——遇到「一开始能用、后来一直不能用」先查配额。
 - Product strategy & roadmap: `docs/ROADMAP.md`.
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.

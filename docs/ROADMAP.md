@@ -228,10 +228,12 @@
 - **音色故意不进 hash**:音色是"读了文本才知道"的,若进 hash 就得每次查缓存前先分类一遍,等于白花钱。所以 hash 只覆盖 `RECIPE + 模型 + 类型 + 文本`,**实际选中的音色存在行里**(`voice` 列,便于以后调音)。
 - 分类器坏掉 → **一律退回 `soft_neutral`**(没绑定 / 抛异常 / 答非所问 / 空回答,四种都测过)。选不出音色绝不能变成"这条读不了"。
 
-**两个 provider,按"有没有 key"自动选**(因为"最好听的"和"不需要国外信用卡的"不是同一个):
+**✅ 现状(2026-08 实测):`ELEVENLABS_API_KEY` 配上之后声音正常了,用户评价"比之前的声音要好"。** 在此之前 Workers AI 那条路一直返回 Cloudflare 的 HTML 502——**很可能是免费额度(每天 10,000 Neurons)被耗尽**:额度用尽时平台是直接终止 worker,不是抛异常,所以 endpoint 里的 try/catch 一次都没触发,报错永远是那张 HTML 而不是我们自己的 JSON。用户先想到这一点(*"前两次很顺利,后来改来改去还是不行,是不是额度用完了"*),而我连改三轮都在找代码 bug。**症状是"一开始能用、后来一直不能用"时,先查配额,再查代码。**
+
+**三个 provider,按"有没有 key"自动选**(因为"最好听的"和"不需要国外信用卡的"不是同一个):
 | | 配了 `OPENAI_API_KEY` | 什么都没配(默认) |
 |---|---|---|
-| 用谁 | `gpt-4o-mini-tts` | **Cloudflare Workers AI**(`@cf/deepgram/aura-2-en`,失败退回 `aura-1`) |
+| 用谁 | **ElevenLabs**(有 `ELEVENLABS_API_KEY` 时优先于一切)/ `gpt-4o-mini-tts` | **Cloudflare Workers AI**(`@cf/deepgram/aura-2-en`,失败退回 `aura-1`) |
 | 表演指示 | ✅ 支持,`DELIVERY` 生效 | ❌ **完全不支持**,情绪只能靠选角承担 |
 | 语言 | 多语种 | 偏英语,中文等会明显变差 |
 | 花钱 | 要卡,约 $0.006/条 | **零成本、零注册、已经绑好了** |
@@ -279,6 +281,7 @@
 - **配图**:`flux-1-schnell` 生成两张,**刻意不要人脸、不要文字**——一张悲伤模特的图会让页面看起来和所有内容农场一样,而一张脸等于告诉读者"你该有这种感情"。第二张插在正文中段的小标题前(插末尾没人滚得到)。
 - **降级**:大模型挂了退小模型;**配图挂了照发不误**(没图的文章值得发,发不出去的文章不值)。都实测过。
 - ⚠️ **踩过的坑**:第一版对**所有**生成调用用同一个 400 字下限,于是"生成标题"这一步永远判定失败——**每一次运行都会挂**。现在 minLength 按调用分别设(正文 400 / 标题 8 / 摘要 20)。这是靠对着 stub 跑完整流程测出来的,不是看代码看出来的。
+- **⚠️ 判断 Cloudflare token 好坏,要查账号不要查 `/user/tokens/verify`**:本仓库的 token 是 `cfat` 开头的**账号级 token**,而 `/user/tokens/verify` 只认用户级 token,对账号级 token**一律返回 401**。我照着它的结论写了"你的 token 已失效,去重建一个"——差点让人白白重建一个完全正常的 token。**正确的检查是 `GET /accounts/<id>`**:它同时需要有效凭据和正确的 account id,而且就是 AI 调用打的那个账号,返回 200 就说明两个 secret 都对,只剩权限问题。
 - **⚠️ 需要给 API token 加权限,而且要 Edit 不是 Read**:实测只加 `Workers AI · Read` 仍然被拒(`code 10000`)——跑推理算写操作,要 **Account · Workers AI · Edit**。而且改完必须点 **Continue to summary → Save**,只在表单上加一行不生效。原文如下::`CLOUDFLARE_API_TOKEN` 原本是为部署 Pages / D1 建的,**调不了 Workers AI**——首次运行直接 `{"code":10000,"message":"Authentication error"}`。去 Cloudflare 面板 → My Profile → API Tokens → 编辑那个 token → Permissions 加一条 **Account · Workers AI · Read**,别的都不用动。脚本现在开跑前先探一次,缺权限就把这句话原样打出来,不用去翻日志。
 - **⚠️ 定时只在默认分支生效**:GitHub 的 `schedule` 只认仓库默认分支上的 workflow 文件。本仓库默认分支就是 `claude/lingxingkong-prd-t1x2mg`,所以没问题——但以后换默认分支要记得这条。cron 是 `1-5`(周一到周五),**周末不发**,所以周日看不到新文章是正常的。
 - **手动补发/试跑**:Actions 里手动运行,勾 `draft` 就只存草稿不发布。
