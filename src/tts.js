@@ -295,45 +295,42 @@ async function openaiSpeech(input, type, voiceKey, apiKey) {
 // merely by what the account can see.
 const ELEVEN_MODEL = 'eleven_multilingual_v2';
 
-// Voices attached to this account. Looked up on a cache miss only, so it costs
-// nothing on replays.
-async function accountVoices(key) {
-  const res = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': key } });
-  if (!res.ok) return [];
-  const data = await res.json().catch(() => null);
-  return Array.isArray(data?.voices) ? data.voices : [];
-}
+// ElevenLabs' premade voices, whose ids are public constants shared by every
+// account. Speaking with one needs only the text-to-speech permission — no
+// voices_read, no account lookup, nothing the owner has to go and switch on.
+//
+// This is the whole answer to the 401 the probe found. The key on this project
+// is scoped to text-to-speech and nothing else, so asking the account which
+// voices it has was refused; asking it to speak with a voice everybody already
+// has is not. I was requiring a permission the feature never needed.
+//
+// Several per narrator because a single hardcoded id is exactly what failed
+// before: Rachel and Adam turned out to be Voice Library voices, forbidden on a
+// free plan. If the first is refused the next is tried.
+const ELEVEN_PREMADE = {
+  gentle_male: [
+    'nPczCjzI2devNBz1zQrb', // Brian — deep, calm
+    'cjVigY5qzO86Huf0OWal', // Eric — warm, conversational
+    'JBFqnCBsd6RMkjVDRZzb', // George — low, steady
+  ],
+  warm_female: [
+    'EXAVITQu4vr4xnSDxMaL', // Sarah — soft, gentle
+    'cgSgspJ2msm6clMCkdW9', // Jessica — warm
+    'Xb7hH8MSUJpSbSDYk0k2', // Alice — clear, kind
+  ],
+};
 
-// Premade voices first, since those are the ones a free plan is allowed to
-// speak with. A paid account may have nothing premade at all — only cloned or
-// professional voices, which it is perfectly entitled to use — so an empty
-// premade set falls back to the whole list rather than to nothing.
+// Premade voices are the ones a free plan may speak with; anything the account
+// added from the Voice Library is refused with 402. Kept for the probe, which
+// is the only thing that reads the account's list now.
 export function usableVoices(voices) {
   const premade = voices.filter((v) => String(v?.category || '').toLowerCase() === 'premade');
   return premade.length ? premade : voices;
 }
 
-// Match on the label the account carries rather than on a name, then fall back
-// to position: one voice each, so the sky still has two narrators even if the
-// labels are missing.
-function pickFromAccount(voices, voiceKey) {
-  const usable = usableVoices(voices);
-  if (!usable.length) return null;
-  const wants = voiceKey === 'gentle_male' ? 'male' : 'female';
-  const gendered = usable.filter((v) => String(v?.labels?.gender || '').toLowerCase() === wants);
-  if (gendered.length) return gendered[0].voice_id;
-  return voiceKey === 'gentle_male' && usable.length > 1
-    ? usable[1].voice_id
-    : usable[0].voice_id;
-}
-
-// What the account can actually speak with, for the probe. Ends the guessing:
-// one look tells whether ElevenLabs can work here at all, and with which voice.
-//
-// Does its own fetch rather than reusing accountVoices, because that one turns
-// every non-200 into an empty list — which is right for synthesis and useless
-// for diagnosis. "No voices" and "the key was rejected" look identical from an
-// empty array and need completely different fixes.
+// What the account can actually speak with, for the probe only — synthesis no
+// longer needs it, which is the point: this lookup requires the voices_read
+// permission and the reading itself does not.
 export async function elevenVoiceReport(env) {
   if (!env?.ELEVENLABS_API_KEY) return null;
   try {
@@ -377,28 +374,44 @@ async function elevenRequest(voiceId, input, key) {
   });
 }
 
-async function elevenSpeech(input, voiceKey, env) {
-  const key = env.ELEVENLABS_API_KEY;
-
-  // Explicitly configured ids win — someone who has chosen a voice means it.
+// Which voices to try, in order of preference. Premade ids come before the
+// account lookup on purpose: they need no extra permission and no extra
+// request, so the common case now costs one HTTP call instead of two.
+export function elevenCandidates(voiceKey, env) {
   const configured =
     voiceKey === 'gentle_male' ? env.ELEVENLABS_VOICE_MALE : env.ELEVENLABS_VOICE_FEMALE;
+  const premade = ELEVEN_PREMADE[voiceKey] || ELEVEN_PREMADE.warm_female;
+  return [...new Set([configured, ...premade].filter(Boolean))];
+}
 
-  const voiceId = configured || pickFromAccount(await accountVoices(key).catch(() => []), voiceKey);
-  // Nothing this plan may speak with. Say so and let the chain move on, rather
-  // than spending a request to be told 402 again.
-  if (!voiceId) throw new Error('elevenlabs: no voice this plan may use');
+// Two attempts, not six. Every attempt is another round trip inside one
+// request, and a refusal is a property of the plan rather than of the id — if
+// the first premade voice is refused the second almost certainly will be too.
+// The list exists so a single retired id cannot silence the site, not so we can
+// hammer the API.
+const ELEVEN_MAX_ATTEMPTS = 2;
 
-  const res = await elevenRequest(voiceId, input, key);
+async function elevenSpeech(input, voiceKey, env) {
+  const key = env.ELEVENLABS_API_KEY;
+  let candidates = elevenCandidates(voiceKey, env);
 
-  if (!res.ok) {
+  let lastError = 'no voice to try';
+  for (const voiceId of candidates.slice(0, ELEVEN_MAX_ATTEMPTS)) {
+    const res = await elevenRequest(voiceId, input, key);
+    if (res.ok) {
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      if (looksLikeAudio(bytes)) return { bytes, mime: 'audio/mpeg' };
+      lastError = `returned ${bytes.length} bytes, not audio`;
+      continue;
+    }
     const detail = await res.text().catch(() => '');
-    throw new Error(`elevenlabs ${res.status}: ${detail.slice(0, 200)}`);
+    lastError = `${res.status}: ${detail.slice(0, 160)}`;
+    // 401 and 403 are about the key, not the voice. Trying another id with the
+    // same key is just a slower way to get the same answer.
+    if (res.status === 401 || res.status === 403) break;
   }
 
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  if (!looksLikeAudio(bytes)) throw new Error(`elevenlabs returned ${bytes.length} bytes, not audio`);
-  return { bytes, mime: 'audio/mpeg' };
+  throw new Error(`elevenlabs ${lastError}`);
 }
 
 // Deepgram Aura, through the Workers AI binding that report moderation already
