@@ -279,7 +279,7 @@
 - **配图**:`flux-1-schnell` 生成两张,**刻意不要人脸、不要文字**——一张悲伤模特的图会让页面看起来和所有内容农场一样,而一张脸等于告诉读者"你该有这种感情"。第二张插在正文中段的小标题前(插末尾没人滚得到)。
 - **降级**:大模型挂了退小模型;**配图挂了照发不误**(没图的文章值得发,发不出去的文章不值)。都实测过。
 - ⚠️ **踩过的坑**:第一版对**所有**生成调用用同一个 400 字下限,于是"生成标题"这一步永远判定失败——**每一次运行都会挂**。现在 minLength 按调用分别设(正文 400 / 标题 8 / 摘要 20)。这是靠对着 stub 跑完整流程测出来的,不是看代码看出来的。
-- **⚠️ 需要给 API token 加一个权限**:`CLOUDFLARE_API_TOKEN` 原本是为部署 Pages / D1 建的,**调不了 Workers AI**——首次运行直接 `{"code":10000,"message":"Authentication error"}`。去 Cloudflare 面板 → My Profile → API Tokens → 编辑那个 token → Permissions 加一条 **Account · Workers AI · Read**,别的都不用动。脚本现在开跑前先探一次,缺权限就把这句话原样打出来,不用去翻日志。
+- **⚠️ 需要给 API token 加权限,而且要 Edit 不是 Read**:实测只加 `Workers AI · Read` 仍然被拒(`code 10000`)——跑推理算写操作,要 **Account · Workers AI · Edit**。而且改完必须点 **Continue to summary → Save**,只在表单上加一行不生效。原文如下::`CLOUDFLARE_API_TOKEN` 原本是为部署 Pages / D1 建的,**调不了 Workers AI**——首次运行直接 `{"code":10000,"message":"Authentication error"}`。去 Cloudflare 面板 → My Profile → API Tokens → 编辑那个 token → Permissions 加一条 **Account · Workers AI · Read**,别的都不用动。脚本现在开跑前先探一次,缺权限就把这句话原样打出来,不用去翻日志。
 - **⚠️ 定时只在默认分支生效**:GitHub 的 `schedule` 只认仓库默认分支上的 workflow 文件。本仓库默认分支就是 `claude/lingxingkong-prd-t1x2mg`,所以没问题——但以后换默认分支要记得这条。cron 是 `1-5`(周一到周五),**周末不发**,所以周日看不到新文章是正常的。
 - **手动补发/试跑**:Actions 里手动运行,勾 `draft` 就只存草稿不发布。
 

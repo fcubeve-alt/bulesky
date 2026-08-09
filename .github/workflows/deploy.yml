@@ -98,6 +98,21 @@ jobs:
           fi
           printf '%s' "$OPENAI_API_KEY" | npx wrangler pages secret put OPENAI_API_KEY --project-name=bulesky
 
+      # ElevenLabs, when there is a key for it. This is the provider the Listen
+      # button prefers: a plain HTTPS call rather than a platform binding, and
+      # the one that actually reads with feeling.
+      - name: Sync the ElevenLabs key to the Pages project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          if [ -z "${ELEVENLABS_API_KEY:-}" ]; then
+            echo "::warning::ELEVENLABS_API_KEY is not set — Listen falls back to the free Workers AI voice."
+            exit 0
+          fi
+          printf '%s' "$ELEVENLABS_API_KEY" | npx wrangler pages secret put ELEVENLABS_API_KEY --project-name=bulesky
+
       - name: Deploy Pages project (frontend + API)
         id: pages
         env:

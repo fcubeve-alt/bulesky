@@ -161,7 +161,7 @@ const MIME = 'audio/aac';
 // every lookup just to discover we already had the audio. The roster and the
 // rules for choosing are covered by RECIPE instead, and the narrator that was
 // actually picked is stored next to the audio.
-const RECIPE = 'v8-aura1-default';
+const RECIPE = 'v9-elevenlabs';
 
 // Whichever provider will actually be used, so the hash can name it. Keeping
 // this decision in one place means the cache key and the synthesis can never
@@ -173,7 +173,10 @@ export function auraModel(env) {
 }
 
 export function providerFor(env) {
-  return env?.OPENAI_API_KEY ? 'openai' : env?.AI ? 'aura' : null;
+  if (env?.ELEVENLABS_API_KEY) return 'elevenlabs';
+  if (env?.OPENAI_API_KEY) return 'openai';
+  if (env?.AI) return 'aura';
+  return null;
 }
 
 export async function voiceHash(text, type, env) {
@@ -188,6 +191,7 @@ export async function synthesize(text, type, voiceKey, env) {
   const input = shapeForSpeech(text).slice(0, MAX_CHARS);
   const provider = providerFor(env);
   if (provider === 'openai') return openaiSpeech(input, type, voiceKey, env.OPENAI_API_KEY);
+  if (provider === 'elevenlabs') return elevenSpeech(input, voiceKey, env);
   if (provider === 'aura') return auraSpeech(input, voiceKey, env.AI, auraModel(env));
   throw new Error('no tts provider');
 }
@@ -214,6 +218,65 @@ async function openaiSpeech(input, type, voiceKey, apiKey) {
   }
 
   return { bytes: new Uint8Array(await res.arrayBuffer()), mime: MIME };
+}
+
+// ElevenLabs. A plain HTTPS call with a key — no platform binding, no Workers
+// AI quota, none of the machinery the Aura path goes through. When a key is
+// present this is the provider, both because it is the best-sounding option and
+// because it is the simplest thing that can possibly work.
+//
+// Voice IDs move around, so they are overridable and there is a recovery path:
+// if the configured voice is rejected, ask the account which voices it actually
+// has and use one. Better a voice we did not choose than silence.
+const ELEVEN_MODEL = 'eleven_multilingual_v2';
+const ELEVEN_DEFAULT_VOICES = {
+  warm_female: '21m00Tcm4TlvDq8ikWAM', // Rachel — calm, warm
+  gentle_male: 'pNInz6obpgDQGcFmaJgB', // Adam — low, steady
+};
+
+async function elevenRequest(voiceId, input, key) {
+  return fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    method: 'POST',
+    headers: { 'xi-api-key': key, 'content-type': 'application/json', accept: 'audio/mpeg' },
+    body: JSON.stringify({
+      text: input,
+      model_id: ELEVEN_MODEL,
+      // Lower stability leaves room for the delivery to move with the words,
+      // which is the entire reason for using this provider. High style pushes
+      // it into performance, which this material must never sound like.
+      voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.25, use_speaker_boost: true },
+    }),
+  });
+}
+
+async function elevenVoiceId(voiceKey, env) {
+  const configured =
+    voiceKey === 'gentle_male' ? env.ELEVENLABS_VOICE_MALE : env.ELEVENLABS_VOICE_FEMALE;
+  return configured || ELEVEN_DEFAULT_VOICES[voiceKey] || ELEVEN_DEFAULT_VOICES.warm_female;
+}
+
+async function elevenSpeech(input, voiceKey, env) {
+  const key = env.ELEVENLABS_API_KEY;
+  let res = await elevenRequest(await elevenVoiceId(voiceKey, env), input, key);
+
+  if (!res.ok && (res.status === 400 || res.status === 404 || res.status === 422)) {
+    // Most likely an unknown voice id. Ask what this account actually has.
+    const list = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': key } });
+    if (list.ok) {
+      const data = await list.json().catch(() => null);
+      const first = data && Array.isArray(data.voices) && data.voices[0] && data.voices[0].voice_id;
+      if (first) res = await elevenRequest(first, input, key);
+    }
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`elevenlabs ${res.status}: ${detail.slice(0, 200)}`);
+  }
+
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (!looksLikeAudio(bytes)) throw new Error(`elevenlabs returned ${bytes.length} bytes, not audio`);
+  return { bytes, mime: 'audio/mpeg' };
 }
 
 // Deepgram Aura, through the Workers AI binding that report moderation already

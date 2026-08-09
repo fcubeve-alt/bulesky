@@ -45,6 +45,7 @@ function probe(env) {
     JSON.stringify({
       hasDB: Boolean(env && env.DB),
       hasAI: Boolean(env && env.AI),
+      hasElevenLabsKey: Boolean(env && env.ELEVENLABS_API_KEY),
       hasOpenAIKey: Boolean(env && env.OPENAI_API_KEY),
       provider: providerFor(env),
       model: auraModel(env),

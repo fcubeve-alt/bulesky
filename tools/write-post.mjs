@@ -64,10 +64,12 @@ async function cfRun(model, input) {
     // error" from a log.
     if (errors.some((e) => e && (e.code === 10000 || /auth/i.test(e.message || '')))) {
       throw new Error(
-        `${model} → Cloudflare refused the token. CLOUDFLARE_API_TOKEN needs the ` +
-          `"Workers AI: Read" permission added to it (Cloudflare dashboard → My Profile → ` +
-          `API Tokens → edit the token → Permissions → Account · Workers AI · Read). ` +
-          `Nothing else about the token needs to change.`
+        `${model} → Cloudflare refused the token (HTTP ${res.status}). CLOUDFLARE_API_TOKEN ` +
+          `cannot call Workers AI. In the Cloudflare dashboard → My Profile → API Tokens → ` +
+          `edit this token: (1) add Account · Workers AI · Edit — "Read" alone is not enough ` +
+          `to run inference; (2) press Continue to summary and then Save, since adding the ` +
+          `row on the form does not apply it; (3) if the token was rotated, update the ` +
+          `CLOUDFLARE_API_TOKEN secret in GitHub to the new value.`
       );
     }
     const why = errors.length ? JSON.stringify(errors).slice(0, 200) : res.status;
@@ -86,7 +88,7 @@ async function checkAccess() {
       max_tokens: 1,
     });
   } catch (e) {
-    if (/Workers AI: Read/.test(e.message)) {
+    if (/cannot call Workers AI/.test(e.message)) {
       console.error(`[write-post] ${e.message}`);
       process.exit(1);
     }
