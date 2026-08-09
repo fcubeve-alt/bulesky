@@ -16,7 +16,45 @@ import { voiceHash, pickVoice, synthesize, providerFor } from '../../../src/tts.
 // A hidden whisper is not readable here either — same rule as the detail
 // endpoint, so a reported-and-removed whisper cannot be laundered back into
 // earshot through the audio route.
-export async function onRequestGet({ request, params, env }) {
+// Nothing in here may crash the worker.
+//
+// An unhandled throw does not reach the client as an error we wrote — it
+// reaches it as Cloudflare's own HTML error page with a 502, which tells the
+// listener nothing and told me nothing for three rounds. Whatever goes wrong,
+// it comes back as JSON naming itself.
+export async function onRequestGet(context) {
+  try {
+    return await readAloud(context);
+  } catch (e) {
+    return new Response(
+      JSON.stringify({
+        error: 'crashed',
+        detail: String((e && e.message) || e).slice(0, 300),
+        where: String((e && e.stack) || '').split('\n').slice(0, 3).join(' | ').slice(0, 300),
+      }),
+      { status: 500, headers: { 'content-type': 'application/json; charset=utf-8' } }
+    );
+  }
+}
+
+// What the environment actually looks like from inside the worker, for when a
+// failure needs explaining rather than guessing at. Says nothing secret: which
+// bindings exist, not what is in them.
+function probe(env) {
+  return new Response(
+    JSON.stringify({
+      hasDB: Boolean(env && env.DB),
+      hasAI: Boolean(env && env.AI),
+      hasOpenAIKey: Boolean(env && env.OPENAI_API_KEY),
+      provider: providerFor(env),
+    }),
+    { headers: { 'content-type': 'application/json; charset=utf-8' } }
+  );
+}
+
+async function readAloud({ request, params, env }) {
+  if (new URL(request.url).searchParams.get('probe') === '1') return probe(env);
+
   const id = parseInt(params.id, 10);
   if (!Number.isFinite(id)) {
     return new Response(JSON.stringify({ error: 'invalid_id' }), {

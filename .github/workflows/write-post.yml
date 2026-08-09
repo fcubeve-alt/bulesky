@@ -1,0 +1,42 @@
+name: Write a blog post
+
+# Five posts a week, one each weekday morning, on the questions people actually
+# type into a search box at 2am (content/topics.json). Written and published by
+# tools/write-post.mjs through the same admin API a human editor uses.
+#
+# Nothing new needs configuring: the models run on CLOUDFLARE_API_TOKEN, and
+# publishing uses ADMIN_PASSWORD — both already set for the deploy workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: "Save as a draft instead of publishing"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "20 6 * * 1-5" # weekdays 06:20 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  write:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # No deploy needed: posts live in D1, not in the repository, so a new
+      # article is live the moment it is written.
+      - name: Write and publish
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          DRAFT: ${{ inputs.draft && '1' || '0' }}
+        run: node tools/write-post.mjs
