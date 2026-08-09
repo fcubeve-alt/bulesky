@@ -1,4 +1,4 @@
-import { voiceHash, pickVoice, synthesize } from '../../../src/tts.js';
+import { voiceHash, pickVoice, synthesize, providerFor } from '../../../src/tts.js';
 
 // Read a whisper aloud. Returns audio, never JSON on success.
 //
@@ -46,7 +46,7 @@ export async function onRequestGet({ params, env }) {
     });
   }
 
-  const hash = await voiceHash(text, bubble.type);
+  const hash = await voiceHash(text, bubble.type, env);
 
   const { results: parts } = await env.DB.prepare(
     `SELECT mime, data FROM voice_chunks WHERE hash = ? ORDER BY part ASC`
@@ -55,9 +55,10 @@ export async function onRequestGet({ params, env }) {
     .all();
   if (parts && parts.length) return audio(join(parts.map((p) => p.data)), parts[0].mime);
 
-  // No key configured → say so plainly and let the browser fall back to its own
-  // speech synthesis. A missing key must never look like a broken button.
-  if (!env.OPENAI_API_KEY) {
+  // No provider at all — not even the Workers AI binding — so say so plainly and
+  // let the browser fall back to its own speech synthesis. This must never look
+  // like a broken button.
+  if (!providerFor(env)) {
     return new Response(JSON.stringify({ error: 'not_configured' }), {
       status: 503,
       headers: { 'content-type': 'application/json; charset=utf-8' },
@@ -70,7 +71,7 @@ export async function onRequestGet({ params, env }) {
 
   let out;
   try {
-    out = await synthesize(text, bubble.type, narrator, env.OPENAI_API_KEY);
+    out = await synthesize(text, bubble.type, narrator, env);
   } catch (e) {
     // Same posture as the AI moderation call: the provider having a bad day is
     // not a reason for the reader to get nothing. The client falls back.
