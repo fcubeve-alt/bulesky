@@ -111,32 +111,42 @@ async function checkAccess() {
   };
 
   say('Workers AI refused this token. Checking why…');
-  say(`token looks like: ${CF_TOKEN.length} chars, starts "${CF_TOKEN.slice(0, 4)}…"`);
+  say(`token: ${CF_TOKEN.length} chars, starts "${CF_TOKEN.slice(0, 4)}…"`);
   say(`account id: ${ACCOUNT.length} chars, starts "${ACCOUNT.slice(0, 6)}…"`);
 
-  const verify = await ask('/user/tokens/verify');
-  if (verify.status === 200) {
-    say('✓ the token itself is valid and active.');
-  } else {
-    say(`✗ the token is not valid at all (HTTP ${verify.status}).`);
-    say('  → CLOUDFLARE_API_TOKEN in GitHub is wrong, expired, or revoked. Make a new');
-    say('    token and update the secret. This is not a permissions problem.');
+  // Ask about the account first, not the token.
+  //
+  // /user/tokens/verify only understands user-scoped tokens. An account-scoped
+  // token — the kind whose value begins "cfat" — is rejected there with a 401
+  // even when it is completely valid, so leading with that check produces a
+  // confident "your token is dead" about a token that works. Reaching the
+  // account is the honest test: it needs a real credential AND the right
+  // account id, and it is exactly the account the AI call is made against.
+  const acct = await ask(`/accounts/${ACCOUNT}`);
+  if (acct.status === 200) {
+    say('✓ the token is valid and can see this account, so both secrets are right.');
+    say('✗ what is missing is permission to run Workers AI on it.');
+    say('  → Cloudflare dashboard → My Profile → API Tokens → edit this token →');
+    say('    Permissions → Account · Workers AI · Edit → Continue to summary → Save.');
+    say('    If the row is already there: delete it, re-add it, save again. An unsaved');
+    say('    row on the form looks identical to a saved one.');
+    say('  → If it still fails after that, the token may be scoped to specific');
+    say('    resources rather than the whole account — check the "Account Resources"');
+    say('    section of the token includes this account.');
     process.exit(1);
   }
 
-  const acct = await ask(`/accounts/${ACCOUNT}`);
-  if (acct.status === 200) {
-    say('✓ the token can see this account, so CLOUDFLARE_ACCOUNT_ID is right.');
-    say('✗ so the only thing missing is the Workers AI permission on the token.');
-    say('  → Cloudflare dashboard → My Profile → API Tokens → edit this token →');
-    say('    Permissions → Account · Workers AI · Edit → Continue to summary → Save.');
-    say('    If the row is already there, delete it, re-add it, and save again — a row');
-    say('    left unsaved on the form looks identical to a saved one.');
+  // The account is unreachable. Now it is worth knowing which half is wrong.
+  const asUser = await ask('/user/tokens/verify');
+  if (asUser.status === 200) {
+    say(`✗ the token is valid, but cannot see account ${ACCOUNT} (HTTP ${acct.status}).`);
+    say('  → CLOUDFLARE_ACCOUNT_ID is the wrong account, or the token is scoped to a');
+    say('    different one. Copy the Account ID from the Cloudflare dashboard sidebar.');
   } else {
-    say(`✗ the token cannot see account ${ACCOUNT} (HTTP ${acct.status}).`);
-    say('  → CLOUDFLARE_ACCOUNT_ID is the wrong account, or this token is scoped to a');
-    say('    different one. Copy the Account ID from the Cloudflare dashboard sidebar');
-    say('    and update the secret.');
+    say(`✗ neither the account (HTTP ${acct.status}) nor a token check (HTTP ${asUser.status}) succeeded.`);
+    say('  → Most likely CLOUDFLARE_API_TOKEN is expired, revoked or mistyped. Note that');
+    say('    a token beginning "cfat" is account-scoped and cannot be checked the usual');
+    say('    way, so judge it by whether the account line above succeeded, not this one.');
   }
   process.exit(1);
 }
