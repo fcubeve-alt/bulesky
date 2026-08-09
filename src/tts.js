@@ -20,7 +20,13 @@
 // rather than serving the old voice forever.
 
 const MODEL = 'gpt-4o-mini-tts';
-const AURA_MODEL = '@cf/deepgram/aura-1';
+// Aura 2 rather than Aura 1. Aura 1 reads a string; Aura 2 is context-aware —
+// Deepgram describe it as applying "natural pacing, expressiveness, and fillers
+// based on the context of the provided text", which is precisely the two things
+// missing: no pauses between sentences, no change of tone. English-only, with
+// Aura 1 kept as the fallback if the call fails.
+const AURA_MODEL = '@cf/deepgram/aura-2-en';
+const AURA_FALLBACK_MODEL = '@cf/deepgram/aura-1';
 
 
 // A sorrow and a wish should not be read in the same breath. These are two
@@ -79,6 +85,34 @@ const VOICE_SYSTEM =
   'If it could genuinely be either, pick the one that fits the feeling better ' +
   'rather than defaulting.';
 
+// Give the model something to breathe on.
+//
+// Deepgram are explicit that "the quality of your text input directly impacts
+// the naturalness of the audio output", and whispers are typed at night in a
+// box with no spellcheck — many arrive as unpunctuated runs of words, or as
+// lines broken by Enter instead of by full stops. A model that takes its pauses
+// from punctuation has nothing to work with, and reads the whole thing as one
+// breathless sentence. That is most of what "no pauses between sentences"
+// actually is.
+//
+// This adds only terminal punctuation where a line clearly ends without any,
+// which cannot change what the words mean. It does not invent commas, drama or
+// ellipses — putting feeling in that the writer did not write is not ours to do.
+const ENDS_SENTENCE = /[.!?…。！？；;:،؟]["'”’)\]]*$/;
+const CJK_TAIL = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af]\s*$/;
+
+export function shapeForSpeech(text) {
+  return String(text)
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    // A CJK line gets a CJK full stop. A Latin one on Chinese text is both ugly
+    // and, to a model taking cues from the script it is reading, a wrong signal.
+    .map((line) => (ENDS_SENTENCE.test(line) ? line : line + (CJK_TAIL.test(line) ? '。' : '.')))
+    .join('\n');
+}
+
 // Which narrator suits this whisper. Runs on Cloudflare Workers AI — already
 // bound for report moderation, effectively free, and only ever reached on a
 // cache miss, so it is paid for once per whisper exactly like the audio is.
@@ -125,7 +159,7 @@ const MIME = 'audio/aac';
 // every lookup just to discover we already had the audio. The roster and the
 // rules for choosing are covered by RECIPE instead, and the narrator that was
 // actually picked is stored next to the audio.
-const RECIPE = 'v5-two-narrators';
+const RECIPE = 'v6-aura2-shaped';
 
 // Whichever provider will actually be used, so the hash can name it. Keeping
 // this decision in one place means the cache key and the synthesis can never
@@ -143,7 +177,7 @@ export async function voiceHash(text, type, env) {
 // Returns { bytes, mime }, or throws. voiceKey is one of VOICES' keys. The
 // caller decides what a failure means for the reader — see the endpoint.
 export async function synthesize(text, type, voiceKey, env) {
-  const input = String(text).slice(0, MAX_CHARS);
+  const input = shapeForSpeech(text).slice(0, MAX_CHARS);
   const provider = providerFor(env);
   if (provider === 'openai') return openaiSpeech(input, type, voiceKey, env.OPENAI_API_KEY);
   if (provider === 'aura') return auraSpeech(input, voiceKey, env.AI);
@@ -182,11 +216,19 @@ async function openaiSpeech(input, type, voiceKey, apiKey) {
 // MP3 rather than AAC: Aura offers both, but AAC needs a container argument to
 // be right and MP3 is the one that is unambiguous everywhere.
 async function auraSpeech(input, voiceKey, ai) {
-  const result = await ai.run(
-    AURA_MODEL,
-    { text: input, speaker: AURA_VOICES[voiceKey] || AURA_VOICES.warm_female, encoding: 'mp3' },
-    { returnRawResponse: true }
-  );
+  const args = {
+    text: input,
+    speaker: AURA_VOICES[voiceKey] || AURA_VOICES.warm_female,
+    encoding: 'mp3',
+  };
+  let result;
+  try {
+    result = await ai.run(AURA_MODEL, args, { returnRawResponse: true });
+  } catch {
+    // Aura 2 is English-only and newer; if it refuses this text, an unexpressive
+    // reading still beats no reading.
+    result = await ai.run(AURA_FALLBACK_MODEL, args, { returnRawResponse: true });
+  }
   return { bytes: await toBytes(result), mime: 'audio/mpeg' };
 }
 
