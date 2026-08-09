@@ -651,6 +651,17 @@ function stopSpeaking() {
   setListenState('idle');
 }
 
+// Must only ever be called from inside a tap. Empty so nothing is heard, and
+// untracked so its immediate onend cannot stop the real reading that follows.
+function primeBrowserVoice() {
+  if (!('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+  } catch {
+    /* nothing is lost: the fallback simply stays as unreliable as it was */
+  }
+}
+
 function speakInBrowser(text) {
   if (!('speechSynthesis' in window)) {
     showToast(t('listenUnavailable'));
@@ -718,6 +729,17 @@ function toggleListen() {
   audio.src = SILENT_WAV;
   const unlock = audio.play();
   if (unlock && unlock.catch) unlock.catch(() => {});
+
+  // And unlock the browser's own voice in the same breath, because the fallback
+  // is bound by exactly the same rule as the element above.
+  //
+  // speakInBrowser runs from inside a .then(), long after the tap has ended, and
+  // iOS ignores speak() outside a gesture — no error, no sound, nothing in the
+  // console. So when the endpoint failed, the safety net that was supposed to
+  // catch the reader was itself silent, and "no sound at all" is what got
+  // reported. Speaking one empty utterance now, inside the tap, is what buys
+  // permission to speak later.
+  primeBrowserVoice();
 
   // Two rounds of "still no sound" went by without anyone being able to see
   // why, because every failure here falls back silently by design. The reason
