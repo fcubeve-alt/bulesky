@@ -1057,26 +1057,31 @@ body.reading #now-playing { display: none; }
   padding: 6px 10px 8px;
   cursor: pointer;
 }
-/* "Listen" — cooler than the warm light button on purpose, so it never reads as
-   the same kind of thing as leaving warmth behind. */
+/* Listen has to be seen. The first version was a pale blue outline on a dark
+   translucent pill, floating over moving video — legible in a screenshot and
+   nearly invisible in use. Warm and filled, like the other things in this view
+   that are meant to be pressed. */
 .listen-btn {
-  border: 1px solid rgba(178, 208, 255, 0.45);
+  border: 1px solid rgba(255, 214, 150, 0.9);
   border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  background: rgba(150, 190, 255, 0.14);
-  color: #dbe8ff;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+  padding: 8px 17px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  background: linear-gradient(135deg, var(--warm), var(--warm-deep));
+  color: #2a1608;
+  text-shadow: none;
+  box-shadow: 0 2px 12px rgba(255, 170, 90, 0.4);
   cursor: pointer;
   transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
 }
+/* Playing: drop back to a cool outline. It has done its job, and a bright warm
+   pill sitting on screen through the whole reading would compete with it. */
 .listen-btn.speaking {
-  border-color: rgba(190, 220, 255, 0.9);
-  background: rgba(170, 205, 255, 0.9);
-  color: #16233a;
-  text-shadow: none;
-  box-shadow: 0 0 18px 3px rgba(150, 195, 255, 0.5);
+  border-color: rgba(190, 220, 255, 0.75);
+  background: rgba(20, 30, 55, 0.75);
+  color: #dbe8ff;
+  box-shadow: none;
 }
 /* Synthesis takes a second or two the first time a whisper is ever read. A
    slow pulse says "working", where a spinner would say "loading a page". */

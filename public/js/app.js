@@ -628,7 +628,14 @@ function setListenState(mode) {
 function stopSpeaking() {
   if (speech.audio) {
     speech.audio.pause();
-    speech.audio.src = '';
+    // Detach the handlers before clearing the source: removing a src fires an
+    // error on some browsers, which would bounce straight into the fallback
+    // voice for a reading the listener just chose to stop.
+    speech.audio.onended = null;
+    speech.audio.onerror = null;
+    speech.audio.oncanplay = null;
+    speech.audio.removeAttribute('src');
+    speech.audio.load();
     speech.audio = null;
   }
   if (speech.utterance) {
@@ -664,7 +671,27 @@ function speakInBrowser(text) {
   }
 }
 
-async function toggleListen() {
+// One long-lived element, pointed straight at the endpoint.
+//
+// The first version fetched the audio, made a Blob, then built a new Audio()
+// and played it. On iOS that is silence: play() is only allowed inside a user
+// gesture, and awaiting the fetch first throws the gesture away. ambient.js has
+// carried a comment warning about exactly this since the music was written, and
+// I walked into it anyway.
+//
+// Pointing the element at /api/voice/<id> means play() is called synchronously
+// in the tap and the browser does the loading. A 502/503 comes back as a
+// decode error, which is already the signal to fall back to the browser voice.
+let speechEl = null;
+function speechAudio() {
+  if (!speechEl) {
+    speechEl = new Audio();
+    speechEl.preload = 'auto';
+  }
+  return speechEl;
+}
+
+function toggleListen() {
   const id = state.detailBubbleId;
   if (!id) return;
   if (speech.id === id) return stopSpeaking(); // tapping again stops it
@@ -675,27 +702,27 @@ async function toggleListen() {
   ambient.duck(true);
 
   const text = state.detailBubble?.content || '';
-  try {
-    const res = await fetch(`/api/voice/${id}`);
-    if (!res.ok) throw new Error(String(res.status));
-    const blob = await res.blob();
-    if (speech.id !== id) return; // they closed or switched while it synthesised
-    const audio = new Audio(URL.createObjectURL(blob));
-    // Both providers read faster than this material wants. Slowing playback
-    // rather than asking the provider for a slower render keeps every cached
-    // reading valid and works the same on either path; preservesPitch stops it
-    // sounding like a slowed-down tape.
+  const audio = speechAudio();
+  speech.audio = audio;
+
+  const giveUpToBrowser = () => {
+    if (speech.id === id) speakInBrowser(text);
+  };
+  audio.onended = stopSpeaking;
+  audio.onerror = giveUpToBrowser;
+  audio.oncanplay = () => {
+    if (speech.id !== id) return;
+    // Some browsers reset the rate when a new source loads.
     audio.preservesPitch = true;
     audio.playbackRate = SPEECH_RATE;
-    audio.onended = stopSpeaking;
-    audio.onerror = () => speakInBrowser(text);
-    speech.audio = audio;
     setListenState('speaking');
-    await audio.play();
-  } catch {
-    if (speech.id !== id) return;
-    speakInBrowser(text);
-  }
+  };
+
+  audio.src = `/api/voice/${id}`;
+  audio.preservesPitch = true;
+  audio.playbackRate = SPEECH_RATE;
+  const started = audio.play();
+  if (started && started.catch) started.catch(giveUpToBrowser);
 }
 
 async function leaveLight() {

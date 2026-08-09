@@ -159,7 +159,7 @@ const MIME = 'audio/aac';
 // every lookup just to discover we already had the audio. The roster and the
 // rules for choosing are covered by RECIPE instead, and the narrator that was
 // actually picked is stored next to the audio.
-const RECIPE = 'v6-aura2-shaped';
+const RECIPE = 'v7-verified-audio';
 
 // Whichever provider will actually be used, so the hash can name it. Keeping
 // this decision in one place means the cache key and the synthesis can never
@@ -216,20 +216,49 @@ async function openaiSpeech(input, type, voiceKey, apiKey) {
 // MP3 rather than AAC: Aura offers both, but AAC needs a container argument to
 // be right and MP3 is the one that is unambiguous everywhere.
 async function auraSpeech(input, voiceKey, ai) {
-  const args = {
-    text: input,
-    speaker: AURA_VOICES[voiceKey] || AURA_VOICES.warm_female,
-    encoding: 'mp3',
-  };
-  let result;
-  try {
-    result = await ai.run(AURA_MODEL, args, { returnRawResponse: true });
-  } catch {
-    // Aura 2 is English-only and newer; if it refuses this text, an unexpressive
-    // reading still beats no reading.
-    result = await ai.run(AURA_FALLBACK_MODEL, args, { returnRawResponse: true });
+  const speaker = AURA_VOICES[voiceKey] || AURA_VOICES.warm_female;
+
+  // Tried in order until one returns something that is actually audio.
+  //
+  // A rejected model does not necessarily throw — with returnRawResponse the
+  // binding can hand back a perfectly ordinary Response carrying a JSON error,
+  // and the previous version cheerfully treated those bytes as audio, stored
+  // them, and served an unplayable file from cache forever after. Aura 2 also
+  // documents a different parameter set from Aura 1, so "encoding" is dropped
+  // on the second attempt rather than assumed to be accepted.
+  const attempts = [
+    [AURA_MODEL, { text: input, speaker, encoding: 'mp3' }],
+    [AURA_MODEL, { text: input, speaker }],
+    [AURA_FALLBACK_MODEL, { text: input, speaker, encoding: 'mp3' }],
+  ];
+
+  let lastError = 'no attempt ran';
+  for (const [model, args] of attempts) {
+    try {
+      const result = await ai.run(model, args, { returnRawResponse: true });
+      if (result && typeof result.status === 'number' && !result.ok) {
+        lastError = `${model} → ${result.status}`;
+        continue;
+      }
+      const bytes = await toBytes(result);
+      if (!looksLikeAudio(bytes)) {
+        lastError = `${model} → ${bytes.length} bytes, not audio`;
+        continue;
+      }
+      return { bytes, mime: 'audio/mpeg' };
+    } catch (e) {
+      lastError = `${model} → ${e && e.message ? e.message : e}`;
+    }
   }
-  return { bytes: await toBytes(result), mime: 'audio/mpeg' };
+  throw new Error(`aura: ${lastError}`);
+}
+
+// Cheap sanity check before anything is cached forever. A JSON error body is
+// small and starts with a brace or a bracket; real speech is neither.
+function looksLikeAudio(bytes) {
+  if (!bytes || bytes.length < 2048) return false;
+  const first = bytes[0];
+  return first !== 0x7b && first !== 0x5b; // '{' '['
 }
 
 // The binding hands audio back in whichever shape the runtime feels like:

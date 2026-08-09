@@ -81,6 +81,17 @@ export async function onRequestGet({ params, env }) {
     });
   }
 
+  // Never cache something that is not going to play. A provider that answers
+  // with an error body instead of audio would otherwise be stored once and
+  // served as a permanently broken reading — the cache is forever, so what goes
+  // into it has to be checked once here.
+  if (!out.bytes || out.bytes.length < 2048) {
+    return new Response(JSON.stringify({ error: 'tts_empty', bytes: out.bytes ? out.bytes.length : 0 }), {
+      status: 502,
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+    });
+  }
+
   // Store before responding so the next listener is free. A failed insert (a
   // race with another listener inserting the same hash) must not cost the
   // reader their audio.
