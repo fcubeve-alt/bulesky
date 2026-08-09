@@ -1,4 +1,4 @@
-import { voiceHash, pickVoice, synthesize, providerFor } from '../../../src/tts.js';
+import { voiceHash, pickVoice, synthesize, providerFor, auraModel } from '../../../src/tts.js';
 
 // Read a whisper aloud. Returns audio, never JSON on success.
 //
@@ -47,13 +47,14 @@ function probe(env) {
       hasAI: Boolean(env && env.AI),
       hasOpenAIKey: Boolean(env && env.OPENAI_API_KEY),
       provider: providerFor(env),
+      model: auraModel(env),
     }),
     { headers: { 'content-type': 'application/json; charset=utf-8' } }
   );
 }
 
-async function readAloud({ request, params, env }) {
-  if (new URL(request.url).searchParams.get('probe') === '1') return probe(env);
+async function readAloud({ request, params, env, waitUntil }) {
+  if (request && new URL(request.url).searchParams.get('probe') === '1') return probe(env);
 
   const id = parseInt(params.id, 10);
   if (!Number.isFinite(id)) {
@@ -130,9 +131,26 @@ async function readAloud({ request, params, env }) {
     });
   }
 
-  // Store before responding so the next listener is free. A failed insert (a
-  // race with another listener inserting the same hash) must not cost the
-  // reader their audio.
+  // Hand the audio over FIRST and cache afterwards.
+  //
+  // Slicing a few megabytes into rows and writing them to D1 is the heaviest
+  // thing this endpoint does, and doing it before replying put it inside the
+  // request's resource budget. A worker killed for exceeding that budget does
+  // not throw — it is terminated, the try/catch wrapping this never runs, and
+  // what reaches the listener is Cloudflare's own HTML error page. Which is
+  // exactly what was coming back.
+  //
+  // With waitUntil the response is already on its way before any of that
+  // happens, so the worst a failed cache can do is make the next listener pay
+  // for the synthesis again. Nobody is left in silence for it.
+  const store = cacheReading(env, hash, out, narrator);
+  if (typeof waitUntil === 'function') waitUntil(store);
+  else store.catch(() => {});
+
+  return audio(out.bytes, out.mime, request);
+}
+
+async function cacheReading(env, hash, out, narrator) {
   try {
     const now = Date.now();
     const rows = [];
@@ -148,10 +166,8 @@ async function readAloud({ request, params, env }) {
     // half a reading in the table would be served as truncated audio forever.
     await env.DB.batch(rows);
   } catch {
-    /* cached next time */
+    /* the next listener pays for it again; nobody goes without */
   }
-
-  return audio(out.bytes, out.mime, request);
 }
 
 // D1 caps a single BLOB — and a single row — at 2,000,000 bytes. A minute of

@@ -20,13 +20,15 @@
 // rather than serving the old voice forever.
 
 const MODEL = 'gpt-4o-mini-tts';
-// Aura 2 rather than Aura 1. Aura 1 reads a string; Aura 2 is context-aware —
-// Deepgram describe it as applying "natural pacing, expressiveness, and fillers
-// based on the context of the provided text", which is precisely the two things
-// missing: no pauses between sentences, no change of tone. English-only, with
-// Aura 1 kept as the fallback if the call fails.
-const AURA_MODEL = '@cf/deepgram/aura-2-en';
-const AURA_FALLBACK_MODEL = '@cf/deepgram/aura-1';
+// Aura 1 by default, deliberately, even though Aura 2 is the context-aware one
+// that would read with better pacing.
+//
+// Aura 1 is the only configuration a listener has actually heard come out of
+// this site. Switching the default to Aura 2 coincided with the endpoint dying,
+// and chasing an unproven model while the feature is silent is the wrong order
+// to do things in. Set VOICE_MODEL=@cf/deepgram/aura-2-en once sound is
+// confirmed and the improvement can be judged on its own.
+const DEFAULT_AURA_MODEL = '@cf/deepgram/aura-1';
 
 
 // A sorrow and a wish should not be read in the same breath. These are two
@@ -159,17 +161,23 @@ const MIME = 'audio/aac';
 // every lookup just to discover we already had the audio. The roster and the
 // rules for choosing are covered by RECIPE instead, and the narrator that was
 // actually picked is stored next to the audio.
-const RECIPE = 'v7-verified-audio';
+const RECIPE = 'v8-aura1-default';
 
 // Whichever provider will actually be used, so the hash can name it. Keeping
 // this decision in one place means the cache key and the synthesis can never
 // disagree about who spoke.
+// Overridable without a deploy, so the Aura 2 experiment can be turned on and
+// off from the Pages dashboard rather than from a commit.
+export function auraModel(env) {
+  return (env && env.VOICE_MODEL) || DEFAULT_AURA_MODEL;
+}
+
 export function providerFor(env) {
   return env?.OPENAI_API_KEY ? 'openai' : env?.AI ? 'aura' : null;
 }
 
 export async function voiceHash(text, type, env) {
-  const material = [RECIPE, providerFor(env), type, text].join(' ');
+  const material = [RECIPE, providerFor(env), auraModel(env), type, text].join(' ');
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(material));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -180,7 +188,7 @@ export async function synthesize(text, type, voiceKey, env) {
   const input = shapeForSpeech(text).slice(0, MAX_CHARS);
   const provider = providerFor(env);
   if (provider === 'openai') return openaiSpeech(input, type, voiceKey, env.OPENAI_API_KEY);
-  if (provider === 'aura') return auraSpeech(input, voiceKey, env.AI);
+  if (provider === 'aura') return auraSpeech(input, voiceKey, env.AI, auraModel(env));
   throw new Error('no tts provider');
 }
 
@@ -215,7 +223,7 @@ async function openaiSpeech(input, type, voiceKey, apiKey) {
 //
 // MP3 rather than AAC: Aura offers both, but AAC needs a container argument to
 // be right and MP3 is the one that is unambiguous everywhere.
-async function auraSpeech(input, voiceKey, ai) {
+async function auraSpeech(input, voiceKey, ai, model) {
   const speaker = AURA_VOICES[voiceKey] || AURA_VOICES.warm_female;
 
   // Tried in order until one returns something that is actually audio.
@@ -226,10 +234,12 @@ async function auraSpeech(input, voiceKey, ai) {
   // them, and served an unplayable file from cache forever after. Aura 2 also
   // documents a different parameter set from Aura 1, so "encoding" is dropped
   // on the second attempt rather than assumed to be accepted.
+  // Two attempts, not three. Every extra attempt is another response body read
+  // and discarded inside one request's resource budget, and this endpoint has
+  // already been killed once for doing too much before replying.
   const attempts = [
-    [AURA_MODEL, { text: input, speaker, encoding: 'mp3' }],
-    [AURA_MODEL, { text: input, speaker }],
-    [AURA_FALLBACK_MODEL, { text: input, speaker, encoding: 'mp3' }],
+    [model, { text: input, speaker, encoding: 'mp3' }],
+    [model, { text: input, speaker }],
   ];
 
   let lastError = 'no attempt ran';
