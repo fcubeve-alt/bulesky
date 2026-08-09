@@ -618,6 +618,10 @@ let speech = { audio: null, utterance: null, id: null };
 // announcement — 0.88 was still being heard as rushed.
 const SPEECH_RATE = 0.82;
 
+// Add ?debug=voice to the address to have Listen's failures shown on screen
+// rather than only whispered to the console.
+const VOICE_DEBUG = new URLSearchParams(location.search).get('debug') === 'voice';
+
 function setListenState(mode) {
   els.readListenBtn.classList.toggle('speaking', mode === 'speaking');
   els.readListenBtn.classList.toggle('loading', mode === 'loading');
@@ -671,17 +675,22 @@ function speakInBrowser(text) {
   }
 }
 
-// One long-lived element, pointed straight at the endpoint.
+// Getting a voice out of an iPhone means satisfying two rules at once, and I
+// have now broken this in both directions.
 //
-// The first version fetched the audio, made a Blob, then built a new Audio()
-// and played it. On iOS that is silence: play() is only allowed inside a user
-// gesture, and awaiting the fetch first throws the gesture away. ambient.js has
-// carried a comment warning about exactly this since the music was written, and
-// I walked into it anyway.
+//   1. play() is only permitted inside a user gesture, and any await before it
+//      throws the gesture away. So the audio cannot be fetched first.
+//   2. Media loaded from a URL must support HTTP byte-range requests, which a
+//      plain Pages Function response does not. So the src cannot be the
+//      endpoint. This is why the Blob version worked and the tidy direct-URL
+//      version did not.
 //
-// Pointing the element at /api/voice/<id> means play() is called synchronously
-// in the tap and the browser does the loading. A 502/503 comes back as a
-// decode error, which is already the signal to fall back to the browser voice.
+// Both are satisfied by unlocking one long-lived element with a moment of
+// silence inside the tap — after which iOS allows this element to be played
+// again later — and only then fetching the audio and swapping the source. The
+// Blob keeps the bytes in memory, so no range request is ever made.
+const SILENT_WAV = 'data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
+
 let speechEl = null;
 function speechAudio() {
   if (!speechEl) {
@@ -705,25 +714,51 @@ function toggleListen() {
   const audio = speechAudio();
   speech.audio = audio;
 
-  const giveUpToBrowser = () => {
-    if (speech.id === id) speakInBrowser(text);
-  };
-  audio.onended = stopSpeaking;
-  audio.onerror = giveUpToBrowser;
-  audio.oncanplay = () => {
+  // Still inside the gesture: nothing above this line awaits anything.
+  audio.src = SILENT_WAV;
+  const unlock = audio.play();
+  if (unlock && unlock.catch) unlock.catch(() => {});
+
+  // Two rounds of "still no sound" went by without anyone being able to see
+  // why, because every failure here falls back silently by design. The reason
+  // now always reaches the console, and ?debug=voice puts it on screen so it
+  // can be read off a phone.
+  const giveUpToBrowser = (why) => {
     if (speech.id !== id) return;
-    // Some browsers reset the rate when a new source loads.
-    audio.preservesPitch = true;
-    audio.playbackRate = SPEECH_RATE;
-    setListenState('speaking');
+    const reason = `listen fell back: ${why || 'unknown'}`;
+    console.warn(reason);
+    if (VOICE_DEBUG) showToast(reason, 6000);
+    speakInBrowser(text);
   };
 
-  audio.src = `/api/voice/${id}`;
-  audio.preservesPitch = true;
-  audio.playbackRate = SPEECH_RATE;
-  const started = audio.play();
-  if (started && started.catch) started.catch(giveUpToBrowser);
+  fetch(`/api/voice/${id}`)
+    .then(async (res) => {
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        throw new Error(`${res.status} ${detail.slice(0, 160)}`);
+      }
+      return res.blob();
+    })
+    .then((blob) => {
+      if (speech.id !== id) return; // closed or switched while it synthesised
+      audio.onended = stopSpeaking;
+      audio.onerror = () => giveUpToBrowser(`cannot decode ${blob.type} (${blob.size} bytes)`);
+      audio.oncanplay = () => {
+        if (speech.id !== id) return;
+        // Some browsers reset the rate when a new source loads.
+        audio.preservesPitch = true;
+        audio.playbackRate = SPEECH_RATE;
+        setListenState('speaking');
+      };
+      audio.src = URL.createObjectURL(blob);
+      audio.preservesPitch = true;
+      audio.playbackRate = SPEECH_RATE;
+      const started = audio.play();
+      if (started && started.catch) started.catch((e) => giveUpToBrowser(`play refused: ${e && e.name}`));
+    })
+    .catch((e) => giveUpToBrowser(String((e && e.message) || e)));
 }
+
 
 async function leaveLight() {
   const id = state.detailBubbleId;

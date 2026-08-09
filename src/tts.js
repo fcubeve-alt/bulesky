@@ -240,12 +240,19 @@ async function auraSpeech(input, voiceKey, ai) {
         lastError = `${model} → ${result.status}`;
         continue;
       }
+      // Take the format the model actually produced rather than asserting one.
+      // The second attempt drops "encoding", so the model falls back to its own
+      // default — which may not be MP3 at all. Labelling raw PCM as audio/mpeg
+      // gets it rejected by the browser as an undecodable file, which looks
+      // exactly like the bug this whole chain exists to avoid.
+      const declared = result && result.headers ? result.headers.get('content-type') : null;
+      const mime = declared && /^audio\//i.test(declared) ? declared.split(';')[0].trim() : 'audio/mpeg';
       const bytes = await toBytes(result);
       if (!looksLikeAudio(bytes)) {
         lastError = `${model} → ${bytes.length} bytes, not audio`;
         continue;
       }
-      return { bytes, mime: 'audio/mpeg' };
+      return { bytes, mime };
     } catch (e) {
       lastError = `${model} → ${e && e.message ? e.message : e}`;
     }

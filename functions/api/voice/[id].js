@@ -16,7 +16,7 @@ import { voiceHash, pickVoice, synthesize, providerFor } from '../../../src/tts.
 // A hidden whisper is not readable here either — same rule as the detail
 // endpoint, so a reported-and-removed whisper cannot be laundered back into
 // earshot through the audio route.
-export async function onRequestGet({ params, env }) {
+export async function onRequestGet({ request, params, env }) {
   const id = parseInt(params.id, 10);
   if (!Number.isFinite(id)) {
     return new Response(JSON.stringify({ error: 'invalid_id' }), {
@@ -53,7 +53,7 @@ export async function onRequestGet({ params, env }) {
   )
     .bind(hash)
     .all();
-  if (parts && parts.length) return audio(join(parts.map((p) => p.data)), parts[0].mime);
+  if (parts && parts.length) return audio(join(parts.map((p) => p.data)), parts[0].mime, request);
 
   // No provider at all — not even the Workers AI binding — so say so plainly and
   // let the browser fall back to its own speech synthesis. This must never look
@@ -113,7 +113,7 @@ export async function onRequestGet({ params, env }) {
     /* cached next time */
   }
 
-  return audio(out.bytes, out.mime);
+  return audio(out.bytes, out.mime, request);
 }
 
 // D1 caps a single BLOB — and a single row — at 2,000,000 bytes. A minute of
@@ -135,13 +135,54 @@ function join(chunks) {
   return out;
 }
 
-function audio(data, mime) {
-  return new Response(data, {
-    headers: {
-      'content-type': mime || 'audio/mpeg',
-      // The hash covers the text and the delivery, so a given whisper's audio
-      // is stable for as long as its words are.
-      'cache-control': 'public, max-age=86400',
-    },
-  });
+// Serve the audio, honouring Range.
+//
+// Safari on iOS will not play media from a URL unless the server answers byte
+// ranges — it asks for a couple of bytes first and gives up on a plain 200.
+// The player currently loads through a Blob and so never asks, but a media URL
+// that only works when nobody treats it as one is a trap for the next person
+// to point an <audio> at it. The bytes are already in memory here, so this is
+// a slice.
+function audio(data, mime, request) {
+  const body = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const headers = {
+    'content-type': mime || 'audio/mpeg',
+    'accept-ranges': 'bytes',
+    // The hash covers the text and the delivery, so a given whisper's audio
+    // is stable for as long as its words are.
+    'cache-control': 'public, max-age=86400',
+  };
+
+  const range = request && request.headers ? request.headers.get('range') : null;
+  const m = range && /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+  if (m && (m[1] || m[2])) {
+    const size = body.length;
+    let start = m[1] ? parseInt(m[1], 10) : NaN;
+    let end = m[2] ? parseInt(m[2], 10) : NaN;
+    if (Number.isNaN(start)) {
+      // "bytes=-N" means the last N bytes.
+      start = Math.max(0, size - (Number.isNaN(end) ? size : end));
+      end = size - 1;
+    } else if (Number.isNaN(end)) {
+      end = size - 1;
+    }
+    end = Math.min(end, size - 1);
+    if (start > end || start >= size) {
+      return new Response(null, {
+        status: 416,
+        headers: { ...headers, 'content-range': `bytes */${size}` },
+      });
+    }
+    const slice = body.subarray(start, end + 1);
+    return new Response(slice, {
+      status: 206,
+      headers: {
+        ...headers,
+        'content-range': `bytes ${start}-${end}/${size}`,
+        'content-length': String(slice.length),
+      },
+    });
+  }
+
+  return new Response(body, { headers: { ...headers, 'content-length': String(body.length) } });
 }
