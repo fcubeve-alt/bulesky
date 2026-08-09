@@ -1,4 +1,11 @@
-import { voiceHash, pickVoice, synthesize, providerFor, auraModel } from '../../../src/tts.js';
+import {
+  voiceHash,
+  pickVoice,
+  synthesize,
+  providerFor,
+  auraModel,
+  elevenVoiceReport,
+} from '../../../src/tts.js';
 
 // Read a whisper aloud. Returns audio, never JSON on success.
 //
@@ -73,10 +80,18 @@ async function probe(env) {
     cached = { error: String(e.message || e) };
   }
 
+  // Which voices this ElevenLabs plan may actually speak with. The 402 refusals
+  // in the log are a plan limit, not a bug in the id, and the only way to tell
+  // whether the account has any usable voice at all is to ask it.
+  const elevenlabs = await elevenVoiceReport(env).catch((e) => ({
+    error: String((e && e.message) || e).slice(0, 200),
+  }));
+
   return new Response(
     JSON.stringify({
       cached,
       recentFailures,
+      elevenlabs,
       hasDB: Boolean(env && env.DB),
       hasAI: Boolean(env && env.AI),
       hasElevenLabsKey: Boolean(env && env.ELEVENLABS_API_KEY),
@@ -180,6 +195,14 @@ async function readAloud({ request, params, env, waitUntil }) {
       status: 502,
       headers: { 'content-type': 'application/json; charset=utf-8' },
     });
+  }
+
+  // A provider lower down the chain answered, which means the preferred one
+  // refused. The listener heard something, so this is not a failure to them —
+  // but it is the difference between the voice this site was designed around
+  // and a fallback, and it has to be visible without anyone reporting it.
+  if (out.failures && out.failures.length && typeof waitUntil === 'function') {
+    waitUntil(noteFailure(env, providerFor(env), `${out.provider} served after: ${out.failures.join(' | ')}`));
   }
 
   // Hand the audio over FIRST and cache afterwards.

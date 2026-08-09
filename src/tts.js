@@ -192,11 +192,24 @@ export function auraModel(env) {
   return (env && env.VOICE_MODEL) || DEFAULT_AURA_MODEL;
 }
 
+// Best first, and everything that is configured after it. This is an order of
+// preference, not a single choice: see synthesize().
+const CHAIN = ['elevenlabs', 'openai', 'aura'];
+
+function available(env) {
+  return CHAIN.filter(
+    (p) =>
+      (p === 'elevenlabs' && env?.ELEVENLABS_API_KEY) ||
+      (p === 'openai' && env?.OPENAI_API_KEY) ||
+      (p === 'aura' && env?.AI)
+  );
+}
+
+// The provider the cache key is named after, and the one tried first. Stays the
+// same whichever provider ends up speaking, so a lookup can always find what a
+// previous listener paid for.
 export function providerFor(env) {
-  if (env?.ELEVENLABS_API_KEY) return 'elevenlabs';
-  if (env?.OPENAI_API_KEY) return 'openai';
-  if (env?.AI) return 'aura';
-  return null;
+  return available(env)[0] || null;
 }
 
 export async function voiceHash(text, type, env) {
@@ -205,15 +218,40 @@ export async function voiceHash(text, type, env) {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Returns { bytes, mime }, or throws. voiceKey is one of VOICES' keys. The
-// caller decides what a failure means for the reader — see the endpoint.
+// Returns { bytes, mime, provider, failures }, or throws. voiceKey is one of
+// VOICES' keys.
+//
+// Every configured provider is tried in turn, not just the preferred one. The
+// reason is the whole of this feature's history: ElevenLabs refuses every
+// uncached reading on a free plan (402, "Free users cannot use library voices"),
+// and because the preferred provider was also the only provider, that refusal
+// reached the listener as a dead button. Whether a whisper could be heard came
+// down to whether someone had already listened to that exact whisper under an
+// earlier provider — which is precisely the "works, then doesn't, then works
+// again, no pattern" that was reported.
+//
+// A worse voice is not the failure mode to protect against here. Silence is.
 export async function synthesize(text, type, voiceKey, env) {
   const input = shapeForSpeech(text).slice(0, MAX_CHARS);
-  const provider = providerFor(env);
+  const providers = available(env);
+  if (!providers.length) throw new Error('no tts provider');
+
+  const failures = [];
+  for (const provider of providers) {
+    try {
+      const out = await speak(provider, input, type, voiceKey, env);
+      return { ...out, provider, failures };
+    } catch (e) {
+      failures.push(String((e && e.message) || e).slice(0, 200));
+    }
+  }
+  throw new Error(failures.join(' | '));
+}
+
+function speak(provider, input, type, voiceKey, env) {
   if (provider === 'openai') return openaiSpeech(input, type, voiceKey, env.OPENAI_API_KEY);
   if (provider === 'elevenlabs') return elevenSpeech(input, voiceKey, env);
-  if (provider === 'aura') return auraSpeech(input, voiceKey, env.AI, auraModel(env));
-  throw new Error('no tts provider');
+  return auraSpeech(input, voiceKey, env.AI, auraModel(env));
 }
 
 async function openaiSpeech(input, type, voiceKey, apiKey) {
@@ -245,24 +283,20 @@ async function openaiSpeech(input, type, voiceKey, apiKey) {
 // present this is the provider, both because it is the best-sounding option and
 // because it is the simplest thing that can possibly work.
 //
-// Voice IDs move around, so they are overridable and there is a recovery path:
-// if the configured voice is rejected, ask the account which voices it actually
-// has and use one. Better a voice we did not choose than silence.
+// No voice id is hardcoded, deliberately. The two that were — Rachel and Adam —
+// are Voice Library voices, and a free plan may not use those through the API
+// at all: every request came back 402 "paid_plan_required". Asking the account
+// what it has did not fix it either, because the voices listed on a free
+// account are largely library voices too, so the fallback picked another
+// forbidden id and got the same refusal.
+//
+// What a free plan may use is the premade set, which carries category
+// "premade". So the list is filtered by what the plan permits rather than
+// merely by what the account can see.
 const ELEVEN_MODEL = 'eleven_multilingual_v2';
-// These are Voice Library ids, and a free ElevenLabs account is not allowed to
-// use library voices through the API at all — it answers 402 "paid_plan_required"
-// every single time, which is exactly the "works twice then never again" the
-// owner reported (the two that worked were cache hits from an earlier provider).
-// So they are a preference, not a plan: the account's own voices are asked for
-// first and these are only used if that lookup fails.
-const ELEVEN_DEFAULT_VOICES = {
-  warm_female: '21m00Tcm4TlvDq8ikWAM', // Rachel — calm, warm
-  gentle_male: 'pNInz6obpgDQGcFmaJgB', // Adam — low, steady
-};
 
-// Voices actually attached to this account, which is what a free plan may use.
-// Looked up once per synthesis, and only on a cache miss, so it costs nothing
-// on replays.
+// Voices attached to this account. Looked up on a cache miss only, so it costs
+// nothing on replays.
 async function accountVoices(key) {
   const res = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': key } });
   if (!res.ok) return [];
@@ -270,20 +304,48 @@ async function accountVoices(key) {
   return Array.isArray(data?.voices) ? data.voices : [];
 }
 
+// Premade voices first, since those are the ones a free plan is allowed to
+// speak with. A paid account may have nothing premade at all — only cloned or
+// professional voices, which it is perfectly entitled to use — so an empty
+// premade set falls back to the whole list rather than to nothing.
+export function usableVoices(voices) {
+  const premade = voices.filter((v) => String(v?.category || '').toLowerCase() === 'premade');
+  return premade.length ? premade : voices;
+}
+
 // Match on the label the account carries rather than on a name, then fall back
 // to position: one voice each, so the sky still has two narrators even if the
 // labels are missing.
 function pickFromAccount(voices, voiceKey) {
-  if (!voices.length) return null;
+  const usable = usableVoices(voices);
+  if (!usable.length) return null;
   const wants = voiceKey === 'gentle_male' ? 'male' : 'female';
-  const gendered = voices.filter((v) => {
-    const g = String(v?.labels?.gender || '').toLowerCase();
-    return g === wants;
-  });
+  const gendered = usable.filter((v) => String(v?.labels?.gender || '').toLowerCase() === wants);
   if (gendered.length) return gendered[0].voice_id;
-  return voiceKey === 'gentle_male' && voices.length > 1
-    ? voices[1].voice_id
-    : voices[0].voice_id;
+  return voiceKey === 'gentle_male' && usable.length > 1
+    ? usable[1].voice_id
+    : usable[0].voice_id;
+}
+
+// What the account can actually speak with, for the probe. Ends the guessing:
+// one look tells whether ElevenLabs can work here at all, and with which voice.
+export async function elevenVoiceReport(env) {
+  if (!env?.ELEVENLABS_API_KEY) return null;
+  try {
+    const voices = await accountVoices(env.ELEVENLABS_API_KEY);
+    return {
+      total: voices.length,
+      usable: usableVoices(voices).length,
+      voices: voices.slice(0, 12).map((v) => ({
+        id: v.voice_id,
+        name: v.name,
+        category: v.category,
+        gender: v?.labels?.gender || null,
+      })),
+    };
+  } catch (e) {
+    return { error: String((e && e.message) || e).slice(0, 200) };
+  }
 }
 
 async function elevenRequest(voiceId, input, key) {
@@ -301,12 +363,6 @@ async function elevenRequest(voiceId, input, key) {
   });
 }
 
-async function elevenVoiceId(voiceKey, env) {
-  const configured =
-    voiceKey === 'gentle_male' ? env.ELEVENLABS_VOICE_MALE : env.ELEVENLABS_VOICE_FEMALE;
-  return configured || ELEVEN_DEFAULT_VOICES[voiceKey] || ELEVEN_DEFAULT_VOICES.warm_female;
-}
-
 async function elevenSpeech(input, voiceKey, env) {
   const key = env.ELEVENLABS_API_KEY;
 
@@ -314,22 +370,12 @@ async function elevenSpeech(input, voiceKey, env) {
   const configured =
     voiceKey === 'gentle_male' ? env.ELEVENLABS_VOICE_MALE : env.ELEVENLABS_VOICE_FEMALE;
 
-  let voiceId = configured;
-  if (!voiceId) {
-    // Otherwise take one this account owns. Doing this first rather than as a
-    // recovery step is the difference between working on a free plan and not.
-    voiceId = pickFromAccount(await accountVoices(key).catch(() => []), voiceKey);
-  }
-  if (!voiceId) voiceId = ELEVEN_DEFAULT_VOICES[voiceKey] || ELEVEN_DEFAULT_VOICES.warm_female;
+  const voiceId = configured || pickFromAccount(await accountVoices(key).catch(() => []), voiceKey);
+  // Nothing this plan may speak with. Say so and let the chain move on, rather
+  // than spending a request to be told 402 again.
+  if (!voiceId) throw new Error('elevenlabs: no voice this plan may use');
 
-  let res = await elevenRequest(voiceId, input, key);
-
-  // 402 is the free-plan library-voice refusal; the rest are unknown-id errors.
-  // Either way, the account's own list is the answer.
-  if (!res.ok && [400, 402, 404, 422].includes(res.status)) {
-    const fallback = pickFromAccount(await accountVoices(key).catch(() => []), voiceKey);
-    if (fallback && fallback !== voiceId) res = await elevenRequest(fallback, input, key);
-  }
+  const res = await elevenRequest(voiceId, input, key);
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
