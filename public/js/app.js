@@ -755,9 +755,17 @@ function toggleListen() {
 
   fetch(`/api/voice/${id}`)
     .then(async (res) => {
-      if (!res.ok) {
+      // Judge it by what came back, not by the status.
+      //
+      // The endpoint answers 200 even when it failed, because Cloudflare's edge
+      // replaces the body of any 5xx a Pages Function returns with its own
+      // 16-byte error page — so a status-based check learned only "502" while
+      // the actual reason was thrown away. Its contract is audio or an
+      // explanation, and content-type is what tells them apart.
+      const type = res.headers.get('content-type') || '';
+      if (!/^audio\//i.test(type)) {
         const detail = await res.text().catch(() => '');
-        throw new Error(`${res.status} ${detail.slice(0, 160)}`);
+        throw new Error(`${res.status} ${detail.slice(0, 200)}`);
       }
       return res.blob();
     })

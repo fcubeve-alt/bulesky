@@ -23,12 +23,13 @@ import {
 // A hidden whisper is not readable here either — same rule as the detail
 // endpoint, so a reported-and-removed whisper cannot be laundered back into
 // earshot through the audio route.
-// Nothing in here may crash the worker.
+// Nothing in here may crash the worker, and nothing in here may answer 5xx.
 //
-// An unhandled throw does not reach the client as an error we wrote — it
-// reaches it as Cloudflare's own HTML error page with a 502, which tells the
-// listener nothing and told me nothing for three rounds. Whatever goes wrong,
-// it comes back as JSON naming itself.
+// An unhandled throw reaches the client as Cloudflare's own error page rather
+// than as anything we wrote — and so does a 5xx we return deliberately, since
+// the edge replaces the body of those too. Both told the listener nothing and
+// told me nothing for three rounds. Whatever goes wrong now comes back as a
+// 200 carrying JSON that names itself; see json().
 export async function onRequestGet(context) {
   try {
     return await readAloud(context);
@@ -45,7 +46,9 @@ export async function onRequestGet(context) {
         detail: String((e && e.message) || e).slice(0, 300),
         where: String((e && e.stack) || '').split('\n').slice(0, 3).join(' | ').slice(0, 300),
       }),
-      { status: 500, headers: { 'content-type': 'application/json; charset=utf-8' } }
+      // 200 on purpose — see json(). A 5xx here reaches the listener as
+      // Cloudflare's own page and this explanation is lost.
+      { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } }
     );
   }
 }
@@ -115,14 +118,14 @@ async function noteFailure(env, provider, detail) {
   }
 }
 
-// Breadcrumbs that survive the worker being killed.
+// Breadcrumbs written before the call, not after it.
 //
-// Every uncached reading now comes back as Cloudflare's own 16-byte 502 page
-// with nothing new in the failure log — which cannot happen from a throw, since
-// onRequestGet turns any throw into JSON. The worker is being terminated, and a
-// terminated worker runs no handler and flushes no waitUntil. So the record has
-// to be written and committed BEFORE the call that might not return, or there
-// is nothing to read afterwards.
+// These were added on the theory that the worker was being terminated, since
+// every uncached reading came back as Cloudflare's 16-byte 502 page. That
+// theory was wrong — the worker was answering fine and the edge was discarding
+// the body, see json(). But writing the step down before making the call is
+// still what turned three days of guessing into one log line naming a 429, so
+// it stays.
 //
 // Awaited on purpose, and only on the diagnostic paths: this is slow, and it is
 // the slowness that makes it truthful.
@@ -136,19 +139,30 @@ async function breadcrumb(env, step) {
   }
 }
 
+// Never 5xx. Cloudflare's edge replaces the body of any 5xx a Pages Function
+// returns with its own 16-byte "error code: 502" page, so every carefully
+// worded explanation this endpoint has produced was thrown away before anyone
+// could read it — which is most of why the failure log looked empty and the
+// worker looked terminated. It was neither; it was answering into a void.
+//
+// So a failed reading is a 200 carrying JSON that says what went wrong. The
+// client decides what a reading is by content-type, not by status, which is
+// the honest test anyway: this endpoint's contract is "audio or an
+// explanation".
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 1), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
+    status: status >= 500 ? 200 : status,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      // Errors must never be cached; the next listener may be luckier.
+      'cache-control': 'no-store',
+    },
   });
 }
 
-// Synthesis on its own, with a trail, and nothing cached.
-//
-// If this answers JSON, whatever failed failed in a way we can see and the
-// chain did its job. If it answers a bare 502, the call named in the last
-// breadcrumb is the one killing the worker. Either outcome is an answer, which
-// is more than the endpoint has produced so far.
+// Synthesis on its own, with a trail, and nothing cached. Answers what each
+// provider actually said, which is how the ElevenLabs key's missing permission
+// and Aura's 429 both finally became readable.
 async function probeSynthesis(env, mode, text) {
   // mode 'aura' forces the Workers AI path by handing synthesize an env that
   // has nothing else in it — no new export, no second code path to keep honest.
@@ -215,10 +229,7 @@ async function readAloud({ request, params, env, waitUntil }) {
   // let the browser fall back to its own speech synthesis. This must never look
   // like a broken button.
   if (!providerFor(env)) {
-    return new Response(JSON.stringify({ error: 'not_configured' }), {
-      status: 503,
-      headers: { 'content-type': 'application/json; charset=utf-8' },
-    });
+    return json({ error: 'not_configured' });
   }
 
   // Only reached on a cache miss, so the narrator is chosen once per whisper —
@@ -233,10 +244,7 @@ async function readAloud({ request, params, env, waitUntil }) {
     // not a reason for the reader to get nothing. The client falls back.
     const detail = String((e && e.message) || e);
     if (typeof waitUntil === 'function') waitUntil(noteFailure(env, providerFor(env), detail));
-    return new Response(JSON.stringify({ error: 'tts_failed', detail }), {
-      status: 502,
-      headers: { 'content-type': 'application/json; charset=utf-8' },
-    });
+    return json({ error: 'tts_failed', detail });
   }
 
   // Never cache something that is not going to play. A provider that answers
@@ -246,10 +254,7 @@ async function readAloud({ request, params, env, waitUntil }) {
   if (!out.bytes || out.bytes.length < 2048) {
     const short = `empty audio: ${out.bytes ? out.bytes.length : 0} bytes`;
     if (typeof waitUntil === 'function') waitUntil(noteFailure(env, providerFor(env), short));
-    return new Response(JSON.stringify({ error: 'tts_empty', bytes: out.bytes ? out.bytes.length : 0 }), {
-      status: 502,
-      headers: { 'content-type': 'application/json; charset=utf-8' },
-    });
+    return json({ error: 'tts_empty', bytes: out.bytes ? out.bytes.length : 0 });
   }
 
   // A provider lower down the chain answered, which means the preferred one
