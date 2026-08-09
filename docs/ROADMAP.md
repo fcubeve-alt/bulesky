@@ -228,10 +228,10 @@
 - **音色故意不进 hash**:音色是"读了文本才知道"的,若进 hash 就得每次查缓存前先分类一遍,等于白花钱。所以 hash 只覆盖 `RECIPE + 模型 + 类型 + 文本`,**实际选中的音色存在行里**(`voice` 列,便于以后调音)。
 - 分类器坏掉 → **一律退回 `soft_neutral`**(没绑定 / 抛异常 / 答非所问 / 空回答,四种都测过)。选不出音色绝不能变成"这条读不了"。
 
-**⚠️ 现状(2026-08 实测):缓存命中正常,缓存未命中目前两个 provider 都被拒。**
-- ElevenLabs:`401 missing_permissions —— The API key you used is missing the permission voices_read`。**key 少了 `voices_read` 权限**,所以查不到账号能用的音色,这条路直接跳过。**这是控制台上改一下就好的事**(或者显式配 `ELEVENLABS_VOICE_MALE` / `ELEVENLABS_VOICE_FEMALE`)。
-- Workers AI Aura:`@cf/deepgram/aura-1 → 429`,被限流。
-- 两个都失败时**读者仍然有声音**:退回浏览器自带朗读(见下面那条 iOS 手势的坑)。
+**✅ 现状(2026-08 实测,GitHub runner 从站外实拉):六条**没缓存过**的悄悄话全部 `HTTP 200` + 真 MP3(36KB–842KB),`?probe=chain` 返回 `{"ok":true,"provider":"elevenlabs","failures":[]}`。**
+- **ElevenLabs 用 premade 音色,不查账号音色列表。** 这个项目的 key 只有 text-to-speech 权限,`/v1/voices` 会返回 `401 missing_permissions (voices_read)` —— 而**朗读本来就不需要那个权限**,是我为了"挑音色"自己加出来的依赖。premade 音色 ID 是所有账号通用的公开常量,直接拿来念就行。**别再把请求路径接回 `/v1/voices`。**
+- **不要为了这种事去让站主改控制台。** 我差点把一串"你去 ElevenLabs 后台勾一下"的步骤丢给他;正确的做法是把这个依赖从代码里去掉。**能在代码里解决的,不要变成对方的待办事项。**
+- Workers AI Aura 目前 `@cf/deepgram/aura-1 → 429`(被限流),所以后备这条路现在是断的 —— 但首选能用,而且两个都断时**读者仍然有声音**:退回浏览器自带朗读(见下面那条 iOS 手势的坑)。
 
 > **别再用"某一条气球能播"证明功能好了。** 之前那句"实测 `HTTP 200, 168063 bytes` 真 MP3"是真的,但它是**缓存命中**——同一分钟的失败日志里,每一条没缓存过的都在被拒。从站外看,缓存命中和"合成正常"长得一模一样。`check-sky` 现在从 `/api/bubbles` 取一批真实 id 逐个请求,问的是"**没人听过的那条能不能听**"。
 
