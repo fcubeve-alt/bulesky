@@ -121,7 +121,27 @@ export function shapeForSpeech(text) {
 //
 // Fails open to a random narrator: a classifier having a bad day must never
 // stop a whisper being read, or quietly make every voice the same.
+// Deterministic casting: same whisper, same narrator, forever, with no call to
+// anything. Not as clever as reading the text, and it cannot be the reason the
+// endpoint dies.
+export async function pickVoiceLocally(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text)));
+  return NARRATORS[new Uint8Array(digest)[0] % NARRATORS.length];
+}
+
+// The classifier is OFF unless VOICE_CLASSIFIER is set, and that is deliberate.
+//
+// It runs on Workers AI, and Workers AI is the one thing that was still being
+// called on every cache miss no matter which speech provider was configured —
+// which makes it the only suspect left for an endpoint that dies without
+// reaching its own error handler, on ElevenLabs and on Aura alike. A worker
+// terminated by the platform does not throw, so the try/catch below cannot save
+// it and never did.
+//
+// Casting by emotion is a nice touch. Producing sound is the feature. Turn this
+// back on with VOICE_CLASSIFIER=1 once the endpoint is known to be healthy.
 export async function pickVoice(text, env) {
+  if (!env?.VOICE_CLASSIFIER) return pickVoiceLocally(text);
   if (!env?.AI || !text) return fallbackNarrator();
   try {
     const res = await env.AI.run(VOICE_MODEL, {
@@ -161,7 +181,7 @@ const MIME = 'audio/aac';
 // every lookup just to discover we already had the audio. The roster and the
 // rules for choosing are covered by RECIPE instead, and the narrator that was
 // actually picked is stored next to the audio.
-const RECIPE = 'v10-account-voices';
+const RECIPE = 'v11-no-classifier';
 
 // Whichever provider will actually be used, so the hash can name it. Keeping
 // this decision in one place means the cache key and the synthesis can never
