@@ -29,13 +29,26 @@ jobs:
             "https://cubewithin.com/api/voice/${{ inputs.whisper_id }}?probe=1" || echo "(request failed)"
           echo
 
-      - name: Try an actual reading
+      # Several whispers, not one.
+      #
+      # Asking for the same id every time only ever proved the cache works —
+      # id 1 answered 200 with clean MP3 in the very run whose log showed every
+      # uncached reading being refused. A cache hit and a working synthesiser
+      # look identical from out here, which is exactly how the real fault stayed
+      # invisible for three rounds. So take a spread of live ids and report each
+      # one: what matters is whether the ones nobody has listened to yet work.
+      - name: Try actual readings
         run: |
-          echo "── requesting real audio ──"
-          code=$(curl -sS -o /tmp/audio.bin -w '%{http_code}' --max-time 60 \
-            "https://cubewithin.com/api/voice/${{ inputs.whisper_id }}") || code=000
-          echo "HTTP $code, $(stat -c%s /tmp/audio.bin 2>/dev/null || echo 0) bytes"
-          echo "content starts: $(head -c 120 /tmp/audio.bin | tr -d '\0' | head -c 120)"
+          ids=$(curl -sS --max-time 20 "https://cubewithin.com/api/bubbles" \
+            | grep -o '"id":[0-9]*' | grep -o '[0-9]*' | head -6 | tr '\n' ' ')
+          echo "ids: ${ids:-none returned, falling back}"
+          for id in ${ids:-${{ inputs.whisper_id }}}; do
+            code=$(curl -sS -o /tmp/audio.bin -w '%{http_code}' --max-time 60 \
+              "https://cubewithin.com/api/voice/$id") || code=000
+            size=$(stat -c%s /tmp/audio.bin 2>/dev/null || echo 0)
+            head=$(head -c 90 /tmp/audio.bin | tr -d '\0' | tr -cd '[:print:]' | head -c 90)
+            printf 'voice/%-5s HTTP %s  %8s bytes  %s\n' "$id" "$code" "$size" "$head"
+          done
           echo
 
       - name: Blog and pages
