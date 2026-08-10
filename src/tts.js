@@ -202,12 +202,14 @@ export function auraModel(env) {
 // project already has, so it needs no key, no account and no card, and it is
 // the difference between a listener hearing a modest voice and hearing the
 // phone's flat built-in one.
-// Volcengine sits second because it is the one this project can actually buy.
-// OpenAI does not sell to mainland China and both it and Google Cloud need a
-// foreign card, which rules them out here no matter how good they are; ByteDance
-// takes domestic payment, has a large preset voice roster, and is the only other
-// provider on this list that accepts delivery direction at all.
-const CHAIN = ['elevenlabs', 'volc', 'openai', 'aura', 'melo'];
+// Order is by "best reading this site can obtain", which is not the same as
+// "best model". OpenAI is ahead of Volcengine because the whispers are mostly
+// English, it is the only provider here whose delivery notes actually work, and
+// per character it is several times cheaper — but only if it can be reached and
+// paid for, which is what OPENAI_BASE_URL is for. Volcengine sits behind it as
+// the one that takes domestic payment directly. Whichever is configured wins;
+// nothing here assumes both.
+const CHAIN = ['elevenlabs', 'openai', 'volc', 'aura', 'melo'];
 
 function available(env) {
   return CHAIN.filter(
@@ -264,35 +266,69 @@ export async function synthesize(text, type, voiceKey, env) {
 }
 
 function speak(provider, input, type, voiceKey, env) {
-  if (provider === 'openai') return openaiSpeech(input, type, voiceKey, env.OPENAI_API_KEY);
+  if (provider === 'openai') return openaiSpeech(input, type, voiceKey, env);
   if (provider === 'elevenlabs') return elevenSpeech(input, voiceKey, env);
   if (provider === 'volc') return volcSpeech(input, voiceKey, env);
   if (provider === 'melo') return meloSpeech(input, env.AI);
   return auraSpeech(input, voiceKey, env.AI, auraModel(env));
 }
 
-async function openaiSpeech(input, type, voiceKey, apiKey) {
-  const res = await fetch('https://api.openai.com/v1/audio/speech', {
+// OpenAI, or anything speaking its dialect.
+//
+// The host is configurable because api.openai.com is not reachable from
+// everywhere, and a relay that speaks the same protocol is the difference
+// between this provider being available to this project and not. Same reason
+// Azure OpenAI, OpenRouter and a self-hosted server all exist behind this
+// shape: an OpenAI-compatible base URL is an ordinary thing to point at.
+//
+// The model is configurable for a sharper reason. Only gpt-4o-mini-tts accepts
+// `instructions` — the plain-language delivery note that is the entire point of
+// preferring this provider — and relays commonly carry only the older tts-1.
+// Sending `instructions` to a model that does not know the field is an error,
+// so it is sent only when the model can use it, and its absence is a quiet
+// downgrade rather than a failure.
+function openaiBase(env) {
+  const base = String(env?.OPENAI_BASE_URL || 'https://api.openai.com/v1').trim();
+  return base.replace(/\/+$/, '');
+}
+
+function takesDelivery(model) {
+  return /gpt-4o/i.test(model);
+}
+
+async function openaiSpeech(input, type, voiceKey, env) {
+  const model = env.OPENAI_TTS_MODEL || MODEL;
+  const body = {
+    model,
+    voice: VOICES[voiceKey] || VOICES.warm_female,
+    input,
+    response_format: FORMAT,
+  };
+  if (takesDelivery(model)) body.instructions = DELIVERY[type] || DELIVERY.pain;
+
+  const res = await fetch(`${openaiBase(env)}/audio/speech`, {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${apiKey}`,
+      authorization: `Bearer ${env.OPENAI_API_KEY}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      model: MODEL,
-      voice: VOICES[voiceKey] || VOICES.warm_female,
-      input,
-      instructions: DELIVERY[type] || DELIVERY.pain,
-      response_format: FORMAT,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`tts ${res.status}: ${detail.slice(0, 200)}`);
+    throw new Error(`openai ${res.status}: ${detail.slice(0, 200)}`);
   }
 
-  return { bytes: new Uint8Array(await res.arrayBuffer()), mime: MIME };
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (!looksLikeAudio(bytes)) throw new Error(`openai returned ${bytes.length} bytes, not audio`);
+
+  // Believe the response about its own format rather than the request. A relay
+  // may quietly ignore response_format and hand back MP3; labelling that as AAC
+  // gets it stored, served, and refused by the browser forever after.
+  const declared = res.headers.get('content-type') || '';
+  const mime = /^audio\//i.test(declared) ? declared.split(';')[0].trim() : MIME;
+  return { bytes, mime };
 }
 
 // ElevenLabs. A plain HTTPS call with a key — no platform binding, no Workers

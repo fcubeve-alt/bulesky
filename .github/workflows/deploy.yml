@@ -130,6 +130,23 @@ jobs:
           printf '%s' "$VOLC_APPID" | npx wrangler pages secret put VOLC_APPID --project-name=bulesky
           printf '%s' "$VOLC_ACCESS_TOKEN" | npx wrangler pages secret put VOLC_ACCESS_TOKEN --project-name=bulesky
 
+      # Optional, and only meaningful alongside OPENAI_API_KEY. A relay that
+      # speaks OpenAI's dialect needs its host here; OPENAI_TTS_MODEL is for
+      # relays that carry only the older tts-1.
+      - name: Sync the OpenAI endpoint overrides to the Pages project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          OPENAI_TTS_MODEL: ${{ secrets.OPENAI_TTS_MODEL }}
+        run: |
+          if [ -n "${OPENAI_BASE_URL:-}" ]; then
+            printf '%s' "$OPENAI_BASE_URL" | npx wrangler pages secret put OPENAI_BASE_URL --project-name=bulesky
+          fi
+          if [ -n "${OPENAI_TTS_MODEL:-}" ]; then
+            printf '%s' "$OPENAI_TTS_MODEL" | npx wrangler pages secret put OPENAI_TTS_MODEL --project-name=bulesky
+          fi
+
       - name: Deploy Pages project (frontend + API)
         id: pages
         env:

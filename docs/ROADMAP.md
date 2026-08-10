@@ -237,6 +237,10 @@
 | OpenAI `gpt-4o-mini-tts` | 无免费档,约 **$15 / 100 万字符** | 约 $0.005 / 条 | ⛔ **不对中国大陆开放,且要外币卡** |
 | **火山引擎(豆包)大模型语音** | 新用户约 2 万字符试用 | — | ✅ **支付宝可付**,代码已就绪,只差 `VOLC_APPID` / `VOLC_ACCESS_TOKEN` |
 
+**⚠️ OpenAI 支持中转站(`OPENAI_BASE_URL`)。** api.openai.com 不是所有地方都能到,而一个说同样协议的中转站就是"这个 provider 对本项目存在与否"的差别(Azure OpenAI / OpenRouter / 自建也都是这个形状)。配 `OPENAI_BASE_URL` 指过去即可。
+- **⚠️ 只有 `gpt-4o-mini-tts` 认识 `instructions`**,而中转站常常只有老的 `tts-1`。给 `tts-1` 发 `instructions` 会直接报错,所以代码按模型判断:认识才发,不认识就安静降级(丢掉表演指示,但仍然出声)。选中转站时**必须先确认它支不支持 `/v1/audio/speech`、有没有 `gpt-4o-mini-tts`** —— 多数中转站只转文字模型。
+- **⚠️ 音频格式以响应头为准,不以请求为准。** 中转站可能无视 `response_format` 直接回 MP3,标成 AAC 存进永久缓存就是一条永远播不出来的音频。
+
 **⚠️ 选 provider 之前先问"这个能不能付钱",再问"好不好听"。** OpenAI、Google、ElevenLabs 三家的质量排序毫无争议,但站主没有外币卡、OpenAI 也不对中国大陆开放——**买不到的 provider 不是 provider**。火山引擎排在链条第二位就是这个原因,不是因为它音质第二。这条在评估任何新服务时都要先过一遍。
 - 火山引擎接口:`POST https://openspeech.bytedance.com/api/v1/tts`,`Authorization: Bearer;<token>`(**是分号不是空格**,写成空格直接鉴权失败),返回 `200` + body 里的 `code`(成功是 `3000`)+ base64 MP3。**HTTP 状态码不代表成功,必须看 `code`。**
 - `reqid` 每次必须唯一(UUID)。
