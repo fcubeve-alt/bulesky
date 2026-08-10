@@ -14,6 +14,10 @@ on:
         description: "Whisper id to probe (any published one)"
         type: string
         default: "1"
+      synthesize:
+        description: "Spend real quota to synthesise uncached readings"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -29,15 +33,21 @@ jobs:
             "https://cubewithin.com/api/voice/${{ inputs.whisper_id }}?probe=1" || echo "(request failed)"
           echo
 
-      # Several whispers, not one.
+      # Several whispers, not one — but only when asked.
       #
-      # Asking for the same id every time only ever proved the cache works —
-      # id 1 answered 200 with clean MP3 in the very run whose log showed every
-      # uncached reading being refused. A cache hit and a working synthesiser
-      # look identical from out here, which is exactly how the real fault stayed
-      # invisible for three rounds. So take a spread of live ids and report each
-      # one: what matters is whether the ones nobody has listened to yet work.
+      # Asking for the same id every time only ever proved the cache works: a
+      # cache hit and a working synthesiser look identical from out here, which
+      # is how the real fault stayed invisible for three rounds. So this takes a
+      # spread of live ids and reports each.
+      #
+      # It is off by default because it is not free. Every uncached id here is a
+      # real synthesis against the same allowance the site's own listeners draw
+      # from — 10,000 characters a MONTH on ElevenLabs, 10,000 neurons a DAY on
+      # Workers AI. My own diagnostics were eating the quota I was diagnosing,
+      # which is a stupid way to run out. ?probe=chain below costs one short
+      # reading and answers the same question.
       - name: Try actual readings
+        if: ${{ inputs.synthesize }}
         run: |
           ids=$(curl -sS --max-time 20 "https://cubewithin.com/api/bubbles" \
             | grep -o '"id":[0-9]*' | grep -o '[0-9]*' | head -6 | tr '\n' ' ')
