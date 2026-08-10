@@ -656,10 +656,59 @@ function stopSpeaking() {
 function primeBrowserVoice() {
   if (!('speechSynthesis' in window)) return;
   try {
+    // Chrome fills the voice list asynchronously and returns an empty array
+    // until something asks. Asking here means bestBrowserVoice has a list to
+    // choose from by the time a failed reading needs one.
+    window.speechSynthesis.getVoices();
     window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
   } catch {
     /* nothing is lost: the fallback simply stays as unreliable as it was */
   }
+}
+
+// The device almost certainly has a better voice than the one it defaults to.
+//
+// Left alone, speechSynthesis picks the system default, which on iOS and
+// Android is usually the small "compact" voice — the flat, buzzy one. The good
+// ones are sitting right there in the same list under names like Samantha,
+// Karen, Ava or Google UK English Female, and choosing one is free. It is still
+// not a person reading, but the gap between the worst voice on an iPhone and
+// the best one is much wider than people expect.
+//
+// Ordered by how good they actually sound rather than alphabetically, and
+// checked against the page's language first so a Chinese whisper is not read by
+// an English voice.
+const NICE_VOICES = [
+  'Ava', 'Allison', 'Samantha', 'Serena', 'Karen', 'Moira', 'Tessa', 'Fiona',
+  'Google UK English Female', 'Google US English', 'Microsoft Aria', 'Microsoft Jenny',
+  'Tingting', 'Ting-Ting', 'Sinji', 'Google 国语',
+];
+
+function bestBrowserVoice(lang) {
+  let voices = [];
+  try {
+    voices = window.speechSynthesis.getVoices() || [];
+  } catch {
+    return null;
+  }
+  if (!voices.length) return null;
+
+  const base = String(lang || document.documentElement.lang || 'en').slice(0, 2).toLowerCase();
+  const sameLanguage = voices.filter((v) => String(v.lang || '').slice(0, 2).toLowerCase() === base);
+  const pool = sameLanguage.length ? sameLanguage : voices;
+
+  // "compact" is Apple's own word for the low-quality variant, so it is the one
+  // signal in this list that is worth acting on directly.
+  const notCompact = pool.filter((v) => !/compact/i.test(v.name || ''));
+  const usable = notCompact.length ? notCompact : pool;
+
+  for (const wanted of NICE_VOICES) {
+    const hit = usable.find((v) => String(v.name || '').toLowerCase().includes(wanted.toLowerCase()));
+    if (hit) return hit;
+  }
+  // Nothing recognised: a local voice still beats a network one for latency,
+  // and on Apple devices localService is where the good ones live.
+  return usable.find((v) => v.localService) || usable[0] || null;
 }
 
 function speakInBrowser(text) {
@@ -673,7 +722,12 @@ function speakInBrowser(text) {
   // over it — a dead end the reader cannot get out of except by closing.
   try {
     const u = new SpeechSynthesisUtterance(text);
-      u.rate = SPEECH_RATE;
+    const voice = bestBrowserVoice(u.lang);
+    if (voice) {
+      u.voice = voice;
+      u.lang = voice.lang;
+    }
+    u.rate = SPEECH_RATE;
     u.pitch = 0.95;
     u.onend = stopSpeaking;
     u.onerror = stopSpeaking;
