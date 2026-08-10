@@ -534,6 +534,12 @@ function openRead() {
   // While reading, hide the bottom compose bar and the now-playing strip so
   // the reading view's own actions don't collide with them.
   document.body.classList.add('reading');
+  // And hold the sky still. Reading long text with a dozen balloons rising
+  // behind it is tiring in a way that is hard to name and easy to feel: the
+  // words stay put while everything around them keeps moving. The background
+  // video carries on, so this is still the same night — the balloons simply
+  // wait. They pick up exactly where they stopped when the story closes.
+  whisperWorld.freeze(true);
 }
 
 function closeRead() {
@@ -551,6 +557,7 @@ function closeRead() {
   els.readOverlay.classList.remove('lit');
   els.readScroll.classList.remove('paused');
   document.body.classList.remove('reading');
+  whisperWorld.freeze(false);
 }
 
 // Reflect whether this device has already reported the open whisper.

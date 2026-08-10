@@ -310,6 +310,17 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
   let panX = 0;
   let minPan = 0;
 
+  // Whether the sky is holding still while someone reads.
+  //
+  // `animTime` is the sky's own clock and it only advances when the sky is
+  // moving. Using the raw timestamp instead would mean that after a minute of
+  // reading, every sway, bob and depth-breath resumes a minute further along
+  // its sine — so the whole field would visibly jump the instant the story
+  // closed. Freezing the clock makes coming back continuous: every balloon
+  // picks up exactly where it stopped.
+  let frozen = false;
+  let animTime = 0;
+
   // Drag state
   let dragging = false;
   let moved = false;
@@ -629,9 +640,21 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
   }
 
   function frame(t) {
-    const time = t * 0.001;
     const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
     lastT = t;
+
+    // Held still while a story is open: no rise, no sway, no new balloons.
+    //
+    // The whole loop is skipped rather than scaled down to zero, which also
+    // means the reading view is the cheapest state on the phone rather than the
+    // most expensive one — nothing is written to the DOM while someone reads.
+    if (frozen) {
+      raf = requestAnimationFrame(frame);
+      return;
+    }
+
+    animTime += dt;
+    const time = animTime;
 
     // Even cadence: one balloon per beat, independent of who happened to leave.
     // The beat comes from average flight time, which is close but not exact, so
@@ -751,6 +774,25 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
       let top = null;
       for (const it of items) if (it.wsp && (!top || it.y < top.y)) top = it;
       if (top) launch(top);
+    },
+    // Hold the whole sky still while a story is being read, and let it go again
+    // when the story closes.
+    //
+    // Stopping rather than dimming or slowing is the owner's call and it is the
+    // right one: a balloon that is merely slower is still something moving in
+    // the corner of your eye, and stopping is the one change a reader actually
+    // notices. Nothing about the sky's own rules changes — the per-tier speeds,
+    // the depth layers and the spawn cadence are all untouched (SKY_FEED §4/§5),
+    // its clock is simply not running.
+    freeze(on) {
+      const next = Boolean(on);
+      if (next === frozen) return;
+      frozen = next;
+      // Drop the stale timestamp so the first frame after thawing measures one
+      // frame, not the whole time the story was open. Without this every
+      // balloon leaps upward on close — dt is clamped, but even 50ms at once
+      // reads as a twitch.
+      if (!frozen) lastT = 0;
     },
     get pannable() {
       return worldW > window.innerWidth + 4;
