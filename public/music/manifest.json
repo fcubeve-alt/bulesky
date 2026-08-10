@@ -118,6 +118,22 @@
       "pinned": true
     },
     {
+      "id": "jamendo-22286",
+      "title": "Electric",
+      "artist": "Slim",
+      "src": "/music/jamendo-22286.mp3",
+      "source": "https://www.jamendo.com/track/22286",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    {
+      "id": "jamendo-1124574",
+      "title": "Viejo mi querido viejo",
+      "artist": "Alfredo Gg",
+      "src": "/music/jamendo-1124574.mp3",
+      "source": "https://www.jamendo.com/track/1124574",
+      "license": "http://creativecommons.org/licenses/by/3.0/"
+    },
+    {
       "id": "jamendo-18865",
       "title": "16 - DIESE - Loud Fly",
       "artist": "Alterlabel",
