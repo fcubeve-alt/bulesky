@@ -194,14 +194,23 @@ export function auraModel(env) {
 
 // Best first, and everything that is configured after it. This is an order of
 // preference, not a single choice: see synthesize().
-const CHAIN = ['elevenlabs', 'openai', 'aura'];
+//
+// MeloTTS is last and is the floor. Every other entry can run out — ElevenLabs'
+// free plan is 10,000 characters a MONTH, and Deepgram's Aura is a partner
+// model on Workers AI, which is why it answers 429 even hours after the daily
+// free allocation resets. MeloTTS is Cloudflare's own model on the binding this
+// project already has, so it needs no key, no account and no card, and it is
+// the difference between a listener hearing a modest voice and hearing the
+// phone's flat built-in one.
+const CHAIN = ['elevenlabs', 'openai', 'aura', 'melo'];
 
 function available(env) {
   return CHAIN.filter(
     (p) =>
       (p === 'elevenlabs' && env?.ELEVENLABS_API_KEY) ||
       (p === 'openai' && env?.OPENAI_API_KEY) ||
-      (p === 'aura' && env?.AI)
+      (p === 'aura' && env?.AI) ||
+      (p === 'melo' && env?.AI)
   );
 }
 
@@ -251,6 +260,7 @@ export async function synthesize(text, type, voiceKey, env) {
 function speak(provider, input, type, voiceKey, env) {
   if (provider === 'openai') return openaiSpeech(input, type, voiceKey, env.OPENAI_API_KEY);
   if (provider === 'elevenlabs') return elevenSpeech(input, voiceKey, env);
+  if (provider === 'melo') return meloSpeech(input, env.AI);
   return auraSpeech(input, voiceKey, env.AI, auraModel(env));
 }
 
@@ -466,6 +476,53 @@ async function auraSpeech(input, voiceKey, ai, model) {
     }
   }
   throw new Error(`aura: ${lastError}`);
+}
+
+// MeloTTS, Cloudflare's own text-to-speech model on the same binding.
+//
+// The floor of the chain, and the only leg that costs nothing and can be
+// reached without the owner signing up for anything. Not as warm as ElevenLabs
+// and it takes no delivery direction at all — but it is a real synthesised
+// voice rather than the phone's built-in one, and it does not run out.
+//
+// One voice, no casting. That is a feature here rather than a limitation: the
+// complaint being answered is that the same whisper came back in a different
+// voice on different days, and a provider with one voice cannot do that.
+const MELO_MODEL = '@cf/myshell-ai/melotts';
+
+// MeloTTS takes the language rather than inferring it, and reading Chinese with
+// the English model produces something worse than silence. The scripts are
+// checked in order of specificity: kana or hangul settle it outright, and only
+// then does Han script mean Chinese.
+const HAS_KANA = /[぀-ヿ]/;
+const HAS_HANGUL = /[가-힯]/;
+const HAS_HAN = /[㐀-䶿一-鿿]/;
+
+export function meloLang(text) {
+  const s = String(text);
+  if (HAS_KANA.test(s)) return 'jp';
+  if (HAS_HANGUL.test(s)) return 'kr';
+  if (HAS_HAN.test(s)) return 'zh';
+  return 'en';
+}
+
+async function meloSpeech(input, ai) {
+  // This one answers with JSON carrying base64 rather than with a Response, so
+  // it does not go through returnRawResponse like Aura does.
+  const res = await ai.run(MELO_MODEL, { prompt: input, lang: meloLang(input) });
+  const encoded = res && typeof res.audio === 'string' ? res.audio : null;
+  if (!encoded) throw new Error('melotts: no audio in response');
+
+  const bytes = fromBase64(encoded);
+  if (!looksLikeAudio(bytes)) throw new Error(`melotts returned ${bytes.length} bytes, not audio`);
+  return { bytes, mime: 'audio/mpeg' };
+}
+
+function fromBase64(encoded) {
+  const binary = atob(encoded);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
+  return out;
 }
 
 // Cheap sanity check before anything is cached forever. A JSON error body is
