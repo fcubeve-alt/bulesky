@@ -99,6 +99,7 @@ async function probe(env) {
       hasAI: Boolean(env && env.AI),
       hasElevenLabsKey: Boolean(env && env.ELEVENLABS_API_KEY),
       hasOpenAIKey: Boolean(env && env.OPENAI_API_KEY),
+      hasVolcCreds: Boolean(env && env.VOLC_APPID && env.VOLC_ACCESS_TOKEN),
       provider: providerFor(env),
       classifierOn: Boolean(env && env.VOICE_CLASSIFIER),
       model: auraModel(env),

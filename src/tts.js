@@ -202,12 +202,18 @@ export function auraModel(env) {
 // project already has, so it needs no key, no account and no card, and it is
 // the difference between a listener hearing a modest voice and hearing the
 // phone's flat built-in one.
-const CHAIN = ['elevenlabs', 'openai', 'aura', 'melo'];
+// Volcengine sits second because it is the one this project can actually buy.
+// OpenAI does not sell to mainland China and both it and Google Cloud need a
+// foreign card, which rules them out here no matter how good they are; ByteDance
+// takes domestic payment, has a large preset voice roster, and is the only other
+// provider on this list that accepts delivery direction at all.
+const CHAIN = ['elevenlabs', 'volc', 'openai', 'aura', 'melo'];
 
 function available(env) {
   return CHAIN.filter(
     (p) =>
       (p === 'elevenlabs' && env?.ELEVENLABS_API_KEY) ||
+      (p === 'volc' && env?.VOLC_APPID && env?.VOLC_ACCESS_TOKEN) ||
       (p === 'openai' && env?.OPENAI_API_KEY) ||
       (p === 'aura' && env?.AI) ||
       (p === 'melo' && env?.AI)
@@ -260,6 +266,7 @@ export async function synthesize(text, type, voiceKey, env) {
 function speak(provider, input, type, voiceKey, env) {
   if (provider === 'openai') return openaiSpeech(input, type, voiceKey, env.OPENAI_API_KEY);
   if (provider === 'elevenlabs') return elevenSpeech(input, voiceKey, env);
+  if (provider === 'volc') return volcSpeech(input, voiceKey, env);
   if (provider === 'melo') return meloSpeech(input, env.AI);
   return auraSpeech(input, voiceKey, env.AI, auraModel(env));
 }
@@ -476,6 +483,73 @@ async function auraSpeech(input, voiceKey, ai, model) {
     }
   }
   throw new Error(`aura: ${lastError}`);
+}
+
+// Volcengine (ByteDance / Doubao) large-model speech.
+//
+// Every provider above this one is unbuyable from where this site is run: OpenAI
+// does not sell to mainland China at all, and OpenAI, Google and ElevenLabs
+// alike want a card this project does not have. A provider that cannot be paid
+// for is not a provider. This one takes domestic payment, which is the only
+// reason it is second in the chain rather than further down.
+//
+// One POST, two credentials, base64 MP3 back. Set VOLC_APPID and
+// VOLC_ACCESS_TOKEN and it is live; nothing else here needs touching.
+const VOLC_ENDPOINT = 'https://openspeech.bytedance.com/api/v1/tts';
+const VOLC_OK = 3000;
+
+// Two of the preset roster, one each. Overridable without a deploy because the
+// available voices depend on what the account has enabled, and a voice id that
+// is not enabled is a 400 rather than something we can discover from here.
+const VOLC_VOICES = {
+  warm_female: 'zh_female_wanwanxiaohe_moon_bigtts',
+  gentle_male: 'zh_male_wennuanahu_moon_bigtts',
+};
+
+async function volcSpeech(input, voiceKey, env) {
+  const configured = voiceKey === 'gentle_male' ? env.VOLC_VOICE_MALE : env.VOLC_VOICE_FEMALE;
+  const voice = configured || VOLC_VOICES[voiceKey] || VOLC_VOICES.warm_female;
+
+  const res = await fetch(VOLC_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      // Semicolon, not space. This is Volcengine's own spelling of the scheme
+      // and an ordinary "Bearer " here fails authentication.
+      authorization: `Bearer;${env.VOLC_ACCESS_TOKEN}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      app: {
+        appid: env.VOLC_APPID,
+        token: env.VOLC_ACCESS_TOKEN,
+        cluster: env.VOLC_CLUSTER || 'volcano_tts',
+      },
+      user: { uid: 'cubewithin' },
+      audio: {
+        voice_type: voice,
+        encoding: 'mp3',
+        // Slower than default on purpose, for the same reason the client plays
+        // at 0.82: this material is not an announcement.
+        speed_ratio: Number(env.VOLC_SPEED || 0.9),
+      },
+      request: { reqid: crypto.randomUUID(), text: input, operation: 'query' },
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`volc ${res.status}: ${detail.slice(0, 160)}`);
+  }
+
+  // Answers 200 with a code in the body, so the HTTP status alone means nothing.
+  const data = await res.json().catch(() => null);
+  if (!data || data.code !== VOLC_OK || !data.data) {
+    throw new Error(`volc ${data?.code ?? 'no code'}: ${String(data?.message || '').slice(0, 160)}`);
+  }
+
+  const bytes = fromBase64(data.data);
+  if (!looksLikeAudio(bytes)) throw new Error(`volc returned ${bytes.length} bytes, not audio`);
+  return { bytes, mime: 'audio/mpeg' };
 }
 
 // MeloTTS, Cloudflare's own text-to-speech model on the same binding.

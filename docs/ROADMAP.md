@@ -234,7 +234,13 @@
 | ElevenLabs 免费档 | **10,000 字符 / 月** | 约 **33 条 / 月** | `401 quota_exceeded`,余 28 |
 | Workers AI Aura | 10,000 neurons/天,但 **Deepgram 是合作方模型** | — | `429`,**UTC 日额度重置后近 3 小时仍然 429** |
 | **MeloTTS(`@cf/myshell-ai/melotts`)** | Cloudflare 自家模型,走标准免费额度 | 够用 | ✅ 链条底座 |
-| OpenAI `gpt-4o-mini-tts` | 无免费档,约 **$15 / 100 万字符** | 约 $0.005 / 条 | 配 key 即用 |
+| OpenAI `gpt-4o-mini-tts` | 无免费档,约 **$15 / 100 万字符** | 约 $0.005 / 条 | ⛔ **不对中国大陆开放,且要外币卡** |
+| **火山引擎(豆包)大模型语音** | 新用户约 2 万字符试用 | — | ✅ **支付宝可付**,代码已就绪,只差 `VOLC_APPID` / `VOLC_ACCESS_TOKEN` |
+
+**⚠️ 选 provider 之前先问"这个能不能付钱",再问"好不好听"。** OpenAI、Google、ElevenLabs 三家的质量排序毫无争议,但站主没有外币卡、OpenAI 也不对中国大陆开放——**买不到的 provider 不是 provider**。火山引擎排在链条第二位就是这个原因,不是因为它音质第二。这条在评估任何新服务时都要先过一遍。
+- 火山引擎接口:`POST https://openspeech.bytedance.com/api/v1/tts`,`Authorization: Bearer;<token>`(**是分号不是空格**,写成空格直接鉴权失败),返回 `200` + body 里的 `code`(成功是 `3000`)+ base64 MP3。**HTTP 状态码不代表成功,必须看 `code`。**
+- `reqid` 每次必须唯一(UUID)。
+- 音色 id 取决于账号开通了什么,所以 `VOLC_VOICE_MALE` / `VOLC_VOICE_FEMALE` 可以不改代码直接换。
 
 - **ElevenLabs 免费档是"月"额度不是"天",而且只有一万字符。** "读两条就没声了"就是这么来的——不是 bug,是额度本来就只够几十条。**别再把免费档当成一个可以依赖的 provider。**
 - **Aura(Deepgram)是合作方模型**,免费额度重置后照样 429,**不要再把它当免费兜底**。真正的免费兜底是 MeloTTS。
