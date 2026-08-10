@@ -209,14 +209,15 @@ export function auraModel(env) {
 // paid for, which is what OPENAI_BASE_URL is for. Volcengine sits behind it as
 // the one that takes domestic payment directly. Whichever is configured wins;
 // nothing here assumes both.
-const CHAIN = ['elevenlabs', 'openai', 'volc', 'aura', 'melo'];
+const CHAIN = ['elevenlabs', 'openai', 'gemini', 'volc', 'aura', 'melo'];
 
 function available(env) {
   return CHAIN.filter(
     (p) =>
       (p === 'elevenlabs' && env?.ELEVENLABS_API_KEY) ||
-      (p === 'volc' && env?.VOLC_APPID && env?.VOLC_ACCESS_TOKEN) ||
       (p === 'openai' && env?.OPENAI_API_KEY) ||
+      (p === 'gemini' && env?.GEMINI_API_KEY) ||
+      (p === 'volc' && env?.VOLC_APPID && env?.VOLC_ACCESS_TOKEN) ||
       (p === 'aura' && env?.AI) ||
       (p === 'melo' && env?.AI)
   );
@@ -268,6 +269,7 @@ export async function synthesize(text, type, voiceKey, env) {
 function speak(provider, input, type, voiceKey, env) {
   if (provider === 'openai') return openaiSpeech(input, type, voiceKey, env);
   if (provider === 'elevenlabs') return elevenSpeech(input, voiceKey, env);
+  if (provider === 'gemini') return geminiSpeech(input, type, voiceKey, env);
   if (provider === 'volc') return volcSpeech(input, voiceKey, env);
   if (provider === 'melo') return meloSpeech(input, env.AI);
   return auraSpeech(input, voiceKey, env.AI, auraModel(env));
@@ -519,6 +521,105 @@ async function auraSpeech(input, voiceKey, ai, model) {
     }
   }
   throw new Error(`aura: ${lastError}`);
+}
+
+// Google Gemini speech, through an AI Studio key.
+//
+// The only provider on this list with a free allowance that does not ask for a
+// card, which for this project is not a footnote — it is the difference between
+// having a voice and not. It also takes plain-language direction, so DELIVERY
+// works here the way it does on OpenAI and nowhere else on this chain.
+//
+// Nothing about its shape resembles OpenAI's: the request is generateContent
+// with an AUDIO modality, and the audio comes back inside the model's reply as
+// base64.
+const GEMINI_HOST = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_MODEL = 'gemini-2.5-flash-preview-tts';
+
+// Two of the thirty prebuilt voices, chosen from their published descriptions
+// rather than by listening — "warm" and "easy-going" are the two that suit a
+// whisper read at night. Both are overridable without a deploy, because this is
+// a judgement made deaf.
+const GEMINI_VOICES = {
+  warm_female: 'Sulafat',
+  gentle_male: 'Umbriel',
+};
+
+async function geminiSpeech(input, type, voiceKey, env) {
+  const model = env.GEMINI_TTS_MODEL || GEMINI_MODEL;
+  const configured = voiceKey === 'gentle_male' ? env.GEMINI_VOICE_MALE : env.GEMINI_VOICE_FEMALE;
+  const voice = configured || GEMINI_VOICES[voiceKey] || GEMINI_VOICES.warm_female;
+
+  // Direction goes in the prompt rather than in a field. This is the whole
+  // reason the DELIVERY strings exist, and only two providers have ever been
+  // able to use them.
+  const prompt = `${DELIVERY[type] || DELIVERY.pain}\n\n${input}`;
+
+  const res = await fetch(`${GEMINI_HOST}/${model}:generateContent`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseModalities: ['AUDIO'],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`gemini ${res.status}: ${detail.slice(0, 200)}`);
+  }
+
+  const data = await res.json().catch(() => null);
+  const part = data?.candidates?.[0]?.content?.parts?.find((p) => p?.inlineData?.data);
+  if (!part) {
+    const why = data?.promptFeedback?.blockReason || data?.candidates?.[0]?.finishReason || 'no audio in response';
+    throw new Error(`gemini: ${String(why).slice(0, 160)}`);
+  }
+
+  const mime = String(part.inlineData.mimeType || '');
+  const bytes = fromBase64(part.inlineData.data);
+
+  // Raw PCM, not a playable file. Gemini answers with 24kHz 16-bit mono samples
+  // and a mime type like "audio/L16;codec=pcm;rate=24000" — headerless, so a
+  // browser handed these bytes has no idea what they are and simply refuses
+  // them. Google's own issue tracker is full of this. The cache here is
+  // permanent, so storing them unwrapped would mean a whisper that can never be
+  // played, forever.
+  if (/L16|pcm/i.test(mime)) {
+    const rate = Number(/rate=(\d+)/i.exec(mime)?.[1]) || 24000;
+    return { bytes: wavFromPcm(bytes, rate), mime: 'audio/wav' };
+  }
+
+  if (!looksLikeAudio(bytes)) throw new Error(`gemini returned ${bytes.length} bytes, not audio`);
+  return { bytes, mime: /^audio\//i.test(mime) ? mime.split(';')[0].trim() : 'audio/mpeg' };
+}
+
+// A 44-byte RIFF header in front of the samples is the whole of "unplayable"
+// to "plays everywhere". Nothing is re-encoded: the samples are untouched.
+function wavFromPcm(pcm, sampleRate, channels = 1, bits = 16) {
+  const out = new Uint8Array(44 + pcm.length);
+  const view = new DataView(out.buffer);
+  const blockAlign = (channels * bits) / 8;
+  const ascii = (at, s) => { for (let i = 0; i < s.length; i += 1) out[at + i] = s.charCodeAt(i); };
+
+  ascii(0, 'RIFF');
+  view.setUint32(4, 36 + pcm.length, true); // everything after this field
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  view.setUint32(16, 16, true); // PCM header length
+  view.setUint16(20, 1, true); // 1 = uncompressed PCM
+  view.setUint16(22, channels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true); // bytes per second
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bits, true);
+  ascii(36, 'data');
+  view.setUint32(40, pcm.length, true);
+  out.set(pcm, 44);
+  return out;
 }
 
 // Volcengine (ByteDance / Doubao) large-model speech.

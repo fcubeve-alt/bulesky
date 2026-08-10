@@ -147,6 +147,25 @@ jobs:
             printf '%s' "$OPENAI_TTS_MODEL" | npx wrangler pages secret put OPENAI_TTS_MODEL --project-name=bulesky
           fi
 
+      # Google AI Studio. The one provider with a free allowance that does not
+      # ask for a card, which for this project decides whether there is a voice
+      # at all.
+      - name: Sync the Gemini key to the Pages project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_TTS_MODEL: ${{ secrets.GEMINI_TTS_MODEL }}
+        run: |
+          if [ -z "${GEMINI_API_KEY:-}" ]; then
+            echo "::notice::Gemini speech is not configured — set GEMINI_API_KEY to enable it."
+            exit 0
+          fi
+          printf '%s' "$GEMINI_API_KEY" | npx wrangler pages secret put GEMINI_API_KEY --project-name=bulesky
+          if [ -n "${GEMINI_TTS_MODEL:-}" ]; then
+            printf '%s' "$GEMINI_TTS_MODEL" | npx wrangler pages secret put GEMINI_TTS_MODEL --project-name=bulesky
+          fi
+
       - name: Deploy Pages project (frontend + API)
         id: pages
         env:

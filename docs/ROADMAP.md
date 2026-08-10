@@ -237,6 +237,10 @@
 | OpenAI `gpt-4o-mini-tts` | 无免费档,约 **$15 / 100 万字符** | 约 $0.005 / 条 | ⛔ **不对中国大陆开放,且要外币卡** |
 | **火山引擎(豆包)大模型语音** | 新用户约 2 万字符试用 | — | ✅ **支付宝可付**,代码已就绪,只差 `VOLC_APPID` / `VOLC_ACCESS_TOKEN` |
 
+**Gemini(Google AI Studio)—— 目前唯一"不绑卡就有免费额度"的 provider。** 配 `GEMINI_API_KEY` 即用,链条排在 OpenAI 之后、火山之前。它也支持自然语言的表演指示(直接写进 prompt),所以 `DELIVERY` 在这里是生效的——全链条只有它和 OpenAI 做得到。
+- **⚠️ Gemini 返回的是裸 PCM,不是能播的文件。** 24kHz / 16-bit / 单声道,mime 形如 `audio/L16;codec=pcm;rate=24000`,**没有文件头**。直接存进缓存 = 一条**永远播不出来**的音频(缓存是永久的,Google 自己的 issue 区一堆人踩)。现在的做法是套一个 44 字节 RIFF/WAV 头,采样率**从 mime 里读**而不是写死。已在真实 Chromium 里用 `decodeAudioData` 验证过能解码。
+- 代价:WAV 不压缩,约 48KB/秒,是 MP3 的三倍多。D1 分片(900KB)扛得住,但存储和流量都要按三倍算。
+
 **⚠️ OpenAI 支持中转站(`OPENAI_BASE_URL`)。** api.openai.com 不是所有地方都能到,而一个说同样协议的中转站就是"这个 provider 对本项目存在与否"的差别(Azure OpenAI / OpenRouter / 自建也都是这个形状)。配 `OPENAI_BASE_URL` 指过去即可。
 - **⚠️ 只有 `gpt-4o-mini-tts` 认识 `instructions`**,而中转站常常只有老的 `tts-1`。给 `tts-1` 发 `instructions` 会直接报错,所以代码按模型判断:认识才发,不认识就安静降级(丢掉表演指示,但仍然出声)。选中转站时**必须先确认它支不支持 `/v1/audio/speech`、有没有 `gpt-4o-mini-tts`** —— 多数中转站只转文字模型。
 - **⚠️ 音频格式以响应头为准,不以请求为准。** 中转站可能无视 `response_format` 直接回 MP3,标成 AAC 存进永久缓存就是一条永远播不出来的音频。
