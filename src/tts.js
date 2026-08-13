@@ -1,23 +1,13 @@
 // Reading a whisper aloud.
 //
-// The whole point of this feature is the delivery, not the words — a flat
-// robotic reading of "I miss you" is worse than no reading at all.
+// Six providers, tried in order, first one that produces audio wins. See CHAIN
+// for the order and why it is that order — it is not "best model first", it is
+// "what this site actually needs first", and those turned out to be different
+// things.
 //
-// Two providers, picked by which key exists, because the best-sounding option
-// and the option that needs no international credit card are not the same one:
-//
-//   OPENAI_API_KEY set -> gpt-4o-mini-tts. Takes plain-language delivery notes
-//     ("unhurried, warm, a little sorrowful") and follows them, and handles
-//     every language the app speaks. This is the one the DELIVERY strings below
-//     were written for, and the one worth paying for.
-//
-//   no key -> Cloudflare Workers AI (Deepgram Aura). Already bound, no signup,
-//     no card, commercial use fine. It takes no delivery direction at all, so
-//     the casting below does all the emotional work instead. English-focused:
-//     other languages will suffer. Good enough to be real today.
-//
-// Which provider was used is part of the cache key, so switching regenerates
-// rather than serving the old voice forever.
+// The preferred provider's name is part of the cache key, so changing the head
+// of the chain regenerates every reading rather than serving the old voice
+// forever. That is a real cost: do not reorder casually.
 
 const MODEL = 'gpt-4o-mini-tts';
 // Aura 1 by default, deliberately, even though Aura 2 is the context-aware one
@@ -216,14 +206,31 @@ export function auraModel(env) {
 // project already has, so it needs no key, no account and no card, and it is
 // the difference between a listener hearing a modest voice and hearing the
 // phone's flat built-in one.
-// Order is by "best reading this site can obtain", which is not the same as
-// "best model". OpenAI is ahead of Volcengine because the whispers are mostly
-// English, it is the only provider here whose delivery notes actually work, and
-// per character it is several times cheaper — but only if it can be reached and
-// paid for, which is what OPENAI_BASE_URL is for. Volcengine sits behind it as
-// the one that takes domestic payment directly. Whichever is configured wins;
-// nothing here assumes both.
-const CHAIN = ['elevenlabs', 'openai', 'gemini', 'volc', 'aura', 'melo'];
+// Aura first, and that is a reversal worth explaining.
+//
+// This feature was built on the premise that delivery is the point — that a
+// flat reading of "I miss you" is worse than none. Two providers that can
+// actually follow a delivery note later arrived, and the reading they produced
+// was rejected by the person who asked for it: too much rise and fall, too
+// performed, "just give me a normal voice". That is the requirement now, and it
+// beats the premise.
+//
+// The measurements agree, and they are not close:
+//
+//   aura     0.6s   11,912 bytes  (MP3)
+//   gemini    ~9s  514,604 bytes  (uncompressed WAV, 43x larger)
+//
+// Those bytes are not only a download. They are written into D1 behind every
+// first listen and read back out of it on every replay — the same database the
+// whisper list and the reading view query — so a megabyte of audio per whisper
+// slowed the whole site down, not just the voice. Opening a balloon started
+// taking a second or two, which is the tell that this was never really about
+// speech at all.
+//
+// So: the fast, small, plain one leads. Everything below it is a fallback for
+// when Workers AI runs out of its daily allowance, and a paid provider that is
+// genuinely better can be promoted back above it by moving one word.
+const CHAIN = ['aura', 'openai', 'gemini', 'volc', 'elevenlabs', 'melo'];
 
 function available(env) {
   return CHAIN.filter(
@@ -271,13 +278,37 @@ export async function synthesize(text, type, voiceKey, env) {
   const failures = [];
   for (const provider of providers) {
     try {
-      const out = await speak(provider, input, type, voiceKey, env);
+      const out = await withDeadline(speak(provider, input, type, voiceKey, env), provider);
       return { ...out, provider, failures };
     } catch (e) {
       failures.push(String((e && e.message) || e).slice(0, 200));
     }
   }
   throw new Error(failures.join(' | '));
+}
+
+// No single provider may hold the button.
+//
+// Gemini once took seventeen seconds to answer a 503, and the listener spent
+// all seventeen watching a button that looked broken. Whatever the provider is
+// doing, the chain moves on and someone further down gets a chance to speak —
+// which is the entire point of having a chain.
+//
+// Generous rather than tight: a long whisper legitimately takes a while to
+// synthesise, and cutting off real work would trade a slow reading for no
+// reading.
+const ATTEMPT_MS = 20000;
+
+function withDeadline(work, provider) {
+  // A late rejection from the abandoned attempt must not surface as an
+  // unhandled rejection once the race has already been lost.
+  work.catch(() => {});
+  return Promise.race([
+    work,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${provider}: no answer in ${ATTEMPT_MS / 1000}s`)), ATTEMPT_MS)
+    ),
+  ]);
 }
 
 function speak(provider, input, type, voiceKey, env) {
