@@ -33,16 +33,30 @@ const DEFAULT_AURA_MODEL = '@cf/deepgram/aura-1';
 
 // A sorrow and a wish should not be read in the same breath. These are two
 // different kinds of thing to say to someone.
+// Written once for a model that could not follow them, then handed to two that
+// could — at which point they turned out to be instructions for exactly the
+// reading nobody wanted. The first version said "unhurried, low and warm" and
+// "leave small pauses where a person would naturally pause to breathe", and
+// Gemini did precisely that: a voice pitched down into the floor, words drawn
+// out, long silences the listener read as the feature being broken.
+//
+// Feeling does not come from slowness. A person comforting someone speaks at an
+// ordinary pace; what makes it tender is warmth, not drag. So these now ask for
+// the warmth and explicitly rule out the dragging — telling a model what not to
+// do matters here, because "gentle" on its own pulls it back toward a whisper.
 const DELIVERY = {
   pain:
-    'Read this the way you would speak to a friend who is hurting and sitting ' +
-    'right next to you. Unhurried, low and warm, with real tenderness and a ' +
-    'little sorrow. Leave small pauses where a person would naturally pause to ' +
-    'breathe or to steady themselves. Never bright, never brisk, never cheerful.',
+    'Read this warmly and sincerely, the way you would speak to a friend ' +
+    'sitting beside you who is having a hard time. Kind, natural and clear. ' +
+    'Keep an ordinary speaking pace and an ordinary pitch: do not slow down, do ' +
+    'not draw the words out, do not leave long silences between phrases, and do ' +
+    'not drop into a deep or breathy register. Not cheerful, but not heavy or ' +
+    'mournful either.',
   wish:
-    'Read this gently and hopefully, like someone quietly making a wish out ' +
-    'loud at night. Warm and unhurried, soft rather than excited, with a small ' +
-    'lift of hope near the end. Never salesy, never performed.',
+    'Read this warmly and hopefully, like someone saying a quiet wish out loud. ' +
+    'Kind, natural and clear, at an ordinary speaking pace, with a small lift ' +
+    'near the end. Do not slow down, draw the words out or leave long silences. ' +
+    'Never salesy, never performed.',
 };
 
 // Three voices, not one. A sky where every stranger speaks in the same voice
@@ -181,7 +195,7 @@ const MIME = 'audio/aac';
 // every lookup just to discover we already had the audio. The roster and the
 // rules for choosing are covered by RECIPE instead, and the narrator that was
 // actually picked is stored next to the audio.
-const RECIPE = 'v11-no-classifier';
+const RECIPE = 'v12-natural-pace';
 
 // Whichever provider will actually be used, so the hash can name it. Keeping
 // this decision in one place means the cache key and the synthesis can never
@@ -542,7 +556,9 @@ const GEMINI_MODEL = 'gemini-2.5-flash-preview-tts';
 // a judgement made deaf.
 const GEMINI_VOICES = {
   warm_female: 'Sulafat',
-  gentle_male: 'Umbriel',
+  // Was Umbriel ("easy-going"), which came out far too deep and too slow to
+  // carry over the background music. "Clear" is the correction.
+  gentle_male: 'Iapetus',
 };
 
 async function geminiSpeech(input, type, voiceKey, env) {

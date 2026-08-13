@@ -619,11 +619,18 @@ function warmOpenWhisper(changes) {
 // we fall back to the browser's own speech synthesis — flat and robotic, but a
 // button that does nothing is worse. The fallback is a safety net, not the
 // design.
-let speech = { audio: null, utterance: null, id: null };
+let speech = { audio: null, utterance: null, id: null, slowHint: 0 };
 
 // Well under natural pace. This is someone's grief being read aloud, not an
 // announcement — 0.88 was still being heard as rushed.
-const SPEECH_RATE = 0.82;
+// 1.0, back from 0.82.
+//
+// The slow-down was added when the reading came from a provider that rattled
+// through it. It is now the model that sets the pace, and playing an already
+// unhurried reading at 0.82 stacked one slowness on another — a word every
+// second with gaps in between. Pace belongs in one place, and that place is now
+// the delivery note.
+const SPEECH_RATE = 1.0;
 
 // Add ?debug=voice to the address to have Listen's failures shown on screen
 // rather than only whispered to the console.
@@ -637,6 +644,7 @@ function setListenState(mode) {
 }
 
 function stopSpeaking() {
+  clearTimeout(speech.slowHint);
   if (speech.audio) {
     speech.audio.pause();
     // Detach the handlers before clearing the source: removing a src fires an
@@ -791,6 +799,16 @@ function toggleListen() {
   const unlock = audio.play();
   if (unlock && unlock.catch) unlock.catch(() => {});
 
+  // The first reading of a whisper has to be generated, which takes several
+  // seconds; every later one is served from the database and starts at once.
+  // The button pulses while it waits, and that was not enough — the reported
+  // experience was "I thought it was broken and closed it". So say so, but only
+  // once the wait is long enough to need saying, so a cache hit stays silent.
+  clearTimeout(speech.slowHint);
+  speech.slowHint = setTimeout(() => {
+    if (speech.id === id) showToast(t('listenSlow'), 5000);
+  }, 2500);
+
   // And unlock the browser's own voice in the same breath, because the fallback
   // is bound by exactly the same rule as the element above.
   //
@@ -836,6 +854,7 @@ function toggleListen() {
       audio.onerror = () => giveUpToBrowser(`cannot decode ${blob.type} (${blob.size} bytes)`);
       audio.oncanplay = () => {
         if (speech.id !== id) return;
+        clearTimeout(speech.slowHint);
         // Some browsers reset the rate when a new source loads.
         audio.preservesPitch = true;
         audio.playbackRate = SPEECH_RATE;
