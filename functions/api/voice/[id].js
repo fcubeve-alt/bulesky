@@ -225,7 +225,9 @@ async function readAloud({ request, params, env, waitUntil }) {
   )
     .bind(hash)
     .all();
-  if (parts && parts.length) return audio(join(parts.map((p) => p.data)), parts[0].mime, request);
+  if (parts && parts.length) {
+    return audio(join(parts.map((p) => p.data)), parts[0].mime, request, `cache:${parts[0].voice || '?'}`);
+  }
 
   // No provider at all — not even the Workers AI binding — so say so plainly and
   // let the browser fall back to its own speech synthesis. This must never look
@@ -283,7 +285,7 @@ async function readAloud({ request, params, env, waitUntil }) {
   if (typeof waitUntil === 'function') waitUntil(store);
   else store.catch(() => {});
 
-  return audio(out.bytes, out.mime, request);
+  return audio(out.bytes, out.mime, request, `${out.provider}:${narrator}`);
 }
 
 async function cacheReading(env, hash, out, narrator) {
@@ -333,10 +335,16 @@ function join(chunks) {
 // that only works when nobody treats it as one is a trap for the next person
 // to point an <audio> at it. The bytes are already in memory here, so this is
 // a slice.
-function audio(data, mime, request) {
+function audio(data, mime, request, provider) {
   const body = data instanceof Uint8Array ? data : new Uint8Array(data);
   const headers = {
     'content-type': mime || 'audio/mpeg',
+    // Who actually spoke. Six providers can serve this endpoint and the browser
+    // can serve it too when they all fail, and from the outside a bad reading
+    // from one is indistinguishable from a bad reading from another — which has
+    // now cost several rounds of "is this the new voice or not?". The answer
+    // travels with the audio.
+    'x-voice': provider || 'cache',
     'accept-ranges': 'bytes',
     // The hash covers the text and the delivery, so a given whisper's audio
     // is stable for as long as its words are.

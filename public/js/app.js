@@ -824,11 +824,18 @@ function toggleListen() {
   // why, because every failure here falls back silently by design. The reason
   // now always reaches the console, and ?debug=voice puts it on screen so it
   // can be read off a phone.
+  // Say plainly when this is not our voice.
+  //
+  // The fallback was made to sound as good as the device allows, and that turned
+  // out to be a trap: the phone's own reading is flat, fast and always the same
+  // narrator, and with every provider out of quota at once it became what the
+  // site sounded like — while everyone, including me, went on discussing which
+  // model to tune. An emergency voice must never be mistaken for the product.
   const giveUpToBrowser = (why) => {
     if (speech.id !== id) return;
     const reason = `listen fell back: ${why || 'unknown'}`;
     console.warn(reason);
-    if (VOICE_DEBUG) showToast(reason, 6000);
+    showToast(VOICE_DEBUG ? `${t('listenDevice')} (${reason})` : t('listenDevice'), 6000);
     speakInBrowser(text);
   };
 
@@ -841,6 +848,14 @@ function toggleListen() {
       // 16-byte error page — so a status-based check learned only "502" while
       // the actual reason was thrown away. Its contract is audio or an
       // explanation, and content-type is what tells them apart.
+      // With ?debug=voice, say who is speaking. Six providers can answer this
+      // endpoint and the phone's own voice answers when none of them do, and by
+      // ear they are not reliably tellable apart — which has cost several
+      // rounds of "is this the new voice or the old cache?".
+      if (VOICE_DEBUG) {
+        const who = res.headers.get('x-voice');
+        if (who) showToast(`voice: ${who}`, 4000);
+      }
       const type = res.headers.get('content-type') || '';
       if (!/^audio\//i.test(type)) {
         const detail = await res.text().catch(() => '');
