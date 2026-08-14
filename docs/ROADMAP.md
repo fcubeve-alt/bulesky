@@ -254,6 +254,17 @@
 - **⚠️ Gemini 返回的是裸 PCM,不是能播的文件。** 24kHz / 16-bit / 单声道,mime 形如 `audio/L16;codec=pcm;rate=24000`,**没有文件头**。直接存进缓存 = 一条**永远播不出来**的音频(缓存是永久的,Google 自己的 issue 区一堆人踩)。现在的做法是套一个 44 字节 RIFF/WAV 头,采样率**从 mime 里读**而不是写死。已在真实 Chromium 里用 `decodeAudioData` 验证过能解码。
 - 代价:WAV 不压缩,约 48KB/秒,是 MP3 的三倍多。D1 分片(900KB)扛得住,但存储和流量都要按三倍算。
 
+**OpenRouter(可用支付宝充值)—— 目前最现实的一条路。** 它有一个**和 OpenAI 完全兼容的 `/api/v1/audio/speech`**,所以走的就是下面这套 `OPENAI_*` 配置,不需要新代码。三个 secret:
+```
+OPENAI_API_KEY   = sk-or-v1-...
+OPENAI_BASE_URL  = https://openrouter.ai/api/v1
+OPENAI_TTS_MODEL = deepgram/flux-tts:free
+```
+- **⚠️ "OpenAI 兼容"指的是信封,不是内容。** 同一个协议后面挂的是别家的模型,音色名和格式都是别家的:
+  - `response_format` 我们默认 `aac`(OpenAI 的 MP3 码率对一个人轻声念太浪费),但**只有 OpenAI 保证支持 aac**。所以非 OpenAI 模型自动改用 `mp3`,这是每家都有的。
+  - 音色名不通用。`coral` 对 Deepgram 毫无意义,Flux 的音色是 **Haley / Heather / Priya / Jack / Bruce / Rufus / Drew**。代码里按模型名匹配已知音色表(`RELAY_VOICES`),没匹配上的模型配 `OPENAI_VOICE_MALE` / `OPENAI_VOICE_FEMALE` 即可,不用改代码。
+  - `instructions`(表演指示)**只有 `gpt-4o-*` 认识**,Flux 不认。所以走 Flux 时是模型自己的自然表达,`DELIVERY` 不生效——这一条要提前知道,不然又会以为是 prompt 没写好。
+
 **⚠️ OpenAI 支持中转站(`OPENAI_BASE_URL`)。** api.openai.com 不是所有地方都能到,而一个说同样协议的中转站就是"这个 provider 对本项目存在与否"的差别(Azure OpenAI / OpenRouter / 自建也都是这个形状)。配 `OPENAI_BASE_URL` 指过去即可。
 - **⚠️ 只有 `gpt-4o-mini-tts` 认识 `instructions`**,而中转站常常只有老的 `tts-1`。给 `tts-1` 发 `instructions` 会直接报错,所以代码按模型判断:认识才发,不认识就安静降级(丢掉表演指示,但仍然出声)。选中转站时**必须先确认它支不支持 `/v1/audio/speech`、有没有 `gpt-4o-mini-tts`** —— 多数中转站只转文字模型。
 - **⚠️ 音频格式以响应头为准,不以请求为准。** 中转站可能无视 `response_format` 直接回 MP3,标成 AAC 存进永久缓存就是一条永远播不出来的音频。

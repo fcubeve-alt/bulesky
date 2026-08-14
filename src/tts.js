@@ -375,13 +375,47 @@ function takesDelivery(model) {
   return /gpt-4o/i.test(model);
 }
 
+// Everything below this line exists because "OpenAI-compatible" means the
+// envelope, not the contents. A relay speaks the same protocol while pointing
+// at a completely different vendor's model, and that model has its own voice
+// names and its own list of formats. Sending OpenAI's to it is a 400.
+
+// AAC is worth asking OpenAI for — its MP3 is a broadcast bitrate for one quiet
+// voice. Nobody else on a relay is guaranteed to offer it, and MP3 is the one
+// format every TTS vendor has, so anything that is not an OpenAI model gets MP3.
+function openaiFormat(model) {
+  return /gpt-4o|tts-1/i.test(model) ? FORMAT : 'mp3';
+}
+
+function mimeForFormat(format) {
+  return format === 'aac' ? MIME : 'audio/mpeg';
+}
+
+// Voice rosters do not travel. "coral" means nothing to Deepgram, which has
+// Haley and Jack. Known rosters are matched by model name; an explicitly
+// configured id always wins, so a model nobody here has heard of is one env var
+// away from working.
+const RELAY_VOICES = [
+  [/flux/i, { warm_female: 'haley', gentle_male: 'jack' }],
+];
+
+function openaiVoice(voiceKey, model, env) {
+  const configured = voiceKey === 'gentle_male' ? env.OPENAI_VOICE_MALE : env.OPENAI_VOICE_FEMALE;
+  if (configured) return configured;
+  for (const [pattern, roster] of RELAY_VOICES) {
+    if (pattern.test(model)) return roster[voiceKey] || roster.warm_female;
+  }
+  return VOICES[voiceKey] || VOICES.warm_female;
+}
+
 async function openaiSpeech(input, type, voiceKey, env) {
   const model = env.OPENAI_TTS_MODEL || MODEL;
+  const format = openaiFormat(model);
   const body = {
     model,
-    voice: VOICES[voiceKey] || VOICES.warm_female,
+    voice: openaiVoice(voiceKey, model, env),
     input,
-    response_format: FORMAT,
+    response_format: format,
   };
   if (takesDelivery(model)) body.instructions = DELIVERY[type] || DELIVERY.pain;
 
@@ -406,7 +440,7 @@ async function openaiSpeech(input, type, voiceKey, env) {
   // may quietly ignore response_format and hand back MP3; labelling that as AAC
   // gets it stored, served, and refused by the browser forever after.
   const declared = res.headers.get('content-type') || '';
-  const mime = /^audio\//i.test(declared) ? declared.split(';')[0].trim() : MIME;
+  const mime = /^audio\//i.test(declared) ? declared.split(';')[0].trim() : mimeForFormat(format);
   return { bytes, mime };
 }
 
