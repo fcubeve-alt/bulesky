@@ -23,30 +23,43 @@ const DEFAULT_AURA_MODEL = '@cf/deepgram/aura-1';
 
 // A sorrow and a wish should not be read in the same breath. These are two
 // different kinds of thing to say to someone.
-// Written once for a model that could not follow them, then handed to two that
-// could — at which point they turned out to be instructions for exactly the
-// reading nobody wanted. The first version said "unhurried, low and warm" and
-// "leave small pauses where a person would naturally pause to breathe", and
-// Gemini did precisely that: a voice pitched down into the floor, words drawn
-// out, long silences the listener read as the feature being broken.
 //
-// Feeling does not come from slowness. A person comforting someone speaks at an
-// ordinary pace; what makes it tender is warmth, not drag. So these now ask for
-// the warmth and explicitly rule out the dragging — telling a model what not to
-// do matters here, because "gentle" on its own pulls it back toward a whisper.
+// Third version, and the two failures either side of it are the reason it looks
+// like this. Asking for "unhurried, low, leave pauses to breathe" produced a
+// voice sunk into the floor with dead air between the words. Removing the
+// direction entirely produced something that raced through and did not stop at
+// a full stop. Both were rejected, and rightly.
+//
+// So this one is written as a scene rather than a list of adjectives — one
+// person, at night, reading to one listener — and then bounded on both sides,
+// because a model given only "gentle" drifts toward a drawl and a model given
+// only "natural" drifts toward the news. The bounds are the load-bearing part:
+//
+//   an upper bound on speed   — pause where the punctuation is
+//   a lower bound on speed    — never longer than a breath, always moving
+//   an upper bound on pitch   — do not sink
+//   an upper bound on drama   — nothing performed
+//
+// If a future reading is wrong, adjust one bound and listen. Rewriting the
+// whole thing swaps one failure for the other, which is what happened twice.
 const DELIVERY = {
   pain:
-    'Read this warmly and sincerely, the way you would speak to a friend ' +
-    'sitting beside you who is having a hard time. Kind, natural and clear. ' +
-    'Keep an ordinary speaking pace and an ordinary pitch: do not slow down, do ' +
-    'not draw the words out, do not leave long silences between phrases, and do ' +
-    'not drop into a deep or breathy register. Not cheerful, but not heavy or ' +
-    'mournful either.',
+    'You are reading one stranger\'s message aloud, at night, to one person who ' +
+    'is listening alone. Speak close and warm, with a resonant, slightly hushed ' +
+    'voice — near someone, never out to a room. Keep it calm and even: a little ' +
+    'slower than ordinary conversation, but always moving. Pause where the ' +
+    'punctuation is, briefly, and nowhere else — never longer than a breath, ' +
+    'never a word drawn out. Tender and steady, with real feeling held back ' +
+    'rather than shown. Do not sink into a deep register, do not sound mournful, ' +
+    'do not perform, and never sound bright or brisk.',
   wish:
-    'Read this warmly and hopefully, like someone saying a quiet wish out loud. ' +
-    'Kind, natural and clear, at an ordinary speaking pace, with a small lift ' +
-    'near the end. Do not slow down, draw the words out or leave long silences. ' +
-    'Never salesy, never performed.',
+    'You are reading one stranger\'s wish aloud, at night, to one person who is ' +
+    'listening alone. Speak close and warm, with a resonant, slightly hushed ' +
+    'voice, and a quiet hopefulness under it. Calm and even: a little slower ' +
+    'than ordinary conversation, but always moving. Pause where the punctuation ' +
+    'is, briefly, and nowhere else — never longer than a breath, never a word ' +
+    'drawn out. Let the last line lift very slightly. Do not sink into a deep ' +
+    'register, do not perform, and never sound salesy or bright.',
 };
 
 // Three voices, not one. A sky where every stranger speaks in the same voice
@@ -206,7 +219,26 @@ export function auraModel(env) {
 // project already has, so it needs no key, no account and no card, and it is
 // the difference between a listener hearing a modest voice and hearing the
 // phone's flat built-in one.
-// Aura first, and that is a reversal worth explaining.
+// Aura is NOT first, and the round trip is worth writing down so nobody makes
+// it again.
+//
+// It was promoted to the front because it is fast and small — 0.6s and 12KB
+// against Gemini's ~9s and half a megabyte — and because the owner, having
+// heard an over-directed Gemini reading, asked for "just a normal voice".
+// Putting the plainest option in front was a literal reading of that, and it
+// was wrong. What came back: reads too fast, does not even pause at a full
+// stop, no feeling at all. "That definitely will not do."
+//
+// The lesson is not "Aura is bad". It is that "normal" meant "stop over-acting",
+// not "stop acting" — and a model that cannot be directed at all has no middle
+// setting to find. Only a provider that takes direction can be tuned between
+// too much and too little, so a directable one leads and the tuning happens in
+// DELIVERY where it can be adjusted a sentence at a time.
+//
+// Aura stays as the fallback that never runs out of anything, which is what it
+// is genuinely good at.
+//
+// The old note, kept because the measurements are still true and still matter:
 //
 // This feature was built on the premise that delivery is the point — that a
 // flat reading of "I miss you" is worse than none. Two providers that can
@@ -230,7 +262,7 @@ export function auraModel(env) {
 // So: the fast, small, plain one leads. Everything below it is a fallback for
 // when Workers AI runs out of its daily allowance, and a paid provider that is
 // genuinely better can be promoted back above it by moving one word.
-const CHAIN = ['aura', 'openai', 'gemini', 'volc', 'elevenlabs', 'melo'];
+const CHAIN = ['openai', 'gemini', 'volc', 'aura', 'elevenlabs', 'melo'];
 
 function available(env) {
   return CHAIN.filter(
@@ -586,10 +618,12 @@ const GEMINI_MODEL = 'gemini-2.5-flash-preview-tts';
 // whisper read at night. Both are overridable without a deploy, because this is
 // a judgement made deaf.
 const GEMINI_VOICES = {
-  warm_female: 'Sulafat',
-  // Was Umbriel ("easy-going"), which came out far too deep and too slow to
-  // carry over the background music. "Clear" is the correction.
-  gentle_male: 'Iapetus',
+  warm_female: 'Sulafat', // "warm" — the one voice nobody has complained about
+  // Third male voice. Umbriel ("easy-going") came out sunk and slow; Iapetus
+  // ("clear") was never actually heard, because Gemini was 503 that day and
+  // then dropped down the chain. Algieba is "smooth", which is the roster's
+  // word for the quality being asked for — magnetic, resonant, carrying.
+  gentle_male: 'Algieba',
 };
 
 async function geminiSpeech(input, type, voiceKey, env) {
