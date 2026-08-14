@@ -619,7 +619,7 @@ function warmOpenWhisper(changes) {
 // we fall back to the browser's own speech synthesis — flat and robotic, but a
 // button that does nothing is worse. The fallback is a safety net, not the
 // design.
-let speech = { audio: null, utterance: null, id: null, slowHint: 0 };
+let speech = { audio: null, utterance: null, id: null };
 
 // Well under natural pace. This is someone's grief being read aloud, not an
 // announcement — 0.88 was still being heard as rushed.
@@ -644,7 +644,6 @@ function setListenState(mode) {
 }
 
 function stopSpeaking() {
-  clearTimeout(speech.slowHint);
   if (speech.audio) {
     speech.audio.pause();
     // Detach the handlers before clearing the source: removing a src fires an
@@ -799,15 +798,11 @@ function toggleListen() {
   const unlock = audio.play();
   if (unlock && unlock.catch) unlock.catch(() => {});
 
-  // The first reading of a whisper has to be generated, which takes several
-  // seconds; every later one is served from the database and starts at once.
-  // The button pulses while it waits, and that was not enough — the reported
-  // experience was "I thought it was broken and closed it". So say so, but only
-  // once the wait is long enough to need saying, so a cache hit stays silent.
-  clearTimeout(speech.slowHint);
-  speech.slowHint = setTimeout(() => {
-    if (speech.id === id) showToast(t('listenSlow'), 5000);
-  }, 2500);
+  // No "the first one takes a moment" line any more: it was not true. A second
+  // and third listen can be just as slow, because a reading is only fast once
+  // it is genuinely cached and several things can stop that happening. A
+  // sentence that is wrong half the time is worse than none — the button's own
+  // progress bar says "working" without claiming to know why.
 
   // And unlock the browser's own voice in the same breath, because the fallback
   // is bound by exactly the same rule as the element above.
@@ -869,7 +864,6 @@ function toggleListen() {
       audio.onerror = () => giveUpToBrowser(`cannot decode ${blob.type} (${blob.size} bytes)`);
       audio.oncanplay = () => {
         if (speech.id !== id) return;
-        clearTimeout(speech.slowHint);
         // Some browsers reset the rate when a new source loads.
         audio.preservesPitch = true;
         audio.playbackRate = SPEECH_RATE;

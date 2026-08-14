@@ -1083,15 +1083,47 @@ body.reading #now-playing { display: none; }
   color: #dbe8ff;
   box-shadow: none;
 }
-/* Synthesis takes a second or two the first time a whisper is ever read. A
-   slow pulse says "working", where a spinner would say "loading a page". */
-.listen-btn.loading { animation: listen-wait 1.4s ease-in-out infinite; }
+/* Making a reading can take several seconds, and a fading pulse was not enough
+   to say so — it read as "the button is disabled" rather than "something is
+   happening", and people closed the whisper thinking it had failed.
+ *
+ * A travelling bar instead. It is deliberately indeterminate: nothing here
+ * knows how far along a synthesis is, and a bar that pretended to would be
+ * lying at exactly the moment the listener is deciding whether to trust it.
+ * What it promises is only "still working", which is the truth and is what was
+ * missing. */
+.listen-btn.loading {
+  position: relative;
+  overflow: hidden;
+  animation: listen-wait 1.4s ease-in-out infinite;
+}
+.listen-btn.loading::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 40%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(70, 40, 10, 0.85), transparent);
+  animation: listen-progress 1.15s ease-in-out infinite;
+}
 @keyframes listen-wait {
-  0%, 100% { opacity: 0.55; }
+  0%, 100% { opacity: 0.72; }
   50% { opacity: 1; }
 }
+@keyframes listen-progress {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(360%); }
+}
+/* Reduced motion still needs to say "working" — it just must not travel. */
 @media (prefers-reduced-motion: reduce) {
-  .listen-btn.loading { animation: none; opacity: 0.7; }
+  .listen-btn.loading { animation: none; opacity: 0.75; }
+  .listen-btn.loading::after {
+    animation: none;
+    width: 100%;
+    background: rgba(70, 40, 10, 0.5);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .read-viewport { pointer-events: auto; -webkit-mask-image: none; mask-image: none; overflow: auto; }
