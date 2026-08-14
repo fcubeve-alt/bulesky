@@ -395,8 +395,14 @@ function mimeForFormat(format) {
 // Haley and Jack. Known rosters are matched by model name; an explicitly
 // configured id always wins, so a model nobody here has heard of is one env var
 // away from working.
+// Deepgram's ids are flux-{name}-{language}, not the bare first name a voice is
+// listed under. Sending "jack" gets a 400 that helpfully enumerates the real
+// ones — which is how these two were found. Both are confirmed present in that
+// list; which of them sounds right is a judgement made without ears, so
+// OPENAI_VOICE_MALE / OPENAI_VOICE_FEMALE exist to change them without a
+// deploy.
 const RELAY_VOICES = [
-  [/flux/i, { warm_female: 'haley', gentle_male: 'jack' }],
+  [/flux/i, { warm_female: 'flux-brooke-en', gentle_male: 'flux-bruce-en' }],
 ];
 
 function openaiVoice(voiceKey, model, env) {
@@ -430,7 +436,10 @@ async function openaiSpeech(input, type, voiceKey, env) {
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`openai ${res.status}: ${detail.slice(0, 200)}`);
+    // 340, not 200: this is the message that lists a vendor's valid voices or
+    // formats when we have guessed wrong, and truncating it mid-list threw away
+    // the answer along with the question.
+    throw new Error(`openai ${res.status}: ${detail.slice(0, 340)}`);
   }
 
   const bytes = new Uint8Array(await res.arrayBuffer());
