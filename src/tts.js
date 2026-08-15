@@ -426,12 +426,16 @@ const ATTEMPT_MS = 20000;
 // instead. From outside it looks like the prosody fix stopped working. It
 // hadn't; it was never allowed to finish.
 //
-// Measured against the live relay: one 36-char piece takes ~2.1s, three pieces
-// ~7.6s. They go out together and still cost roughly the sum, so the relay is
-// serving them one at a time — which means a long whisper's cost grows with the
-// number of pieces, and a constant ceiling is guaranteed to cut the longest
-// ones. Ten seconds a piece is about four times the measured rate, and the
-// ceiling keeps the worst case bounded.
+// Measured against the live relay, and the numbers are all over the place: one
+// 36-char piece 2.1–2.5s, three pieces 7.6s, seven pieces 8.0s. So the pieces
+// are not reliably served in parallel and not reliably served in turn either —
+// what the relay costs on any given reading is simply not predictable, and the
+// live trail shows it exceeding 20s often enough to have poisoned the cache.
+//
+// A ceiling therefore cannot be a constant. It has to leave room for the bad
+// case of the work actually being asked for, and the number of pieces is the
+// only honest measure of that. Ten seconds a piece is several times the
+// observed rate; the ceiling keeps the worst case bounded.
 const PER_PIECE_MS = 10000;
 const ATTEMPT_CEILING_MS = 60000;
 
