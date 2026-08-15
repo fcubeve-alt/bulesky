@@ -471,6 +471,27 @@ export function initAmbient(opts = {}) {
   }
 
   return {
+    // The one AudioContext, lent out.
+    //
+    // The reading is routed through Web Audio too, and it must use this context
+    // rather than making its own: routing a media element through a suspended
+    // context is silence with no way back, and all the machinery for keeping
+    // this one awake — the resume on every start path, the pointerdown watchdog
+    // — already lives here. A second context would need its own copy of that,
+    // and would get it wrong.
+    //
+    // Must be called from inside a user gesture the first time, like everything
+    // else that touches audio on iOS.
+    audioContext() {
+      try {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        resumeCtx();
+        armCtxWatchdog();
+        return ctx;
+      } catch {
+        return null;
+      }
+    },
     // Preload the manifest at startup so the first user gesture can start a
     // real track synchronously. Mobile browsers (iOS especially) block
     // audio.play() that runs *after* an awaited fetch, so we must not await

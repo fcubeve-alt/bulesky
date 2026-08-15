@@ -779,6 +779,65 @@ function speechAudio() {
   return speechEl;
 }
 
+// A little air around the voice.
+//
+// The readings people admire elsewhere — "magnetic, like it comes from far
+// away, a bit hollow" — are not doing that with a better model. They are voice
+// plus space, added afterwards. No text-to-speech returns it: every one of them
+// hands back a voice recorded an inch from a microphone, clean and flat and
+// close. The room is ours to add.
+//
+// So: the reading runs through a convolver alongside itself, a little of the
+// reflected copy mixed under the plain one. It costs nothing, needs no
+// regeneration, and applies to every whisper already in the cache.
+const REVERB_SECONDS = 2.4;
+const REVERB_WET = 0.26;
+const REVERB_OFF = new URLSearchParams(location.search).get('reverb') === 'off';
+
+// Noise that fades away is the whole of a convincing space. Anything more
+// structured starts to sound like a machine — a metal pipe, a stairwell — and
+// what is wanted here is only the impression of distance.
+function makeSpace(ctx) {
+  const length = Math.floor(ctx.sampleRate * REVERB_SECONDS);
+  const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
+  for (let channel = 0; channel < 2; channel += 1) {
+    const data = buffer.getChannelData(channel);
+    for (let i = 0; i < length; i += 1) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.6);
+    }
+  }
+  return buffer;
+}
+
+// Built once, on the first Listen, inside the tap.
+//
+// The dry path is connected before anything else is attempted, and that order
+// is deliberate. Routing a media element through Web Audio cannot be undone, so
+// if the reverb half then fails the element must already have a route to the
+// speakers — otherwise a decorative effect turns the whole feature silent,
+// which is a mistake this project has already made once.
+let speechRouted = false;
+function addSpace(el) {
+  if (speechRouted || REVERB_OFF) return;
+  const ctx = ambient.audioContext();
+  if (!ctx) return;
+  try {
+    const source = ctx.createMediaElementSource(el);
+    const dry = ctx.createGain();
+    dry.gain.value = 1;
+    source.connect(dry).connect(ctx.destination);
+    speechRouted = true;
+
+    const space = ctx.createConvolver();
+    space.buffer = makeSpace(ctx);
+    const wet = ctx.createGain();
+    wet.gain.value = REVERB_WET;
+    source.connect(space).connect(wet).connect(ctx.destination);
+  } catch {
+    /* no room, just a voice — which is the thing that matters */
+  }
+}
+
 function toggleListen() {
   const id = state.detailBubbleId;
   if (!id) return;
@@ -803,6 +862,10 @@ function toggleListen() {
   // it is genuinely cached and several things can stop that happening. A
   // sentence that is wrong half the time is worse than none — the button's own
   // progress bar says "working" without claiming to know why.
+
+  // Give the voice its room while still inside the tap — creating and resuming
+  // an AudioContext is gesture-bound on iOS like everything else here.
+  addSpace(audio);
 
   // And unlock the browser's own voice in the same breath, because the fallback
   // is bound by exactly the same rule as the element above.

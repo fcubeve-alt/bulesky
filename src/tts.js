@@ -473,7 +473,7 @@ function mimeForFormat(format) {
 // OPENAI_VOICE_MALE / OPENAI_VOICE_FEMALE exist to change them without a
 // deploy.
 const RELAY_VOICES = [
-  [/flux/i, { warm_female: 'flux-brooke-en', gentle_male: 'flux-bruce-en' }],
+  [/flux/i, { warm_female: 'flux-brooke-en', gentle_male: 'flux-cliff-en' }],
 ];
 
 function openaiVoice(voiceKey, model, env) {
