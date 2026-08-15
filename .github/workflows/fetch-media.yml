@@ -2,12 +2,19 @@ name: Fetch background media
 
 # Pulls license-safe free media (public-domain ambient music from the
 # Internet Archive; scenery video from Pixabay when PIXABAY_API_KEY is set),
-# commits it into the libraries, and triggers a deploy. Runs on demand and
-# weekly so the sky slowly gains new scenery/music over time.
+# commits it into the libraries, and triggers a deploy, so the sky slowly gains
+# new scenery/music over time.
+#
+# No cron of its own any more. It is started once a week by the assistant's
+# Monday routine, which then reviews what arrived — because this script has no
+# taste: it cannot tell that a track is somebody reading aloud rather than
+# music, or that a transfer is too noisy to sit under a night sky, and both of
+# those reached the live site and had to be caught by ear. Fetching and judging
+# now happen in one weekly pass instead of the fetch running unattended.
+#
+# It still runs on demand, from here or from the routine.
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "17 4 * * 1" # Mondays 04:17 UTC
 
 permissions:
   contents: write
