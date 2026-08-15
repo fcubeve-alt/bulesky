@@ -166,8 +166,11 @@ function json(body, status = 200) {
 // Synthesis on its own, with a trail, and nothing cached. Answers what each
 // provider actually said, which is how the ElevenLabs key's missing permission
 // and Aura's 429 both finally became readable.
-// Long enough to be cut into several pieces, and shaped like a real whisper:
-// ordinary sentences, ordinary punctuation.
+// As long as a whisper is allowed to be, because the shorter cases were never
+// the broken ones: three pieces finish inside any deadline. What has to be
+// proved is the whisper at the length cap — the one that was being cut off and
+// handed to the fallback voice. Shaped like a real whisper otherwise: ordinary
+// sentences, ordinary punctuation.
 const LONG_PROBE_TEXT = [
   'I still talk to you when the house is quiet.',
   'It has been two years, and I have stopped counting the days, but I have not stopped counting the small things.',
@@ -175,6 +178,11 @@ const LONG_PROBE_TEXT = [
   'People tell me it gets easier, and I suppose they are right, but easier is not the same as gone.',
   'Some evenings I catch myself setting out two cups before I remember.',
   'I am not writing this because I want anything back. I am writing it because it is true, and it has nowhere else to go.',
+  'The house is not the same shape without you in it, and I have moved the furniture twice trying to make that untrue.',
+  'Your coat was on the hook until March. I could not decide whether keeping it there was love or refusing to admit something.',
+  'My sister says I should talk to someone. I am talking to you, which is probably not what she meant.',
+  'There is a particular hour in the evening, just after the light goes, when I forget for a second and then remember.',
+  'I hope wherever this goes, it goes somewhere quiet. That is all I want for it, and all I want for you.',
 ].join(' ');
 
 async function probeSynthesis(env, mode, text) {
