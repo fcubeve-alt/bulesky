@@ -66,7 +66,7 @@ jobs:
       # and the trail in the next probe says which call killed it.
       - name: Synthesis alone
         run: |
-          for mode in aura chain; do
+          for mode in chain long; do
             echo "── ?probe=$mode ──"
             curl -sS -w '\nHTTP %{http_code}\n' --max-time 60 \
               "https://cubewithin.com/api/voice/1?probe=$mode" || echo "(request failed)"

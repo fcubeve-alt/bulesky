@@ -136,6 +136,8 @@ const BLOCKED_IDS = new Set([
   'classical-beethoven-sym7-allegretto', // Symphony 7 Allegretto — noisy recording
   'classical-puccini-o-mio-babbino', // O mio babbino caro — noisy recording
   'jamendo-586577', // Le Lover — noisy
+  'classical-massenet-meditation-thais', // Méditation from Thaïs — noisy recording
+  'jamendo-413772', // Le pain et la vie — spoken word, not music
 ]);
 
 function titleOk(s) {

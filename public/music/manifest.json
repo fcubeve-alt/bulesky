@@ -21,16 +21,6 @@
    "bytes": 18472770
   },
   {
-   "id": "classical-massenet-meditation-thais",
-   "title": "Méditation from Thaïs",
-   "artist": "Jules Massenet",
-   "src": "/music/classical-massenet-meditation-thais.mp3",
-   "source": "https://archive.org/details/78_meditation-thais_rudolph-polk-massenet_gbia0005278a",
-   "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-   "pinned": true,
-   "bytes": 6972928
-  },
-  {
    "id": "classical-vivaldi-winter-largo",
    "title": "The Four Seasons — Winter, II. Largo",
    "artist": "Antonio Vivaldi",
@@ -237,15 +227,6 @@
    "source": "https://www.jamendo.com/track/1174817",
    "license": "http://creativecommons.org/licenses/by/3.0/",
    "bytes": 3019264
-  },
-  {
-   "id": "jamendo-413772",
-   "title": "Le pain et la vie",
-   "artist": "JEANPIERRE André",
-   "src": "/music/jamendo-413772.mp3",
-   "source": "https://www.jamendo.com/track/413772",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 866304
   },
   {
    "id": "jamendo-1538430",

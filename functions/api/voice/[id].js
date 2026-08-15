@@ -5,6 +5,7 @@ import {
   providerFor,
   auraModel,
   elevenVoiceReport,
+  chunkForSpeech,
 } from '../../../src/tts.js';
 
 // Read a whisper aloud. Returns audio, never JSON on success.
@@ -165,16 +166,40 @@ function json(body, status = 200) {
 // Synthesis on its own, with a trail, and nothing cached. Answers what each
 // provider actually said, which is how the ElevenLabs key's missing permission
 // and Aura's 429 both finally became readable.
+// Long enough to be cut into several pieces, and shaped like a real whisper:
+// ordinary sentences, ordinary punctuation.
+const LONG_PROBE_TEXT = [
+  'I still talk to you when the house is quiet.',
+  'It has been two years, and I have stopped counting the days, but I have not stopped counting the small things.',
+  'The way you folded the towels. The way you hummed while you cooked.',
+  'People tell me it gets easier, and I suppose they are right, but easier is not the same as gone.',
+  'Some evenings I catch myself setting out two cups before I remember.',
+  'I am not writing this because I want anything back. I am writing it because it is true, and it has nowhere else to go.',
+].join(' ');
+
 async function probeSynthesis(env, mode, text) {
   // mode 'aura' forces the Workers AI path by handing synthesize an env that
   // has nothing else in it — no new export, no second code path to keep honest.
   const scoped = mode === 'aura' ? { AI: env.AI, VOICE_MODEL: env.VOICE_MODEL } : env;
 
   await breadcrumb(env, `${mode}: calling synthesize, ${text.length} chars`);
+  const started = Date.now();
   try {
     const out = await synthesize(text, 'pain', 'gentle_male', scoped);
     await breadcrumb(env, `${mode}: ok, ${out.bytes.length} bytes ${out.mime} via ${out.provider}`);
-    return json({ ok: true, provider: out.provider, bytes: out.bytes.length, mime: out.mime, failures: out.failures });
+    // Which provider answered and how long it took are the two things a report
+    // of "it sounds wrong again" cannot tell apart from out here: a fallback
+    // voice and the intended one are both simply "a voice".
+    return json({
+      ok: true,
+      provider: out.provider,
+      bytes: out.bytes.length,
+      mime: out.mime,
+      chars: text.length,
+      pieces: chunkForSpeech(text).length,
+      ms: Date.now() - started,
+      failures: out.failures,
+    });
   } catch (e) {
     const detail = String((e && e.message) || e);
     await breadcrumb(env, `${mode}: threw ${detail.slice(0, 200)}`);
@@ -188,6 +213,12 @@ async function readAloud({ request, params, env, waitUntil }) {
   if (mode === 'aura' || mode === 'chain') {
     return await probeSynthesis(env, mode, 'This is a test of the reading voice.');
   }
+  // A long reading is a different question from a short one, and the short
+  // probe cannot answer it. Long whispers are the ones reported as racing, and
+  // the two candidate causes — the chain quietly falling through to a flat
+  // fallback voice, or the pieces not being cut at all — look identical from
+  // outside. This says which, in one request.
+  if (mode === 'long') return await probeSynthesis(env, mode, LONG_PROBE_TEXT);
 
   const id = parseInt(params.id, 10);
   if (!Number.isFinite(id)) {
