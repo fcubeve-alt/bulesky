@@ -198,7 +198,7 @@ const MIME = 'audio/aac';
 // every lookup just to discover we already had the audio. The roster and the
 // rules for choosing are covered by RECIPE instead, and the narrator that was
 // actually picked is stored next to the audio.
-const RECIPE = 'v12-natural-pace';
+const RECIPE = 'v13-chunked';
 
 // Whichever provider will actually be used, so the hash can name it. Keeping
 // this decision in one place means the cache key and the synthesis can never
@@ -310,13 +310,84 @@ export async function synthesize(text, type, voiceKey, env) {
   const failures = [];
   for (const provider of providers) {
     try {
-      const out = await withDeadline(speak(provider, input, type, voiceKey, env), provider);
+      const out = await withDeadline(readInPieces(provider, input, type, voiceKey, env), provider);
       return { ...out, provider, failures };
     } catch (e) {
       failures.push(String((e && e.message) || e).slice(0, 200));
     }
   }
   throw new Error(failures.join(' | '));
+}
+
+// Read a long whisper as a series of short ones.
+//
+// The owner's report was precise and it is the whole design here: short
+// whispers come back with pauses, punctuation and feeling; long ones come back
+// flat and racing, "like a machine gun". Same model, same voice, same delivery
+// note — the only variable is length. Deepgram's Flux is built for real-time
+// conversation, where turns are a sentence or two, and a wall of text is
+// outside what it is good at.
+//
+// So it is never given a wall of text. The whisper is cut at sentence
+// boundaries into pieces the model handles well, each piece is synthesised, and
+// the audio is joined back together. Every piece is a case we know sounds good.
+//
+// The pieces go out at once rather than in turn, which is why this makes long
+// readings faster rather than slower: the wait becomes the slowest sentence
+// instead of the sum of all of them. That matters as much as the prosody — the
+// other half of the report was that the text had scrolled past before the voice
+// started.
+const CHUNK_CHARS = 200;
+
+async function readInPieces(provider, input, type, voiceKey, env) {
+  const pieces = chunkForSpeech(input, CHUNK_CHARS);
+  if (pieces.length < 2) return speak(provider, input, type, voiceKey, env);
+
+  const parts = await Promise.all(
+    pieces.map((piece) => speak(provider, piece, type, voiceKey, env))
+  );
+
+  // Only MP3 frames can simply be laid end to end. Anything else — a WAV with
+  // its header, raw PCM — would need real splicing, and a provider that returns
+  // those is a fallback rather than the path this is for. Rather than join them
+  // wrongly, read that one in a single pass and accept its pacing.
+  if (!parts.every((p) => /mpeg|mp3/i.test(p.mime))) {
+    return speak(provider, input, type, voiceKey, env);
+  }
+
+  const total = parts.reduce((n, p) => n + p.bytes.length, 0);
+  const bytes = new Uint8Array(total);
+  let at = 0;
+  for (const p of parts) {
+    bytes.set(p.bytes, at);
+    at += p.bytes.length;
+  }
+  return { bytes, mime: parts[0].mime };
+}
+
+// Cut on sentence endings, and only fall back to a hard cut when a single
+// "sentence" is longer than the limit on its own — which happens, because these
+// are typed at night without punctuation.
+export function chunkForSpeech(text, max = CHUNK_CHARS) {
+  const sentences = String(text)
+    .split(/(?<=[.!?…。！？;；\n])\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const out = [];
+  let current = '';
+  for (const sentence of sentences) {
+    if (sentence.length > max) {
+      if (current) { out.push(current); current = ''; }
+      for (let i = 0; i < sentence.length; i += max) out.push(sentence.slice(i, i + max));
+      continue;
+    }
+    if (!current) current = sentence;
+    else if (current.length + 1 + sentence.length <= max) current += ' ' + sentence;
+    else { out.push(current); current = sentence; }
+  }
+  if (current) out.push(current);
+  return out;
 }
 
 // No single provider may hold the button.

@@ -364,9 +364,30 @@ export function initAmbient(opts = {}) {
     });
   }
 
+  // The first track is chosen for weight, not for variety.
+  //
+  // Tapping the sky is supposed to bring music in almost at once, and it stopped
+  // doing that. The cause is not the code: the library runs from 0.9MB to
+  // 18.5MB, a track is picked at random, and nothing can play until enough of
+  // the file has arrived. Drawing the Bach Chaconne means eighteen megabytes
+  // before the first note — which is exactly the reported "sometimes it starts
+  // straight away, sometimes you wait ages".
+  //
+  // So the opening track comes from the lighter half of the library. Every
+  // track after it is chosen normally, and by then there are minutes of lead
+  // time: the crossfade begins well before the current one ends, so a heavy
+  // file has all the time it needs to arrive.
+  function pickLightTrack() {
+    const sized = playlist.filter((t) => Number.isFinite(t.bytes));
+    if (sized.length < 4) return pickTrack();
+    const median = sized.map((t) => t.bytes).sort((a, b) => a - b)[Math.floor(sized.length / 2)];
+    const light = sized.filter((t) => t.bytes <= median);
+    return light[Math.floor(Math.random() * light.length)] || pickTrack();
+  }
+
   // Start the first library track outright (no crossfade — nothing to fade from).
   function playFirstTrack() {
-    const track = pickTrack();
+    const track = pickLightTrack();
     if (!track) return;
     ensureAudio();
     resumeCtx();

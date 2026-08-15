@@ -193,6 +193,7 @@ async function fetchArchiveAudio(existing) {
         src: `/music/${fname}`,
         source: `https://archive.org/details/${doc.identifier}`,
         license: doc.licenseurl,
+        bytes,
       });
       log(`+ music: ${fname} (${(bytes / 1e6).toFixed(1)} MB)`);
     } catch (e) {
@@ -415,6 +416,7 @@ async function fetchCuratedClassical(existing) {
           source: `https://archive.org/details/${doc.identifier}`,
           license: doc.licenseurl || PD_MARK,
           pinned: true,
+          bytes,
         });
         log(`+ classical[t${tier}]: ${fname} (${(bytes / 1e6).toFixed(1)} MB) ← ${doc.identifier}`);
         done = true;
@@ -665,6 +667,7 @@ async function fetchJamendoAudio(existing) {
           src: `/music/${fname}`,
           source: tr.shareurl || `https://www.jamendo.com/track/${tr.id}`,
           license: tr.license_ccurl || 'https://creativecommons.org/licenses/by/3.0/',
+          bytes,
         });
         log(`+ music(jamendo): ${fname} (${(bytes / 1e6).toFixed(1)} MB) — ${tr.name} / ${tr.artist_name}`);
       } catch (e) {
@@ -736,6 +739,7 @@ async function fetchCCMixterAudio(existing) {
         src: `/music/${fname}`,
         source: up.file_page_url || up.upload_url || `http://ccmixter.org/files/${artist}/${up.upload_id}`,
         license: up.license_url || 'https://creativecommons.org/licenses/by/3.0/',
+        bytes,
       });
       log(`+ music(ccmixter): ${fname} (${(bytes / 1e6).toFixed(1)} MB) — ${name} / ${artist}`);
     } catch (e) {
