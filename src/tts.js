@@ -198,7 +198,12 @@ const MIME = 'audio/aac';
 // every lookup just to discover we already had the audio. The roster and the
 // rules for choosing are covered by RECIPE instead, and the narrator that was
 // actually picked is stored next to the audio.
-const RECIPE = 'v13-chunked';
+// Bumped deliberately: every reading cached under v13 was made while long
+// whispers were being cut off at 20s and handed to the fallback voice, so the
+// cache is full of exactly the readings this change exists to stop producing.
+// They are permanent until the key that names them changes, and this is that
+// key.
+const RECIPE = 'v14-unhurried';
 
 // Whichever provider will actually be used, so the hash can name it. Keeping
 // this decision in one place means the cache key and the synthesis can never
@@ -262,7 +267,16 @@ export function auraModel(env) {
 // So: the fast, small, plain one leads. Everything below it is a fallback for
 // when Workers AI runs out of its daily allowance, and a paid provider that is
 // genuinely better can be promoted back above it by moving one word.
-const CHAIN = ['openai', 'gemini', 'volc', 'aura', 'elevenlabs', 'melo'];
+// Gemini sits at the back rather than second.
+//
+// It is not merely failing — it hangs, and the live trail shows it spending a
+// full deadline on every reading the relay does not serve first, before failing
+// anyway (the Google project denies generateContent outright). A provider that
+// fails fast costs nothing to keep high in the chain; one that fails slowly is
+// charged to the listener as dead waiting time on top of whatever comes next.
+// It stays in the chain because the key may start working, but it may no longer
+// stand in front of anything.
+const CHAIN = ['openai', 'volc', 'aura', 'elevenlabs', 'melo', 'gemini'];
 
 function available(env) {
   return CHAIN.filter(
@@ -307,10 +321,12 @@ export async function synthesize(text, type, voiceKey, env) {
   const providers = available(env);
   if (!providers.length) throw new Error('no tts provider');
 
+  const pieces = chunkForSpeech(input);
   const failures = [];
   for (const provider of providers) {
     try {
-      const out = await withDeadline(readInPieces(provider, input, type, voiceKey, env), provider);
+      const work = readInPieces(provider, pieces, input, type, voiceKey, env);
+      const out = await withDeadline(work, provider, deadlineFor(pieces.length));
       return { ...out, provider, failures };
     } catch (e) {
       failures.push(String((e && e.message) || e).slice(0, 200));
@@ -339,8 +355,7 @@ export async function synthesize(text, type, voiceKey, env) {
 // started.
 const CHUNK_CHARS = 200;
 
-async function readInPieces(provider, input, type, voiceKey, env) {
-  const pieces = chunkForSpeech(input, CHUNK_CHARS);
+async function readInPieces(provider, pieces, input, type, voiceKey, env) {
   if (pieces.length < 2) return speak(provider, input, type, voiceKey, env);
 
   const parts = await Promise.all(
@@ -402,14 +417,36 @@ export function chunkForSpeech(text, max = CHUNK_CHARS) {
 // reading.
 const ATTEMPT_MS = 20000;
 
-function withDeadline(work, provider) {
+// ...but "a while" has to be measured against the work, not a constant.
+//
+// A flat 20s was abandoning long readings that were proceeding perfectly
+// normally, and that is what put the machine-gun voice back: the relay was cut
+// off mid-sentence-set, and Aura — a fallback that exists so nobody sits in
+// silence, not a voice this site was designed around — served the whisper
+// instead. From outside it looks like the prosody fix stopped working. It
+// hadn't; it was never allowed to finish.
+//
+// Measured against the live relay: one 36-char piece takes ~2.1s, three pieces
+// ~7.6s. They go out together and still cost roughly the sum, so the relay is
+// serving them one at a time — which means a long whisper's cost grows with the
+// number of pieces, and a constant ceiling is guaranteed to cut the longest
+// ones. Ten seconds a piece is about four times the measured rate, and the
+// ceiling keeps the worst case bounded.
+const PER_PIECE_MS = 10000;
+const ATTEMPT_CEILING_MS = 60000;
+
+function deadlineFor(pieces) {
+  return Math.min(ATTEMPT_MS + Math.max(0, pieces - 1) * PER_PIECE_MS, ATTEMPT_CEILING_MS);
+}
+
+function withDeadline(work, provider, ms = ATTEMPT_MS) {
   // A late rejection from the abandoned attempt must not surface as an
   // unhandled rejection once the race has already been lost.
   work.catch(() => {});
   return Promise.race([
     work,
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`${provider}: no answer in ${ATTEMPT_MS / 1000}s`)), ATTEMPT_MS)
+      setTimeout(() => reject(new Error(`${provider}: no answer in ${ms / 1000}s`)), ms)
     ),
   ]);
 }

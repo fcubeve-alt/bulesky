@@ -296,9 +296,23 @@ async function readAloud({ request, params, env, waitUntil }) {
   // refused. The listener heard something, so this is not a failure to them —
   // but it is the difference between the voice this site was designed around
   // and a fallback, and it has to be visible without anyone reporting it.
-  if (out.failures && out.failures.length && typeof waitUntil === 'function') {
+  const fallback = Boolean(out.failures && out.failures.length);
+  if (fallback && typeof waitUntil === 'function') {
     waitUntil(noteFailure(env, providerFor(env), `${out.provider} served after: ${out.failures.join(' | ')}`));
   }
+
+  // ...and it must not be written down as this whisper's voice forever.
+  //
+  // The cache is permanent, so caching a fallback reading means one bad
+  // minute — a relay that was slow, an allowance that had just run out —
+  // decides how that whisper sounds to everyone who ever opens it again. That
+  // is how the flat, racing readings survived being fixed: they were not being
+  // produced any more, they were being replayed.
+  //
+  // The listener still hears this one; nobody waits twice for the same whisper
+  // in the same sitting. It simply is not kept, so the next person to open it
+  // gets another chance at the voice this site is actually built on.
+  if (fallback) return audio(out.bytes, out.mime, request, `${out.provider}:${narrator}:uncached`);
 
   // Hand the audio over FIRST and cache afterwards.
   //
