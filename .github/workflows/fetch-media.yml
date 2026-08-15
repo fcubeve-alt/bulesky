@@ -5,16 +5,19 @@ name: Fetch background media
 # commits it into the libraries, and triggers a deploy, so the sky slowly gains
 # new scenery/music over time.
 #
-# No cron of its own any more. It is started once a week by the assistant's
-# Monday routine, which then reviews what arrived — because this script has no
-# taste: it cannot tell that a track is somebody reading aloud rather than
-# music, or that a transfer is too noisy to sit under a night sky, and both of
-# those reached the live site and had to be caught by ear. Fetching and judging
-# now happen in one weekly pass instead of the fetch running unattended.
+# It runs early on Monday so that the assistant's Monday routine, which fires
+# about two hours later, reviews what it brought in. This script has no taste:
+# it cannot tell that a track is somebody reading aloud rather than music, or
+# that a transfer is too noisy to sit under a night sky, and both of those
+# reached the live site and had to be caught by ear. The fetch stays here (it
+# holds the API keys); the judging happens after it.
 #
-# It still runs on demand, from here or from the routine.
+# Moving this time means moving the routine too, or the routine reviews last
+# week's fetch.
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: "17 0 * * 1" # Mondays 00:17 UTC — 08:17 Beijing
 
 permissions:
   contents: write
