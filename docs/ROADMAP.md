@@ -336,7 +336,10 @@ OPENAI_TTS_MODEL = deepgram/flux-tts:free
 - **⚠️ 不是 audio 的东西绝不能进缓存**:`ai.run(..., {returnRawResponse:true})` 在模型拒绝时**不一定抛异常**,可能返回一个装着 JSON 错误的正常 Response。上一版把那堆字节当音频存了进去,于是那条悄悄话**永远播不出来**(缓存是永久的)。现在 aura 依次尝试三种调用(aura-2 带 encoding → aura-2 不带 → aura-1),每次都检查 `result.ok`、检查字节数和首字节不是 `{`/`[`;endpoint 入库前再卡一道最小长度。**mime 用模型实际返回的 content-type,不能写死**——第二次尝试不带 `encoding`,模型可能返回 PCM/WAV,标成 `audio/mpeg` 浏览器一样解不出来。
 - **排障开关**:地址后加 `?debug=voice`,Listen 的失败原因会直接弹在屏幕上(平时只进 console)。没有这个开关,"还是没声音"这句话里不包含任何可以定位的信息——已经为此白改过两轮。
 - **⚠️ iOS 上 `element.volume` 根本不能用,这是踩过的坑**:iPhone 上 `HTMLMediaElement.volume` **写入被忽略、读出来永远是 1**(Apple 把音量留给物理按键,[官方文档](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/Using_HTML5_Audio_Video/Device-SpecificConsiderations/Device-SpecificConsiderations.html))。第一版 duck 和**整套 crossfade** 都是直接写 `element.volume`——**在桌面测试全绿,在 iPhone 上一点效果都没有**,用户实测反馈"背景音乐还是吵,你没调"。现在每个 player 各接一个 **Web Audio `GainNode`**(`createMediaElementSource → gain → destination`),`setLevel(idx, v)` 是唯一的音量入口。**以后任何"调音量"的需求都必须走 gain node,不能碰 `.volume`。**
-- **朗读速度在客户端调**(`SPEECH_RATE = 0.88` + `preservesPitch`),不在生成端调:两个 provider 通用,而且**不会让任何已缓存的音频失效**。
+- **朗读速度在客户端调**(`SPEECH_RATE` + `preservesPitch`),不在生成端调:两个 provider 通用,而且**不会让任何已缓存的音频失效**。
+- **"像从很远的地方传来"是混响,不是换模型**:所有 TTS 交回来的都是贴着麦克风录的干声,那种空间感是**事后加的**。app.js 的 `addSpace()` 拿 `ambient.audioContext()` 借来同一个 context(别再新建第二个——那个已经被音乐解锁、也已经有 resume 看门狗),接一个 `ConvolverNode`,冲激响应就是一段按 `pow(1-i/n, 2.6)` 衰减的噪声(2.4s),湿声 26%。`?reverb=off` 可以关掉做 A/B。
+  - **⚠️ 干声那条线必须先接,这是"装饰不能变成静音"的硬规矩**:`createMediaElementSource()` 是**不可逆**的——元素一旦进了 Web Audio,就再也回不到直接输出。所以 `addSpace()` 里先把 `source → dry(gain=1) → destination` 接通、再去建混响那一半;混响挂了顶多没有空间感,而顺序反过来一挂就是**彻底没声音**。这个项目已经因为"一个装饰把整个功能弄哑"栽过一次了。
+  - 建图也在点击的同一个同步栈里(和上面 `play()` 那条同一个原因),`speechRouted` 保证只接一次。
 - **Listen 按钮在顶部悬浮**(`.listen-dock`),不在底部动作栏——放底部时它是"一屏之外的第三个按钮",而它本来是给不想读字的人准备的替代入口。带 `×` 可以关掉(关掉只对当前这条生效,下一条还会出现)。
 - **"留下一点温度"那句话延后出现**:开场就摆在那儿会被当成装饰完全略过(用户原话:"人家根本没注意到这什么意思")。现在等升起动画走到约 72%(最多 24 秒)才淡入,带一个**持续跳动的 ↓ 箭头**,同时"留言"按钮开始呼吸式发光。请求别人回应,得先让人把话读完。
 - **声音不能活得比它所属的视图久**:关阅读页、切到另一颗气球、页面被切到后台,三处都调 `stopSpeaking()`。
