@@ -344,11 +344,29 @@ async function readAloud({ request, params, env, waitUntil }) {
 async function cacheReading(env, hash, out, narrator) {
   try {
     const now = Date.now();
-    const rows = [];
+    // Clear the hash first, in the same batch.
+    //
+    // Two listeners can miss the cache on the same whisper at once — the
+    // second tap while the first is still synthesising is enough, and a
+    // reading takes several seconds. Both then wrote their rows, and with
+    // `INSERT OR IGNORE` on (hash, part) the loser's rows were dropped only
+    // where the winner already had that part. Any part the winner did not have,
+    // the loser filled in. What came back out of the table on the next play was
+    // the front of one reading joined to the tail of another.
+    //
+    // Only long whispers could show it, which is why it read as "the long ones
+    // have two voices in them": a reading has to pass 900,000 bytes before it
+    // has a second part for two writers to disagree about.
+    //
+    // A batch is a transaction, so deleting inside it means one of the two
+    // racers wins outright and neither result is a splice of both.
+    const rows = [
+      env.DB.prepare(`DELETE FROM voice_chunks WHERE hash = ?`).bind(hash),
+    ];
     for (let i = 0, part = 0; i < out.bytes.length; i += CHUNK_BYTES, part += 1) {
       rows.push(
         env.DB.prepare(
-          `INSERT OR IGNORE INTO voice_chunks (hash, part, mime, data, created_at, voice)
+          `INSERT INTO voice_chunks (hash, part, mime, data, created_at, voice)
            VALUES (?, ?, ?, ?, ?, ?)`
         ).bind(hash, part, out.mime, out.bytes.slice(i, i + CHUNK_BYTES), now, narrator)
       );

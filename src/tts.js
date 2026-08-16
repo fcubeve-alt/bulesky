@@ -355,6 +355,11 @@ export async function synthesize(text, type, voiceKey, env) {
 // started.
 const CHUNK_CHARS = 200;
 
+// One whisper is one person reading. Every piece goes out with the same
+// narrator and the same voice id, and nothing in here may retry a piece with a
+// different voice — a listener hears the joins as one reader changing halfway
+// through, which is worse than whatever the retry was rescuing. A piece that
+// cannot be read fails the whole attempt and the next provider reads all of it.
 async function readInPieces(provider, pieces, input, type, voiceKey, env) {
   if (pieces.length < 2) return speak(provider, input, type, voiceKey, env);
 
@@ -591,20 +596,24 @@ const ELEVEN_MODEL = 'eleven_multilingual_v2';
 // voices it has was refused; asking it to speak with a voice everybody already
 // has is not. I was requiring a permission the feature never needed.
 //
-// Several per narrator because a single hardcoded id is exactly what failed
-// before: Rachel and Adam turned out to be Voice Library voices, forbidden on a
-// free plan. If the first is refused the next is tried.
+// One man and one woman, and that is the whole roster on purpose.
+//
+// There used to be three of each, tried in turn when one was refused — written
+// when a reading was a single request, where falling to the next id is simply a
+// second attempt at the same thing. A long whisper is not one request any more;
+// it is one request per piece, joined back together. So the fallback stopped
+// meaning "try again" and started meaning "let the next voice read the rest of
+// it": one piece refused, one piece answered by Brian, the rest by Eric, and
+// what the listener gets is two different men inside one whisper. Reported, and
+// rightly — it is not a rough edge, it is two people.
+//
+// The list was never what kept the site from going silent anyway. Six providers
+// are; a refusal here simply drops to the next one and the whole whisper is
+// read by whoever answers. So the roster is one voice per narrator, there is
+// nothing to fall to mid-reading, and a reading is one person from start to end.
 const ELEVEN_PREMADE = {
-  gentle_male: [
-    'nPczCjzI2devNBz1zQrb', // Brian — deep, calm
-    'cjVigY5qzO86Huf0OWal', // Eric — warm, conversational
-    'JBFqnCBsd6RMkjVDRZzb', // George — low, steady
-  ],
-  warm_female: [
-    'EXAVITQu4vr4xnSDxMaL', // Sarah — soft, gentle
-    'cgSgspJ2msm6clMCkdW9', // Jessica — warm
-    'Xb7hH8MSUJpSbSDYk0k2', // Alice — clear, kind
-  ],
+  gentle_male: 'nPczCjzI2devNBz1zQrb', // Brian — deep, calm
+  warm_female: 'EXAVITQu4vr4xnSDxMaL', // Sarah — soft, gentle
 };
 
 // Premade voices are the ones a free plan may speak with; anything the account
@@ -661,44 +670,31 @@ async function elevenRequest(voiceId, input, key) {
   });
 }
 
-// Which voices to try, in order of preference. Premade ids come before the
-// account lookup on purpose: they need no extra permission and no extra
-// request, so the common case now costs one HTTP call instead of two.
-export function elevenCandidates(voiceKey, env) {
+// The one voice this narrator speaks with. Premade unless the owner has named
+// another from the dashboard — the premade id needs no extra permission and no
+// account lookup, so the common case costs one HTTP call instead of two.
+//
+// One id, deliberately, and it is the same id for every piece of a whisper. See
+// ELEVEN_PREMADE: anything that can change the voice between pieces changes it
+// in the middle of a sentence.
+export function elevenVoice(voiceKey, env) {
   const configured =
     voiceKey === 'gentle_male' ? env.ELEVENLABS_VOICE_MALE : env.ELEVENLABS_VOICE_FEMALE;
-  const premade = ELEVEN_PREMADE[voiceKey] || ELEVEN_PREMADE.warm_female;
-  return [...new Set([configured, ...premade].filter(Boolean))];
+  return configured || ELEVEN_PREMADE[voiceKey] || ELEVEN_PREMADE.warm_female;
 }
 
-// Two attempts, not six. Every attempt is another round trip inside one
-// request, and a refusal is a property of the plan rather than of the id — if
-// the first premade voice is refused the second almost certainly will be too.
-// The list exists so a single retired id cannot silence the site, not so we can
-// hammer the API.
-const ELEVEN_MAX_ATTEMPTS = 2;
-
 async function elevenSpeech(input, voiceKey, env) {
-  const key = env.ELEVENLABS_API_KEY;
-  let candidates = elevenCandidates(voiceKey, env);
+  const voiceId = elevenVoice(voiceKey, env);
+  const res = await elevenRequest(voiceId, input, env.ELEVENLABS_API_KEY);
 
-  let lastError = 'no voice to try';
-  for (const voiceId of candidates.slice(0, ELEVEN_MAX_ATTEMPTS)) {
-    const res = await elevenRequest(voiceId, input, key);
-    if (res.ok) {
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      if (looksLikeAudio(bytes)) return { bytes, mime: 'audio/mpeg' };
-      lastError = `returned ${bytes.length} bytes, not audio`;
-      continue;
-    }
+  if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    lastError = `${res.status}: ${detail.slice(0, 160)}`;
-    // 401 and 403 are about the key, not the voice. Trying another id with the
-    // same key is just a slower way to get the same answer.
-    if (res.status === 401 || res.status === 403) break;
+    throw new Error(`elevenlabs ${res.status}: ${detail.slice(0, 160)}`);
   }
 
-  throw new Error(`elevenlabs ${lastError}`);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (!looksLikeAudio(bytes)) throw new Error(`elevenlabs returned ${bytes.length} bytes, not audio`);
+  return { bytes, mime: 'audio/mpeg' };
 }
 
 // Deepgram Aura, through the Workers AI binding that report moderation already
