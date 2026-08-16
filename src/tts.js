@@ -518,11 +518,27 @@ function mimeForFormat(format) {
 // list; which of them sounds right is a judgement made without ears, so
 // OPENAI_VOICE_MALE / OPENAI_VOICE_FEMALE exist to change them without a
 // deploy.
+// One man and one woman per roster, and the same id on every piece of a
+// whisper — this is the path the site actually reads through, so this is where
+// that rule has to hold.
+//
+// The last line is the weak one, and it is worth knowing about. A model with no
+// roster here and no OPENAI_VOICE_* set is sent OpenAI's own names, which a
+// relay serving somebody else's model does not know. A vendor that does not
+// know the name it was given is free to answer in whatever voice it likes, and
+// nothing says it will pick the same one twice — so a whisper split into pieces
+// can come back in more than one voice without anything here having changed.
+// Pinning OPENAI_VOICE_MALE / OPENAI_VOICE_FEMALE to real ids for the model in
+// use closes it without a deploy.
 const RELAY_VOICES = [
   [/flux/i, { warm_female: 'flux-brooke-en', gentle_male: 'flux-cliff-en' }],
 ];
 
-function openaiVoice(voiceKey, model, env) {
+export function openaiTtsModel(env) {
+  return (env && env.OPENAI_TTS_MODEL) || MODEL;
+}
+
+export function openaiVoice(voiceKey, model, env) {
   const configured = voiceKey === 'gentle_male' ? env.OPENAI_VOICE_MALE : env.OPENAI_VOICE_FEMALE;
   if (configured) return configured;
   for (const [pattern, roster] of RELAY_VOICES) {
@@ -532,7 +548,7 @@ function openaiVoice(voiceKey, model, env) {
 }
 
 async function openaiSpeech(input, type, voiceKey, env) {
-  const model = env.OPENAI_TTS_MODEL || MODEL;
+  const model = openaiTtsModel(env);
   const format = openaiFormat(model);
   const body = {
     model,

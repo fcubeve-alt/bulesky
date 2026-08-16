@@ -6,6 +6,8 @@ import {
   auraModel,
   elevenVoiceReport,
   chunkForSpeech,
+  openaiTtsModel,
+  openaiVoice,
 } from '../../../src/tts.js';
 
 // Read a whisper aloud. Returns audio, never JSON on success.
@@ -105,6 +107,16 @@ async function probe(env) {
       provider: providerFor(env),
       classifierOn: Boolean(env && env.VOICE_CLASSIFIER),
       model: auraModel(env),
+      // Which voice each narrator will actually be asked for, on whatever is
+      // configured right now. "A long whisper came back with two voices in it"
+      // cannot be answered from outside without this: a relay model this code
+      // has no roster for is quietly sent OpenAI's own names instead, and from
+      // out here that looks exactly like everything being pinned.
+      relay: {
+        model: openaiTtsModel(env),
+        gentle_male: openaiVoice('gentle_male', openaiTtsModel(env), env),
+        warm_female: openaiVoice('warm_female', openaiTtsModel(env), env),
+      },
     }, null, 1),
     { headers: { 'content-type': 'application/json; charset=utf-8' } }
   );

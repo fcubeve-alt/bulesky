@@ -652,6 +652,7 @@ function stopSpeaking() {
     speech.audio.onended = null;
     speech.audio.onerror = null;
     speech.audio.oncanplay = null;
+    speech.audio.onplaying = null;
     speech.audio.removeAttribute('src');
     speech.audio.load();
     speech.audio = null;
@@ -889,10 +890,30 @@ function toggleListen() {
   // narrator, and with every provider out of quota at once it became what the
   // site sounded like — while everyone, including me, went on discussing which
   // model to tune. An emergency voice must never be mistaken for the product.
+  // ...but once the site's own voice has actually been heard, the phone's voice
+  // must not take over.
+  //
+  // The fallback is written for "nothing played at all", and it starts the
+  // whisper again from the first word. Firing it halfway through means the
+  // listener hears the opening in one voice and then the whole thing over again
+  // in another — which is not a fallback, it is a second reader, and it is one
+  // of the ways a whisper ends up with two voices in it. Long ones are where it
+  // shows: they are the readings assembled out of several pieces, and a join
+  // between two pieces is where a decoder gives up.
+  //
+  // So after the first sound, a failure ends the reading rather than restarting
+  // it in another voice. Stopping with a reason is honest; two readers is not.
+  let heard = false;
+
   const giveUpToBrowser = (why) => {
     if (speech.id !== id) return;
     const reason = `listen fell back: ${why || 'unknown'}`;
     console.warn(reason);
+    if (heard) {
+      showToast(VOICE_DEBUG ? `${t('listenCutShort')} (${reason})` : t('listenCutShort'), 6000);
+      stopSpeaking();
+      return;
+    }
     showToast(VOICE_DEBUG ? `${t('listenDevice')} (${reason})` : t('listenDevice'), 6000);
     speakInBrowser(text);
   };
@@ -925,6 +946,7 @@ function toggleListen() {
       if (speech.id !== id) return; // closed or switched while it synthesised
       audio.onended = stopSpeaking;
       audio.onerror = () => giveUpToBrowser(`cannot decode ${blob.type} (${blob.size} bytes)`);
+      audio.onplaying = () => { heard = true; };
       audio.oncanplay = () => {
         if (speech.id !== id) return;
         // Some browsers reset the rate when a new source loads.
