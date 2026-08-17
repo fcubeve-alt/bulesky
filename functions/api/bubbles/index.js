@@ -1,4 +1,5 @@
 import { containsAbusive, containsCrisisKeyword, maskContactInfo } from '../../../src/filters.js';
+import { cleanSecret, hashSecret } from '../../../src/identity.js';
 
 const MAX_CONTENT_LEN = 1000;
 const MAX_CODE_LEN = 30;
@@ -136,12 +137,19 @@ export async function onRequestPost({ request, env }) {
   // lookups aren't case-sensitive by accident.
   const finalCode = code.trim().toLowerCase();
 
+  // The one thing that makes this whisper deletable later. A malformed or
+  // missing secret is not an error: the whisper still goes up, it simply has no
+  // author the server can recognise — same position as everything written
+  // before this existed.
+  const secret = cleanSecret(body.secret);
+  const authorHash = secret ? await hashSecret(secret) : null;
+
   try {
     const result = await env.DB.prepare(
-      `INSERT INTO bubbles (code, type, content, lang, warmth, report_count, hidden, crisis_flag, created_at)
-       VALUES (?, ?, ?, ?, 0, 0, 0, ?, ?)`
+      `INSERT INTO bubbles (code, type, content, lang, warmth, report_count, hidden, crisis_flag, created_at, author_hash)
+       VALUES (?, ?, ?, ?, 0, 0, 0, ?, ?, ?)`
     )
-      .bind(finalCode, type, safeContent, safeLang, crisisFlag, now)
+      .bind(finalCode, type, safeContent, safeLang, crisisFlag, now, authorHash)
       .run();
 
     return json(

@@ -1,4 +1,5 @@
 import { containsAbusive, containsCrisisKeyword, maskContactInfo } from '../../../../src/filters.js';
+import { cleanSecret, hashSecret } from '../../../../src/identity.js';
 
 const MAX_CONTENT_LEN = 300;
 const MAX_CODE_LEN = 30;
@@ -50,11 +51,16 @@ export async function onRequestPost({ request, params, env }) {
   const safeLang = typeof lang === 'string' ? lang.slice(0, 10) : null;
   const now = Date.now();
 
+  // Same as a whisper: whoever wrote this may take it back later, and the
+  // server needs something better than a list in a browser to believe them.
+  const secret = cleanSecret(body.secret);
+  const authorHash = secret ? await hashSecret(secret) : null;
+
   const result = await env.DB.prepare(
-    `INSERT INTO replies (bubble_id, content, code, lang, report_count, hidden, crisis_flag, created_at)
-     VALUES (?, ?, ?, ?, 0, 0, ?, ?)`
+    `INSERT INTO replies (bubble_id, content, code, lang, report_count, hidden, crisis_flag, created_at, author_hash)
+     VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?)`
   )
-    .bind(bubbleId, safeContent, safeCode, safeLang, crisisFlag, now)
+    .bind(bubbleId, safeContent, safeCode, safeLang, crisisFlag, now, authorHash)
     .run();
 
   await env.DB.prepare(`UPDATE bubbles SET warmth = warmth + 1 WHERE id = ?`).bind(bubbleId).run();

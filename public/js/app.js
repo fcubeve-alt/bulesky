@@ -2,6 +2,7 @@ import { t, currentLang } from './i18n.js';
 import { createWhisperWorld } from './scene.js';
 import { initAmbient } from './ambient.js';
 import { initBackgrounds } from './backgrounds.js';
+import * as identity from './identity.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -88,6 +89,12 @@ const els = {
   readInviteText: $('read-invite-text'),
   readLightBtn: $('read-light-btn'),
   readReportBtn: $('read-report-btn'),
+  readDeleteBtn: $('read-delete-btn'),
+  recoveryBlock: $('recovery-block'),
+  recoveryLabel: $('recovery-label'),
+  recoveryCode: $('recovery-code'),
+  recoveryHint: $('recovery-hint'),
+  recoveryCopy: $('recovery-copy'),
   detailRepliesTitle: $('detail-replies-title'),
   readReplies: $('read-replies'),
   replyOverlay: $('reply-overlay'),
@@ -170,12 +177,14 @@ function applyText() {
   els.composeCancel.textContent = t('cancel');
   els.composeSubmit.textContent = t('submit');
   els.confirmCopy.textContent = t('copyCode');
+  els.recoveryCopy.textContent = t('copyCode');
   els.confirmHint.textContent = t('confirmHint');
   els.confirmClose.textContent = t('close');
   els.readInviteText.textContent = t('readInvite');
   els.readReplyBtn.textContent = t('readReply');
   els.readListenBtn.textContent = t('listen');
   els.readLightBtn.textContent = t('leaveLight');
+  els.readDeleteBtn.textContent = t('deleteMine');
   els.replyCode.placeholder = t('replyCodePlaceholder');
   els.replySubmit.textContent = t('replySubmit');
   els.iosTitle.textContent = t('iosTitle');
@@ -363,16 +372,22 @@ async function submitCompose() {
 
   els.composeSubmit.disabled = true;
   try {
+    // Ask before minting: a device that has never written anything has no
+    // identity, and this is the moment it gets one. The answer decides whether
+    // the confirmation shows the recovery code — worth reading once, noise on
+    // every whisper after that.
+    const firstEver = !identity.hasSecret();
+    const secret = identity.secret();
     const res = await fetch('/api/bubbles', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ type: state.composeType, content, code, lang: currentLang }),
+      body: JSON.stringify({ type: state.composeType, content, code, lang: currentLang, secret }),
     });
     const data = await res.json();
     if (!res.ok) return showError(els.composeError, t(ERROR_KEYS[data.error] || 'errorGeneric'));
     closeSheet(els.composeOverlay, els.composeSheet);
     rememberMyBubble(data.id);
-    showConfirm(data);
+    showConfirm(data, firstEver && Boolean(secret));
     // The author must always see their own whisper: pin it so a balloon
     // carrying it rises within moments, even if the random sample missed it.
     whisperWorld.pin({ id: data.id, type: data.type, content: data.content, warmth: 0, lights: 0 });
@@ -389,10 +404,25 @@ function showError(el, msg) {
   el.classList.remove('hidden');
 }
 
-function showConfirm(data) {
+function showConfirm(data, showRecovery = false) {
   const base = state.composeType === 'pain' ? t('toastPain') : t('toastWish');
   els.confirmMessage.textContent = data.crisisFlag ? `${base} ${t('toastCrisisExtra')}` : base;
   els.confirmCode.textContent = data.code;
+
+  // Shown on the first whisper only, and shown plainly. There is no account
+  // and no e-mail, so this string is the only way back to your own words from
+  // another phone — and the only thing that will ever let you delete them.
+  // Saying that once, at the moment it is created, is the honest version of a
+  // sign-up form.
+  const code = showRecovery ? identity.recoveryCode() : null;
+  if (code) {
+    els.recoveryCode.textContent = code;
+    els.recoveryLabel.textContent = t('recoveryLabel');
+    els.recoveryHint.textContent = t('recoveryHint');
+    els.recoveryBlock.classList.remove('hidden');
+  } else {
+    els.recoveryBlock.classList.add('hidden');
+  }
   openSheet(els.confirmOverlay, els.confirmSheet);
 }
 
@@ -400,7 +430,12 @@ function showConfirm(data) {
 
 async function openDetail(id, rect) {
   try {
-    const res = await fetch(`/api/bubbles/${id}`);
+    // The hash, not the secret. It is enough for the server to answer "yours",
+    // and worth nothing to anyone who sees it go past.
+    const mineHash = await identity.hash();
+    const res = await fetch(`/api/bubbles/${id}`, {
+      headers: mineHash ? { 'x-author': mineHash } : {},
+    });
     const data = await res.json();
     if (!res.ok) return showToast(t('errorGeneric'));
     renderRead(data.bubble, data.replies, rect);
@@ -432,6 +467,11 @@ function renderRead(bubble, replies, rect) {
   }
   state.detailBubbleId = bubble.id;
   state.detailBubble = bubble;
+  // The server decided this, not the browser: it compared the hash this device
+  // sent against the one stored with the whisper. A list in localStorage is
+  // what used to answer this question, and it could be wrong in the direction
+  // that matters.
+  els.readDeleteBtn.classList.toggle('hidden', !bubble.mine);
   els.readOverlay.dataset.type = bubble.type;
   els.readContent.textContent = bubble.content;
   setLightButtonState(bubble.id);
@@ -478,6 +518,37 @@ function renderRead(bubble, replies, rect) {
         sendReport('reply', r.id, flag, () => item.remove());
       });
       who.appendChild(flag);
+
+      // Your own words, on someone else's whisper. The author of the whisper
+      // cannot remove these — they belong to whoever wrote them — so this
+      // appears only for the person who did, and only because the server said
+      // so.
+      if (r.mine) {
+        const remove = document.createElement('button');
+        remove.className = 'report-pill';
+        remove.textContent = t('deleteMine');
+        remove.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!window.confirm(t('deleteReplyConfirm'))) return;
+          remove.disabled = true;
+          try {
+            const res = await fetch(`/api/replies/${r.id}`, {
+              method: 'DELETE',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ secret: identity.secret() }),
+            });
+            if (!res.ok) throw new Error('failed');
+            item.remove();
+            showToast(t('deleteDone'));
+            loadWhispers();
+          } catch {
+            remove.disabled = false;
+            showToast(t('errorGeneric'));
+          }
+        });
+        who.appendChild(remove);
+      }
+
       item.append(body, who);
       els.readReplies.appendChild(item);
     }
@@ -964,6 +1035,37 @@ function toggleListen() {
 }
 
 
+// Take back your own whisper.
+//
+// Two taps, because it cannot be undone, and the second one says what actually
+// goes: the whisper leaves the sky, and the reading of it is deleted with it.
+// The replies other people left underneath are their words and are not the
+// author's to erase — the whisper simply stops being readable, and they go with
+// it rather than being handed to anyone else.
+async function deleteMine() {
+  const id = state.detailBubbleId;
+  if (!id) return;
+  if (!window.confirm(t('deleteConfirm'))) return;
+
+  els.readDeleteBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/bubbles/${id}`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ secret: identity.secret() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return showToast(t(data.error === 'not_yours' ? 'deleteNotYours' : 'errorGeneric'));
+    showToast(t('deleteDone'));
+    closeRead();
+    loadWhispers();
+  } catch {
+    showToast(t('errorGeneric'));
+  } finally {
+    els.readDeleteBtn.disabled = false;
+  }
+}
+
 async function leaveLight() {
   const id = state.detailBubbleId;
   if (!id || hasLeftLight(id)) return;
@@ -999,7 +1101,12 @@ async function submitReply() {
     const res = await fetch(`/api/bubbles/${state.detailBubbleId}/replies`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ content, code: els.replyCode.value.trim(), lang: currentLang }),
+      body: JSON.stringify({
+        content,
+        code: els.replyCode.value.trim(),
+        lang: currentLang,
+        secret: identity.secret(),
+      }),
     });
     const data = await res.json();
     if (!res.ok) return showError(els.replyError, t(ERROR_KEYS[data.error] || 'errorGeneric'));
@@ -1038,9 +1145,10 @@ async function submitFind() {
 // A name can hold many whispers, so show them as a tappable list; tapping one
 // opens its full detail (with replies).
 function renderFindResults(bubbles) {
-  // Whispers found by your own code are yours — remember them so you can
-  // make videos of them.
-  for (const b of bubbles) rememberMyBubble(b.id);
+  // Looking a name up is not proof of being that person. A name is public —
+  // it is printed under every whisper — so claiming the results as "mine"
+  // meant anyone who read a byline could take the whisper over. Ownership now
+  // comes from the device secret and nothing else.
   els.findResult.innerHTML = '';
   const title = document.createElement('p');
   title.className = 'find-results-title';
@@ -1225,6 +1333,12 @@ function init() {
       showToast(t('copied'));
     } catch { /* ignore */ }
   });
+  els.recoveryCopy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(els.recoveryCode.textContent);
+      showToast(t('copied'));
+    } catch { /* ignore */ }
+  });
   wireOverlayClose(els.confirmOverlay, els.confirmSheet);
 
   els.readClose.addEventListener('click', closeRead);
@@ -1244,6 +1358,7 @@ function init() {
     els.listenDock.classList.add('hidden');
   });
   els.readLightBtn.addEventListener('click', leaveLight);
+  els.readDeleteBtn.addEventListener('click', deleteMine);
   els.readReportBtn.addEventListener('click', () => {
     const id = state.detailBubbleId;
     if (!id) return;

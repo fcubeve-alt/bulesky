@@ -177,6 +177,15 @@
     <button id="confirm-copy" class="btn-small btn-secondary"></button>
   </div>
   <p id="confirm-hint" class="hint"></p>
+  <!-- Shown once, on the first whisper this device ever sends. There is no
+       account to fall back on, so this string is the only way to reach your own
+       words from another phone — and the only thing that can delete them. -->
+  <div id="recovery-block" class="code-display hidden">
+    <span id="recovery-label" class="chip"></span>
+    <span id="recovery-code"></span>
+    <button id="recovery-copy" class="btn-small btn-secondary"></button>
+  </div>
+  <p id="recovery-hint" class="hint"></p>
   <button id="confirm-close" class="btn-primary"></button>
 </section>
 
@@ -190,6 +199,8 @@
       <div class="read-byline">
         <div id="read-author" class="read-author"></div>
         <button id="read-report-btn" class="report-pill"></button>
+        <!-- Only the author sees this, and only because the server said so. -->
+        <button id="read-delete-btn" class="report-pill hidden"></button>
       </div>
       <h3 id="detail-replies-title" class="read-replies-title"></h3>
       <div id="read-replies" class="read-replies"></div>
