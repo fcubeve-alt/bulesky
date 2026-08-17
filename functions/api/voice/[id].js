@@ -4,7 +4,6 @@ import {
   synthesize,
   providerFor,
   auraModel,
-  elevenVoiceReport,
   chunkForSpeech,
   openaiTtsModel,
   openaiVoice,
@@ -86,24 +85,13 @@ async function probe(env) {
     cached = { error: String(e.message || e) };
   }
 
-  // Which voices this ElevenLabs plan may actually speak with. The 402 refusals
-  // in the log are a plan limit, not a bug in the id, and the only way to tell
-  // whether the account has any usable voice at all is to ask it.
-  const elevenlabs = await elevenVoiceReport(env).catch((e) => ({
-    error: String((e && e.message) || e).slice(0, 200),
-  }));
-
   return new Response(
     JSON.stringify({
       cached,
       recentFailures,
-      elevenlabs,
       hasDB: Boolean(env && env.DB),
       hasAI: Boolean(env && env.AI),
-      hasElevenLabsKey: Boolean(env && env.ELEVENLABS_API_KEY),
       hasOpenAIKey: Boolean(env && env.OPENAI_API_KEY),
-      hasVolcCreds: Boolean(env && env.VOLC_APPID && env.VOLC_ACCESS_TOKEN),
-      hasGeminiKey: Boolean(env && env.GEMINI_API_KEY),
       provider: providerFor(env),
       classifierOn: Boolean(env && env.VOICE_CLASSIFIER),
       model: auraModel(env),

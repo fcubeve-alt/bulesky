@@ -1,9 +1,8 @@
 // Reading a whisper aloud.
 //
-// Six providers, tried in order, first one that produces audio wins. See CHAIN
-// for the order and why it is that order — it is not "best model first", it is
-// "what this site actually needs first", and those turned out to be different
-// things.
+// One provider that reads and two that cannot run out, tried in order, first
+// one that produces audio wins. See CHAIN for why it is those three and not the
+// six it used to be.
 //
 // The preferred provider's name is part of the cache key, so changing the head
 // of the chain regenerates every reading rather than serving the old voice
@@ -214,77 +213,45 @@ export function auraModel(env) {
   return (env && env.VOICE_MODEL) || DEFAULT_AURA_MODEL;
 }
 
-// Best first, and everything that is configured after it. This is an order of
-// preference, not a single choice: see synthesize().
+// One provider that reads, and two behind it that cannot run out.
 //
-// MeloTTS is last and is the floor. Every other entry can run out — ElevenLabs'
-// free plan is 10,000 characters a MONTH, and Deepgram's Aura is a partner
-// model on Workers AI, which is why it answers 429 even hours after the daily
-// free allocation resets. MeloTTS is Cloudflare's own model on the binding this
-// project already has, so it needs no key, no account and no card, and it is
-// the difference between a listener hearing a modest voice and hearing the
-// phone's flat built-in one.
-// Aura is NOT first, and the round trip is worth writing down so nobody makes
-// it again.
+// This used to be six. ElevenLabs, Volcengine and Gemini were each added as the
+// answer to a different failure, and none of them ended up being what the site
+// speaks with: ElevenLabs' free plan is 10,000 characters a MONTH and was
+// exhausted, Volcengine was never bought, and the Google project denies
+// generateContent outright — it did not even fail quickly, it hung for a full
+// deadline on every reading before the next provider got a turn. Three
+// providers nobody could use, sitting in the request path, being tried in order
+// on every cache miss. They are deleted. `git log` has them if a key ever gets
+// bought, and adding one back is a CHAIN entry, an available() line and a
+// speak() branch.
 //
-// It was promoted to the front because it is fast and small — 0.6s and 12KB
-// against Gemini's ~9s and half a megabyte — and because the owner, having
-// heard an over-directed Gemini reading, asked for "just a normal voice".
-// Putting the plainest option in front was a literal reading of that, and it
-// was wrong. What came back: reads too fast, does not even pause at a full
-// stop, no feeling at all. "That definitely will not do."
+// What is left is what actually serves the site: the OpenAI-compatible relay,
+// and then Workers AI, which needs no key, no account and no card.
 //
-// The lesson is not "Aura is bad". It is that "normal" meant "stop over-acting",
-// not "stop acting" — and a model that cannot be directed at all has no middle
-// setting to find. Only a provider that takes direction can be tuned between
-// too much and too little, so a directable one leads and the tuning happens in
-// DELIVERY where it can be adjusted a sentence at a time.
+// The two Workers AI legs stay even though the relay is the only one in use.
+// They are not competition for it — they cost nothing when the relay answers,
+// because a provider is only tried after the one in front of it has failed.
+// They exist for the day the free relay is out of quota, and the choice they
+// settle is not "a nicer voice or a plainer one", it is "a plainer voice or the
+// phone's own", which is not really a choice at all.
 //
-// Aura stays as the fallback that never runs out of anything, which is what it
-// is genuinely good at.
+// Aura is a partner model on Workers AI and answers 429 even hours after the
+// daily free allowance resets, so MeloTTS — Cloudflare's own model on the
+// binding this project already has — is the floor underneath it.
 //
-// The old note, kept because the measurements are still true and still matter:
-//
-// This feature was built on the premise that delivery is the point — that a
-// flat reading of "I miss you" is worse than none. Two providers that can
-// actually follow a delivery note later arrived, and the reading they produced
-// was rejected by the person who asked for it: too much rise and fall, too
-// performed, "just give me a normal voice". That is the requirement now, and it
-// beats the premise.
-//
-// The measurements agree, and they are not close:
-//
-//   aura     0.6s   11,912 bytes  (MP3)
-//   gemini    ~9s  514,604 bytes  (uncompressed WAV, 43x larger)
-//
-// Those bytes are not only a download. They are written into D1 behind every
-// first listen and read back out of it on every replay — the same database the
-// whisper list and the reading view query — so a megabyte of audio per whisper
-// slowed the whole site down, not just the voice. Opening a balloon started
-// taking a second or two, which is the tell that this was never really about
-// speech at all.
-//
-// So: the fast, small, plain one leads. Everything below it is a fallback for
-// when Workers AI runs out of its daily allowance, and a paid provider that is
-// genuinely better can be promoted back above it by moving one word.
-// Gemini sits at the back rather than second.
-//
-// It is not merely failing — it hangs, and the live trail shows it spending a
-// full deadline on every reading the relay does not serve first, before failing
-// anyway (the Google project denies generateContent outright). A provider that
-// fails fast costs nothing to keep high in the chain; one that fails slowly is
-// charged to the listener as dead waiting time on top of whatever comes next.
-// It stays in the chain because the key may start working, but it may no longer
-// stand in front of anything.
-const CHAIN = ['openai', 'volc', 'aura', 'elevenlabs', 'melo', 'gemini'];
+// Worth keeping from the old note, because it is why the relay leads: this
+// feature exists to be *directed*. Aura takes no delivery instruction at all,
+// and when it was briefly promoted to the front the verdict was immediate —
+// reads too fast, does not pause at a full stop, no feeling. A model that
+// cannot be directed has no middle setting to find, so the directable one
+// leads and the tuning happens in DELIVERY.
+const CHAIN = ['openai', 'aura', 'melo'];
 
 function available(env) {
   return CHAIN.filter(
     (p) =>
-      (p === 'elevenlabs' && env?.ELEVENLABS_API_KEY) ||
       (p === 'openai' && env?.OPENAI_API_KEY) ||
-      (p === 'gemini' && env?.GEMINI_API_KEY) ||
-      (p === 'volc' && env?.VOLC_APPID && env?.VOLC_ACCESS_TOKEN) ||
       (p === 'aura' && env?.AI) ||
       (p === 'melo' && env?.AI)
   );
@@ -353,7 +320,18 @@ export async function synthesize(text, type, voiceKey, env) {
 // instead of the sum of all of them. That matters as much as the prosody — the
 // other half of the report was that the text had scrolled past before the voice
 // started.
-const CHUNK_CHARS = 200;
+//
+// 140 rather than 200, asked for after listening: shorter pieces come back with
+// more feeling in them. That is the same finding as the original report, one
+// step further along — the less text a conversational model is handed at once,
+// the closer it stays to a turn in a conversation, which is what it is good at.
+//
+// It is not free, and the cost is worth knowing before anyone tries 60. Every
+// piece is one more request against a free relay's rate limit, one more join in
+// the joined-up audio, and one more chance for a vendor to answer in a slightly
+// different voice. The deadline already grows with the number of pieces, so
+// this trades quota and seams for delivery — deliberately, and not much further.
+const CHUNK_CHARS = 140;
 
 // One whisper is one person reading. Every piece goes out with the same
 // narrator and the same voice id, and nothing in here may retry a piece with a
@@ -462,9 +440,6 @@ function withDeadline(work, provider, ms = ATTEMPT_MS) {
 
 function speak(provider, input, type, voiceKey, env) {
   if (provider === 'openai') return openaiSpeech(input, type, voiceKey, env);
-  if (provider === 'elevenlabs') return elevenSpeech(input, voiceKey, env);
-  if (provider === 'gemini') return geminiSpeech(input, type, voiceKey, env);
-  if (provider === 'volc') return volcSpeech(input, voiceKey, env);
   if (provider === 'melo') return meloSpeech(input, env.AI);
   return auraSpeech(input, voiceKey, env.AI, auraModel(env));
 }
@@ -508,43 +483,47 @@ function mimeForFormat(format) {
   return format === 'aac' ? MIME : 'audio/mpeg';
 }
 
-// Voice rosters do not travel. "coral" means nothing to Deepgram, which has
-// Haley and Jack. Known rosters are matched by model name; an explicitly
-// configured id always wins, so a model nobody here has heard of is one env var
-// away from working.
-// Deepgram's ids are flux-{name}-{language}, not the bare first name a voice is
-// listed under. Sending "jack" gets a 400 that helpfully enumerates the real
-// ones — which is how these two were found. Both are confirmed present in that
-// list; which of them sounds right is a judgement made without ears, so
-// OPENAI_VOICE_MALE / OPENAI_VOICE_FEMALE exist to change them without a
-// deploy.
-// One man and one woman per roster, and the same id on every piece of a
-// whisper — this is the path the site actually reads through, so this is where
-// that rule has to hold.
+// Voice rosters do not travel. "coral" means nothing to Deepgram, and the ids
+// there are flux-{name}-{language} rather than the bare first name a voice is
+// listed under — sending "jack" gets a 400 that helpfully enumerates the real
+// ones, which is how these two were found.
 //
-// The last line is the weak one, and it is worth knowing about. A model with no
-// roster here and no OPENAI_VOICE_* set is sent OpenAI's own names, which a
-// relay serving somebody else's model does not know. A vendor that does not
-// know the name it was given is free to answer in whatever voice it likes, and
-// nothing says it will pick the same one twice — so a whisper split into pieces
-// can come back in more than one voice without anything here having changed.
-// Pinning OPENAI_VOICE_MALE / OPENAI_VOICE_FEMALE to real ids for the model in
-// use closes it without a deploy.
-const RELAY_VOICES = [
-  [/flux/i, { warm_female: 'flux-brooke-en', gentle_male: 'flux-cliff-en' }],
-];
+// One man and one woman, named outright. This is the path the site actually
+// reads through, so this is where "a whisper is read by one person" has to hold,
+// and it now holds without depending on a model name matching a pattern.
+//
+// The pattern is what went wrong. Before, a model that did not look like a
+// known roster fell through to OpenAI's own names, and a relay serving somebody
+// else's model does not know them. A vendor that does not recognise the name it
+// was given picks something, and nothing says it picks the same thing twice —
+// so a long whisper, which is several requests, could come back in more than
+// one voice with nothing on this side having changed. That is silent, and it is
+// exactly the fault that was reported.
+//
+// So: OpenAI's own names are used only for OpenAI's own models, and everything
+// else is asked for by relay id. If the relay is serving something other than
+// Flux the id will be refused — loudly, in voice_errors, with the valid list in
+// the message — and Aura reads the whisper in one voice meanwhile. A refusal
+// that says what to do next is worth more here than a voice that quietly
+// changes person halfway through.
+const RELAY_VOICES = { warm_female: 'flux-brooke-en', gentle_male: 'flux-cliff-en' };
 
 export function openaiTtsModel(env) {
   return (env && env.OPENAI_TTS_MODEL) || MODEL;
 }
 
+function isOpenAIModel(model) {
+  return /gpt-4o|tts-1/i.test(model);
+}
+
+// OPENAI_VOICE_MALE / OPENAI_VOICE_FEMALE always win, so a new model's real ids
+// go in from the dashboard without a deploy. `?probe=1` reports what this
+// returns for both narrators, which is the only way to see it from outside.
 export function openaiVoice(voiceKey, model, env) {
   const configured = voiceKey === 'gentle_male' ? env.OPENAI_VOICE_MALE : env.OPENAI_VOICE_FEMALE;
   if (configured) return configured;
-  for (const [pattern, roster] of RELAY_VOICES) {
-    if (pattern.test(model)) return roster[voiceKey] || roster.warm_female;
-  }
-  return VOICES[voiceKey] || VOICES.warm_female;
+  const roster = isOpenAIModel(model) ? VOICES : RELAY_VOICES;
+  return roster[voiceKey] || roster.warm_female;
 }
 
 async function openaiSpeech(input, type, voiceKey, env) {
@@ -584,133 +563,6 @@ async function openaiSpeech(input, type, voiceKey, env) {
   const declared = res.headers.get('content-type') || '';
   const mime = /^audio\//i.test(declared) ? declared.split(';')[0].trim() : mimeForFormat(format);
   return { bytes, mime };
-}
-
-// ElevenLabs. A plain HTTPS call with a key — no platform binding, no Workers
-// AI quota, none of the machinery the Aura path goes through. When a key is
-// present this is the provider, both because it is the best-sounding option and
-// because it is the simplest thing that can possibly work.
-//
-// No voice id is hardcoded, deliberately. The two that were — Rachel and Adam —
-// are Voice Library voices, and a free plan may not use those through the API
-// at all: every request came back 402 "paid_plan_required". Asking the account
-// what it has did not fix it either, because the voices listed on a free
-// account are largely library voices too, so the fallback picked another
-// forbidden id and got the same refusal.
-//
-// What a free plan may use is the premade set, which carries category
-// "premade". So the list is filtered by what the plan permits rather than
-// merely by what the account can see.
-const ELEVEN_MODEL = 'eleven_multilingual_v2';
-
-// ElevenLabs' premade voices, whose ids are public constants shared by every
-// account. Speaking with one needs only the text-to-speech permission — no
-// voices_read, no account lookup, nothing the owner has to go and switch on.
-//
-// This is the whole answer to the 401 the probe found. The key on this project
-// is scoped to text-to-speech and nothing else, so asking the account which
-// voices it has was refused; asking it to speak with a voice everybody already
-// has is not. I was requiring a permission the feature never needed.
-//
-// One man and one woman, and that is the whole roster on purpose.
-//
-// There used to be three of each, tried in turn when one was refused — written
-// when a reading was a single request, where falling to the next id is simply a
-// second attempt at the same thing. A long whisper is not one request any more;
-// it is one request per piece, joined back together. So the fallback stopped
-// meaning "try again" and started meaning "let the next voice read the rest of
-// it": one piece refused, one piece answered by Brian, the rest by Eric, and
-// what the listener gets is two different men inside one whisper. Reported, and
-// rightly — it is not a rough edge, it is two people.
-//
-// The list was never what kept the site from going silent anyway. Six providers
-// are; a refusal here simply drops to the next one and the whole whisper is
-// read by whoever answers. So the roster is one voice per narrator, there is
-// nothing to fall to mid-reading, and a reading is one person from start to end.
-const ELEVEN_PREMADE = {
-  gentle_male: 'nPczCjzI2devNBz1zQrb', // Brian — deep, calm
-  warm_female: 'EXAVITQu4vr4xnSDxMaL', // Sarah — soft, gentle
-};
-
-// Premade voices are the ones a free plan may speak with; anything the account
-// added from the Voice Library is refused with 402. Kept for the probe, which
-// is the only thing that reads the account's list now.
-export function usableVoices(voices) {
-  const premade = voices.filter((v) => String(v?.category || '').toLowerCase() === 'premade');
-  return premade.length ? premade : voices;
-}
-
-// What the account can actually speak with, for the probe only — synthesis no
-// longer needs it, which is the point: this lookup requires the voices_read
-// permission and the reading itself does not.
-export async function elevenVoiceReport(env) {
-  if (!env?.ELEVENLABS_API_KEY) return null;
-  try {
-    const res = await fetch('https://api.elevenlabs.io/v1/voices', {
-      headers: { 'xi-api-key': env.ELEVENLABS_API_KEY },
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      return { status: res.status, detail: detail.slice(0, 200) };
-    }
-    const data = await res.json().catch(() => null);
-    const voices = Array.isArray(data?.voices) ? data.voices : [];
-    return {
-      status: res.status,
-      total: voices.length,
-      usable: usableVoices(voices).length,
-      voices: voices.slice(0, 12).map((v) => ({
-        id: v.voice_id,
-        name: v.name,
-        category: v.category,
-        gender: v?.labels?.gender || null,
-      })),
-    };
-  } catch (e) {
-    return { error: String((e && e.message) || e).slice(0, 200) };
-  }
-}
-
-async function elevenRequest(voiceId, input, key) {
-  return fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-    method: 'POST',
-    headers: { 'xi-api-key': key, 'content-type': 'application/json', accept: 'audio/mpeg' },
-    body: JSON.stringify({
-      text: input,
-      model_id: ELEVEN_MODEL,
-      // Lower stability leaves room for the delivery to move with the words,
-      // which is the entire reason for using this provider. High style pushes
-      // it into performance, which this material must never sound like.
-      voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.25, use_speaker_boost: true },
-    }),
-  });
-}
-
-// The one voice this narrator speaks with. Premade unless the owner has named
-// another from the dashboard — the premade id needs no extra permission and no
-// account lookup, so the common case costs one HTTP call instead of two.
-//
-// One id, deliberately, and it is the same id for every piece of a whisper. See
-// ELEVEN_PREMADE: anything that can change the voice between pieces changes it
-// in the middle of a sentence.
-export function elevenVoice(voiceKey, env) {
-  const configured =
-    voiceKey === 'gentle_male' ? env.ELEVENLABS_VOICE_MALE : env.ELEVENLABS_VOICE_FEMALE;
-  return configured || ELEVEN_PREMADE[voiceKey] || ELEVEN_PREMADE.warm_female;
-}
-
-async function elevenSpeech(input, voiceKey, env) {
-  const voiceId = elevenVoice(voiceKey, env);
-  const res = await elevenRequest(voiceId, input, env.ELEVENLABS_API_KEY);
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`elevenlabs ${res.status}: ${detail.slice(0, 160)}`);
-  }
-
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  if (!looksLikeAudio(bytes)) throw new Error(`elevenlabs returned ${bytes.length} bytes, not audio`);
-  return { bytes, mime: 'audio/mpeg' };
 }
 
 // Deepgram Aura, through the Workers AI binding that report moderation already
@@ -765,176 +617,6 @@ async function auraSpeech(input, voiceKey, ai, model) {
     }
   }
   throw new Error(`aura: ${lastError}`);
-}
-
-// Google Gemini speech, through an AI Studio key.
-//
-// The only provider on this list with a free allowance that does not ask for a
-// card, which for this project is not a footnote — it is the difference between
-// having a voice and not. It also takes plain-language direction, so DELIVERY
-// works here the way it does on OpenAI and nowhere else on this chain.
-//
-// Nothing about its shape resembles OpenAI's: the request is generateContent
-// with an AUDIO modality, and the audio comes back inside the model's reply as
-// base64.
-const GEMINI_HOST = 'https://generativelanguage.googleapis.com/v1beta/models';
-const GEMINI_MODEL = 'gemini-2.5-flash-preview-tts';
-
-// Two of the thirty prebuilt voices, chosen from their published descriptions
-// rather than by listening — "warm" and "easy-going" are the two that suit a
-// whisper read at night. Both are overridable without a deploy, because this is
-// a judgement made deaf.
-const GEMINI_VOICES = {
-  warm_female: 'Sulafat', // "warm" — the one voice nobody has complained about
-  // Third male voice. Umbriel ("easy-going") came out sunk and slow; Iapetus
-  // ("clear") was never actually heard, because Gemini was 503 that day and
-  // then dropped down the chain. Algieba is "smooth", which is the roster's
-  // word for the quality being asked for — magnetic, resonant, carrying.
-  gentle_male: 'Algieba',
-};
-
-async function geminiSpeech(input, type, voiceKey, env) {
-  const model = env.GEMINI_TTS_MODEL || GEMINI_MODEL;
-  const configured = voiceKey === 'gentle_male' ? env.GEMINI_VOICE_MALE : env.GEMINI_VOICE_FEMALE;
-  const voice = configured || GEMINI_VOICES[voiceKey] || GEMINI_VOICES.warm_female;
-
-  // Direction goes in the prompt rather than in a field. This is the whole
-  // reason the DELIVERY strings exist, and only two providers have ever been
-  // able to use them.
-  const prompt = `${DELIVERY[type] || DELIVERY.pain}\n\n${input}`;
-
-  const res = await fetch(`${GEMINI_HOST}/${model}:generateContent`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseModalities: ['AUDIO'],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
-      },
-    }),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`gemini ${res.status}: ${detail.slice(0, 200)}`);
-  }
-
-  const data = await res.json().catch(() => null);
-  const part = data?.candidates?.[0]?.content?.parts?.find((p) => p?.inlineData?.data);
-  if (!part) {
-    const why = data?.promptFeedback?.blockReason || data?.candidates?.[0]?.finishReason || 'no audio in response';
-    throw new Error(`gemini: ${String(why).slice(0, 160)}`);
-  }
-
-  const mime = String(part.inlineData.mimeType || '');
-  const bytes = fromBase64(part.inlineData.data);
-
-  // Raw PCM, not a playable file. Gemini answers with 24kHz 16-bit mono samples
-  // and a mime type like "audio/L16;codec=pcm;rate=24000" — headerless, so a
-  // browser handed these bytes has no idea what they are and simply refuses
-  // them. Google's own issue tracker is full of this. The cache here is
-  // permanent, so storing them unwrapped would mean a whisper that can never be
-  // played, forever.
-  if (/L16|pcm/i.test(mime)) {
-    const rate = Number(/rate=(\d+)/i.exec(mime)?.[1]) || 24000;
-    return { bytes: wavFromPcm(bytes, rate), mime: 'audio/wav' };
-  }
-
-  if (!looksLikeAudio(bytes)) throw new Error(`gemini returned ${bytes.length} bytes, not audio`);
-  return { bytes, mime: /^audio\//i.test(mime) ? mime.split(';')[0].trim() : 'audio/mpeg' };
-}
-
-// A 44-byte RIFF header in front of the samples is the whole of "unplayable"
-// to "plays everywhere". Nothing is re-encoded: the samples are untouched.
-function wavFromPcm(pcm, sampleRate, channels = 1, bits = 16) {
-  const out = new Uint8Array(44 + pcm.length);
-  const view = new DataView(out.buffer);
-  const blockAlign = (channels * bits) / 8;
-  const ascii = (at, s) => { for (let i = 0; i < s.length; i += 1) out[at + i] = s.charCodeAt(i); };
-
-  ascii(0, 'RIFF');
-  view.setUint32(4, 36 + pcm.length, true); // everything after this field
-  ascii(8, 'WAVE');
-  ascii(12, 'fmt ');
-  view.setUint32(16, 16, true); // PCM header length
-  view.setUint16(20, 1, true); // 1 = uncompressed PCM
-  view.setUint16(22, channels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * blockAlign, true); // bytes per second
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, bits, true);
-  ascii(36, 'data');
-  view.setUint32(40, pcm.length, true);
-  out.set(pcm, 44);
-  return out;
-}
-
-// Volcengine (ByteDance / Doubao) large-model speech.
-//
-// Every provider above this one is unbuyable from where this site is run: OpenAI
-// does not sell to mainland China at all, and OpenAI, Google and ElevenLabs
-// alike want a card this project does not have. A provider that cannot be paid
-// for is not a provider. This one takes domestic payment, which is the only
-// reason it is second in the chain rather than further down.
-//
-// One POST, two credentials, base64 MP3 back. Set VOLC_APPID and
-// VOLC_ACCESS_TOKEN and it is live; nothing else here needs touching.
-const VOLC_ENDPOINT = 'https://openspeech.bytedance.com/api/v1/tts';
-const VOLC_OK = 3000;
-
-// Two of the preset roster, one each. Overridable without a deploy because the
-// available voices depend on what the account has enabled, and a voice id that
-// is not enabled is a 400 rather than something we can discover from here.
-const VOLC_VOICES = {
-  warm_female: 'zh_female_wanwanxiaohe_moon_bigtts',
-  gentle_male: 'zh_male_wennuanahu_moon_bigtts',
-};
-
-async function volcSpeech(input, voiceKey, env) {
-  const configured = voiceKey === 'gentle_male' ? env.VOLC_VOICE_MALE : env.VOLC_VOICE_FEMALE;
-  const voice = configured || VOLC_VOICES[voiceKey] || VOLC_VOICES.warm_female;
-
-  const res = await fetch(VOLC_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      // Semicolon, not space. This is Volcengine's own spelling of the scheme
-      // and an ordinary "Bearer " here fails authentication.
-      authorization: `Bearer;${env.VOLC_ACCESS_TOKEN}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      app: {
-        appid: env.VOLC_APPID,
-        token: env.VOLC_ACCESS_TOKEN,
-        cluster: env.VOLC_CLUSTER || 'volcano_tts',
-      },
-      user: { uid: 'cubewithin' },
-      audio: {
-        voice_type: voice,
-        encoding: 'mp3',
-        // Slower than default on purpose, for the same reason the client plays
-        // at 0.82: this material is not an announcement.
-        speed_ratio: Number(env.VOLC_SPEED || 0.9),
-      },
-      request: { reqid: crypto.randomUUID(), text: input, operation: 'query' },
-    }),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`volc ${res.status}: ${detail.slice(0, 160)}`);
-  }
-
-  // Answers 200 with a code in the body, so the HTTP status alone means nothing.
-  const data = await res.json().catch(() => null);
-  if (!data || data.code !== VOLC_OK || !data.data) {
-    throw new Error(`volc ${data?.code ?? 'no code'}: ${String(data?.message || '').slice(0, 160)}`);
-  }
-
-  const bytes = fromBase64(data.data);
-  if (!looksLikeAudio(bytes)) throw new Error(`volc returned ${bytes.length} bytes, not audio`);
-  return { bytes, mime: 'audio/mpeg' };
 }
 
 // MeloTTS, Cloudflare's own text-to-speech model on the same binding.
