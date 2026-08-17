@@ -153,9 +153,31 @@ PRD §2 列的 My Sky、收藏、Listen、触觉、系统分享,正好就是把�
 **代价要一起说清楚:**
 
 - 复杂动画不如原生流畅。这个站的天空是 CSS/Canvas 飘气球,压力不大,但机型很旧的手机会有差别。
-- 上架 iOS **必须有一台 Mac + Xcode**,这一步绕不过去(Capacitor 也一样)。
+- 上架 iOS 要在 macOS 上打包 —— 但**不需要自己有 Mac**,见下一节。
 - 每次改网页要重新打包发版;不想发版的话可以让部分内容走线上加载,但那部分就没有离线。
 
 **为什么不建议重写**:`scene.js` 的天空、`ambient.js` 的音频图、Listen 那一整套 iOS 手势与 Web Audio 规则,
 在 ROADMAP §7e/§7f 里每一条都是踩出来的(`element.volume` 在 iPhone 上无效、点击到出声之间不能有 `await`、
 装饰不能变成静音……)。重写等于把这些坑按同样的顺序再踩一遍,而换来的只是"原生"两个字。
+
+## 九、没有 Mac 怎么上架 iOS(站主全程 Windows)
+
+**结论:一台 Mac 都不需要,连借一次都不用。** 上架分四件事,只有"打包"那一步需要 macOS,而那一步可以租云端的 Mac。
+
+| 步骤 | 在哪做 | 需要 Mac 吗 |
+|---|---|---|
+| 注册 Apple Developer Program($99/年) | 网页 / iPhone 上的 Developer App | 否 |
+| 把网页打包成 iOS 安装包 | **云端构建服务**(它那边跑真的 Mac) | 否 |
+| 证书 / 描述文件 | 用 App Store Connect API Key 让 CI 自动生成 | 否(2019 年之后就不用了) |
+| 填资料、传截图、提交审核 | 网页 appstoreconnect.apple.com | 否 |
+| 自己在 iPhone 上试用 | TestFlight(App Store 里装) | 否,但**需要一部 iPhone** |
+
+**推荐 Codemagic**:有现成的 Capacitor / Ionic 流程,托管 App Store Connect API Key、自动处理证书,
+直接发到 TestFlight 和 App Store,有免费额度(具体分钟数以注册时页面为准)。
+备选:GitHub Actions 的 macOS runner(仓库已经在 GitHub,但 macOS 分钟按 10 倍计费)、Capgo Cloud Build。
+
+**⚠️ 2026-04-28 起,提交到 App Store 的包必须用 Xcode 26 以上构建。** 云端服务会跟进版本,自己维护构建机就要自己升。
+
+**⚠️ 真正要先确认的不是 Mac,是付款**:Apple Developer Program 的 $99/年只能刷卡,
+和 ROADMAP §7f 里"买不到的 provider 不是 provider"是同一类问题 —— 先确认这张卡能付,再谈上架时间表。
+Google Play 是 $25 一次性,同样要确认。
