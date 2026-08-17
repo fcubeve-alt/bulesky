@@ -8,6 +8,7 @@ import {
   openaiTtsModel,
   openaiVoice,
 } from '../../../src/tts.js';
+import { readVoice, writeVoice, voiceStore } from '../../../src/voice-store.js';
 
 // Read a whisper aloud. Returns audio, never JSON on success.
 //
@@ -93,6 +94,9 @@ async function probe(env) {
       hasAI: Boolean(env && env.AI),
       hasOpenAIKey: Boolean(env && env.OPENAI_API_KEY),
       provider: providerFor(env),
+      // Where finished readings are kept. 'd1' means the bucket is not bound
+      // yet and audio still shares a database with the whispers themselves.
+      store: voiceStore(env),
       classifierOn: Boolean(env && env.VOICE_CLASSIFIER),
       model: auraModel(env),
       // Which voice each narrator will actually be asked for, on whatever is
@@ -259,13 +263,9 @@ async function readAloud({ request, params, env, waitUntil }) {
 
   const hash = await voiceHash(text, bubble.type, env);
 
-  const { results: parts } = await env.DB.prepare(
-    `SELECT mime, data FROM voice_chunks WHERE hash = ? ORDER BY part ASC`
-  )
-    .bind(hash)
-    .all();
-  if (parts && parts.length) {
-    return audio(join(parts.map((p) => p.data)), parts[0].mime, request, `cache:${parts[0].voice || '?'}`);
+  const cached = await readVoice(env, hash);
+  if (cached) {
+    return audio(cached.bytes, cached.mime, request, `cache:${cached.voice || '?'}:${cached.from}`);
   }
 
   // No provider at all — not even the Workers AI binding — so say so plainly and
@@ -343,60 +343,12 @@ async function readAloud({ request, params, env, waitUntil }) {
 
 async function cacheReading(env, hash, out, narrator) {
   try {
-    const now = Date.now();
-    // Clear the hash first, in the same batch.
-    //
-    // Two listeners can miss the cache on the same whisper at once — the
-    // second tap while the first is still synthesising is enough, and a
-    // reading takes several seconds. Both then wrote their rows, and with
-    // `INSERT OR IGNORE` on (hash, part) the loser's rows were dropped only
-    // where the winner already had that part. Any part the winner did not have,
-    // the loser filled in. What came back out of the table on the next play was
-    // the front of one reading joined to the tail of another.
-    //
-    // Only long whispers could show it, which is why it read as "the long ones
-    // have two voices in them": a reading has to pass 900,000 bytes before it
-    // has a second part for two writers to disagree about.
-    //
-    // A batch is a transaction, so deleting inside it means one of the two
-    // racers wins outright and neither result is a splice of both.
-    const rows = [
-      env.DB.prepare(`DELETE FROM voice_chunks WHERE hash = ?`).bind(hash),
-    ];
-    for (let i = 0, part = 0; i < out.bytes.length; i += CHUNK_BYTES, part += 1) {
-      rows.push(
-        env.DB.prepare(
-          `INSERT INTO voice_chunks (hash, part, mime, data, created_at, voice)
-           VALUES (?, ?, ?, ?, ?, ?)`
-        ).bind(hash, part, out.mime, out.bytes.slice(i, i + CHUNK_BYTES), now, narrator)
-      );
-    }
-    // One batch, so a reading is either fully cached or not cached at all —
-    // half a reading in the table would be served as truncated audio forever.
-    await env.DB.batch(rows);
+    await writeVoice(env, hash, out.bytes, out.mime, narrator);
   } catch {
     /* the next listener pays for it again; nobody goes without */
   }
 }
 
-// D1 caps a single BLOB — and a single row — at 2,000,000 bytes. A minute of
-// speech is more than that, so readings are split rather than risking an insert
-// that fails silently and quietly re-bills every play. Left well short of the
-// cap to leave room for the rest of the row.
-const CHUNK_BYTES = 900_000;
-
-function join(chunks) {
-  const parts = chunks.map((c) => (c instanceof Uint8Array ? c : new Uint8Array(c)));
-  if (parts.length === 1) return parts[0];
-  const total = parts.reduce((n, p) => n + p.length, 0);
-  const out = new Uint8Array(total);
-  let at = 0;
-  for (const p of parts) {
-    out.set(p, at);
-    at += p.length;
-  }
-  return out;
-}
 
 // Serve the audio, honouring Range.
 //

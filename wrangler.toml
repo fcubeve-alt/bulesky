@@ -13,3 +13,26 @@ database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 # three-report auto-hide are unaffected, only the "hide immediately" path is.
 [ai]
 binding = "AI"
+
+# Finished readings (the Listen audio). OPTIONAL — and it must stay commented
+# out until the bucket actually exists, because Pages fails a deploy on a
+# binding it cannot resolve, and a site going dark over a storage change is a
+# bad trade.
+#
+# Audio currently lives in D1, sliced into rows, in the same database the sky
+# and the reading view query on every tap. That is fine at today's size (55
+# readings, 9.3MB) and it is the first thing that breaks at App scale — this
+# project has already had one round of "the whole site got slow" caused by
+# audio sitting next to the whispers.
+#
+# To switch it on:
+#   1. npx wrangler r2 bucket create bulesky-voice
+#   2. uncomment the three lines below and deploy
+#   3. check https://cubewithin.com/api/voice/1?probe=1 says "store": "r2"
+#
+# Nothing has to be migrated. Reads try R2 and then D1, so readings made before
+# the bucket existed keep playing; new ones are written to R2.
+#
+# [[r2_buckets]]
+# binding = "VOICE_BUCKET"
+# bucket_name = "bulesky-voice"

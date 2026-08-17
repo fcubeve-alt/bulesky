@@ -1,5 +1,6 @@
 import { cleanHash, cleanSecret, hashSecret, ownsRow } from '../../../../src/identity.js';
 import { voiceHash } from '../../../../src/tts.js';
+import { deleteVoice } from '../../../../src/voice-store.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -116,7 +117,7 @@ export async function onRequestDelete({ request, params, env }) {
   // would not delete.
   try {
     const voice = await voiceHash(String(row.content || ''), row.type, env);
-    await env.DB.prepare(`DELETE FROM voice_chunks WHERE hash = ?`).bind(voice).run();
+    await deleteVoice(env, voice);
   } catch {
     /* the reading is unreachable anyway — the whisper is hidden */
   }
