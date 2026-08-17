@@ -65,7 +65,7 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'invalid_json' }, 400);
   }
 
-  const { targetType, targetId } = body || {};
+  const { targetType, targetId, reason } = body || {};
   const id = parseInt(targetId, 10);
   if ((targetType !== 'bubble' && targetType !== 'reply') || !Number.isFinite(id)) {
     return json({ error: 'invalid_target' }, 400);
@@ -88,10 +88,36 @@ export async function onRequestPost({ request, env }) {
     .first();
 
   const enoughReports = updated.report_count >= HIDE_THRESHOLD;
-  const hide = enoughReports || (await violatesGuidelines(env, row.content));
+  const byAi = enoughReports ? false : await violatesGuidelines(env, row.content);
+  const hide = enoughReports || byAi;
 
   if (hide) {
     await env.DB.prepare(`UPDATE ${table} SET hidden = 1 WHERE id = ?`).bind(id).run();
+  }
+
+  // Write the report down whatever happened.
+  //
+  // Both automatic paths record which one fired, and a report that hid nothing
+  // is still a row: a whisper reported twice and left up is exactly the case
+  // somebody should be able to look at before a third report decides it
+  // without them. Best effort — the queue is for reviewing afterwards, and a
+  // failure to log must not turn reporting itself into a dead button.
+  try {
+    await env.DB.prepare(
+      `INSERT INTO reports (item_type, item_id, reason, status, auto, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        targetType,
+        id,
+        String(reason || '').slice(0, 200) || null,
+        hide ? 'hidden' : 'open',
+        enoughReports ? 'count' : byAi ? 'ai' : null,
+        Date.now()
+      )
+      .run();
+  } catch {
+    /* the content was already dealt with above; the log is not worth failing on */
   }
 
   return json({ ok: true, hidden: hide });

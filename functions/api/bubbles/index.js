@@ -1,5 +1,9 @@
 import { containsAbusive, containsCrisisKeyword, maskContactInfo } from '../../../src/filters.js';
 import { cleanSecret, hashSecret } from '../../../src/identity.js';
+import { overLimit } from '../../../src/rate-limit.js';
+
+// Kept in step with /api/bubbles/by-code/<name>: same lookup, same limit.
+const MAX_LOOKUPS = 20;
 
 const MAX_CONTENT_LEN = 1000;
 const MAX_CODE_LEN = 30;
@@ -34,6 +38,9 @@ export async function onRequestGet({ request, env }) {
   if (codeParam !== null) {
     const code = codeParam.trim().toLowerCase();
     if (!code) return json({ error: 'empty_code' }, 400);
+    if (await overLimit(env, 'bycode', request, MAX_LOOKUPS)) {
+      return json({ error: 'too_many_lookups' }, 429);
+    }
     const { results } = await env.DB.prepare(
       `SELECT id, type, content, lang, warmth, crisis_flag, hidden, created_at
          FROM bubbles WHERE code = ? ORDER BY created_at DESC`

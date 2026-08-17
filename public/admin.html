@@ -36,6 +36,7 @@
   <div class="admin-bar">
     <h1>Posts</h1>
     <div class="row" style="margin:0">
+      <button id="open-reports" type="button">Reports</button>
       <button id="open-images" type="button">Images</button>
       <button id="new-post" class="primary" type="button">New post</button>
     </div>
@@ -44,7 +45,20 @@
   <p id="list-msg" class="msg hidden"></p>
 </main>
 
-<!-- 3. Images -->
+<!-- 3. Reports queue -->
+<main id="view-reports" class="hidden">
+  <div class="admin-bar">
+    <h1 id="reports-title">Reports</h1>
+    <div class="row" style="margin:0">
+      <button id="reports-filter" type="button">Show all</button>
+      <button id="reports-back" class="link" type="button">← All posts</button>
+    </div>
+  </div>
+  <div id="report-list"></div>
+  <p id="reports-msg" class="msg hidden"></p>
+</main>
+
+<!-- 4. Images -->
 <main id="view-images" class="hidden">
   <div class="admin-bar">
     <h1>Images</h1>
@@ -106,6 +120,7 @@ const $ = (id) => document.getElementById(id);
 const views = {
   login: $('view-login'),
   list: $('view-list'),
+  reports: $('view-reports'),
   images: $('view-images'),
   edit: $('view-edit'),
 };
@@ -148,6 +163,80 @@ async function api(path, options = {}, isLogin = false) {
 }
 
 const fmt = (ms) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+// The queue. Every report shows the words it is about, because a queue that
+// makes you look each one up by hand is a queue nobody reads.
+let reportFilter = 'open';
+
+async function loadReports() {
+  const { reports, counts } = await api(`/api/admin/reports?status=${reportFilter}`);
+  const box = $('report-list');
+  box.textContent = '';
+  $('reports-title').textContent = `Reports · ${counts.open || 0} open`;
+  $('reports-filter').textContent = reportFilter === 'open' ? 'Show all' : 'Show open only';
+
+  if (!reports.length) {
+    say($('reports-msg'), reportFilter === 'open' ? 'Nothing waiting. The sky is clean.' : 'No reports yet.', 'ok');
+    return;
+  }
+  say($('reports-msg'), '');
+
+  for (const r of reports) {
+    const card = document.createElement('article');
+    card.className = 'card';
+
+    const head = document.createElement('p');
+    head.className = 'meta';
+    // What already happened, before anyone opened this page. 'ai' and 'count'
+    // are the two automatic paths, and they are worth telling apart: one is a
+    // model's opinion, the other is three people agreeing.
+    const auto = r.auto === 'ai' ? ' · hidden by AI' : r.auto === 'count' ? ' · hidden after 3 reports' : '';
+    const gone = r.item && r.item.gone === 'author' ? ' · author deleted it' : '';
+    head.textContent = `#${r.id} · ${r.item_type} ${r.item_id} · ${fmt(r.created_at)}${auto}${gone} · ${r.status}`;
+    card.appendChild(head);
+
+    if (r.reason) {
+      const why = document.createElement('p');
+      why.className = 'meta';
+      why.textContent = `Reason given: ${r.reason}`;
+      card.appendChild(why);
+    }
+
+    const body = document.createElement('p');
+    body.style.whiteSpace = 'pre-wrap';
+    body.textContent = r.item ? (r.item.content || '(the words were cleared)') : '(the item is gone)';
+    card.appendChild(body);
+
+    if (r.status === 'open') {
+      const row = document.createElement('div');
+      row.className = 'row';
+      for (const [action, label] of [['keep', 'Keep'], ['hide', 'Hide'], ['delete', 'Delete words']]) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = label;
+        btn.addEventListener('click', async () => {
+          if (action === 'delete' && !confirm('Clear the words? This cannot be undone.')) return;
+          btn.disabled = true;
+          try {
+            await api(`/api/admin/reports/${r.id}`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ action }),
+            });
+            await loadReports();
+          } catch (e) {
+            btn.disabled = false;
+            say($('reports-msg'), e.message);
+          }
+        });
+        row.appendChild(btn);
+      }
+      card.appendChild(row);
+    }
+
+    box.appendChild(card);
+  }
+}
 
 async function loadList() {
   const { posts } = await api('/api/admin/posts');
@@ -401,6 +490,15 @@ async function loadImages() {
   show('images');
 }
 
+$('open-reports').addEventListener('click', () => {
+  show('reports');
+  loadReports().catch((e) => say($('reports-msg'), e.message));
+});
+$('reports-back').addEventListener('click', () => loadList().catch(() => {}));
+$('reports-filter').addEventListener('click', () => {
+  reportFilter = reportFilter === 'open' ? 'all' : 'open';
+  loadReports().catch((e) => say($('reports-msg'), e.message));
+});
 $('open-images').addEventListener('click', () => loadImages().catch(() => {}));
 $('images-back').addEventListener('click', () => loadList().catch(() => {}));
 

@@ -1132,6 +1132,10 @@ async function submitFind() {
   try {
     const res = await fetch(`/api/bubbles?code=${encodeURIComponent(code)}`);
     const data = await res.json();
+    if (res.status === 429) {
+      els.findResult.textContent = t('findTooMany');
+      return;
+    }
     if (!res.ok || !data.bubbles || data.bubbles.length === 0) {
       els.findResult.textContent = t('findNotFound');
       return;
