@@ -202,7 +202,18 @@ const MIME = 'audio/aac';
 // cache is full of exactly the readings this change exists to stop producing.
 // They are permanent until the key that names them changes, and this is that
 // key.
-const RECIPE = 'v14-unhurried';
+// v15, and this one is about the pieces rather than the voice. Cutting at 140
+// characters instead of 200 changes how a whisper is read, but it changes
+// nothing the hash is made of — so every reading already in the cache would
+// keep its old, longer-winded pieces forever, and the change would only ever be
+// heard on whispers nobody has listened to yet. That is the wrong half of the
+// site.
+//
+// Cheap, this time, and it is worth writing down why the sums matter: the live
+// probe says 55 readings, 9.3MB, one part each. Regenerating that is a rounding
+// error, and the warning elsewhere about not bumping this casually was written
+// when nobody had counted. Count first, then decide.
+const RECIPE = 'v15-shorter-pieces';
 
 // Whichever provider will actually be used, so the hash can name it. Keeping
 // this decision in one place means the cache key and the synthesis can never
