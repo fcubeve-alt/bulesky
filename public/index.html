@@ -72,8 +72,20 @@
 </div>
 
 <!-- Mini panels -->
+<!-- My Sky. What you wrote and what you kept, found by the secret this device
+     holds rather than by a name anyone could type. The name lookup stays at the
+     bottom for whoever lost their code and still remembers what they signed. -->
 <div id="find-panel" class="mini-panel hidden">
   <button class="mini-close" id="find-close" aria-label="Close">×</button>
+  <div id="mysky"></div>
+  <p id="mysky-msg" class="hint"></p>
+
+  <label id="restore-label" for="restore-input"></label>
+  <div class="mini-panel-row">
+    <input id="restore-input" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
+    <button id="restore-submit" class="btn-secondary btn-small"></button>
+  </div>
+
   <label id="find-label" for="find-input"></label>
   <div class="mini-panel-row">
     <input id="find-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
@@ -201,6 +213,10 @@
         <button id="read-report-btn" class="report-pill"></button>
         <!-- Only the author sees this, and only because the server said so. -->
         <button id="read-delete-btn" class="report-pill hidden"></button>
+        <!-- Keeping, not copying: this stores a reference, so the story leaves
+             your shelf the moment its author takes it back. Never shown on your
+             own whisper — that one is already yours. -->
+        <button id="read-save-btn" class="report-pill hidden"></button>
       </div>
       <h3 id="detail-replies-title" class="read-replies-title"></h3>
       <div id="read-replies" class="read-replies"></div>

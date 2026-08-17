@@ -41,6 +41,18 @@ export async function onRequestGet({ request, params, env }) {
   const hash = cleanHash(request.headers.get('x-author'));
   const mine = ownsRow(bubble, hash);
 
+  // Whether it is already on this reader's shelf, so the button can say "kept"
+  // instead of offering to keep it twice.
+  let saved = false;
+  if (hash) {
+    const row = await env.DB.prepare(
+      `SELECT 1 AS yes FROM saves WHERE author_hash = ? AND item_type = 'bubble' AND item_id = ?`
+    )
+      .bind(hash, id)
+      .first();
+    saved = Boolean(row);
+  }
+
   // Never hand an author_hash back out. It is not a secret, but it is a
   // fingerprint: with it, anyone could tell which whispers in the sky were
   // written by the same person, and this place is built on nobody being able
@@ -51,7 +63,7 @@ export async function onRequestGet({ request, params, env }) {
     mine: ownsRow({ author_hash: replyAuthor }, hash),
   }));
 
-  return json({ bubble: { ...safeBubble, mine }, replies: safeReplies });
+  return json({ bubble: { ...safeBubble, mine, saved }, replies: safeReplies });
 }
 
 // Take it back.

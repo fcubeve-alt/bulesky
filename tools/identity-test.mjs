@@ -22,7 +22,7 @@ function browserPath() {
 }
 const W = { id: 1, type: 'pain', content: '很长的一条悄悄话。', code: 'tester', lights: 0, created_at: Date.now() };
 
-async function open(mine) {
+async function open(mine, extra = {}) {
   const b = await chromium.launch({ executablePath: browserPath() });
   const page = await b.newPage();
   const sent = [];
@@ -30,7 +30,7 @@ async function open(mine) {
   await page.route('**/api/bubbles**', (r) => {
     const req = r.request();
     if (req.method() === 'POST') { sent.push(JSON.parse(req.postData() || '{}')); return r.fulfill({ status: 201, json: { id: 9, code: 'tester', type: 'pain', content: 'x', createdAt: Date.now() } }); }
-    if (/\/api\/bubbles\/\d+$/.test(req.url())) return r.fulfill({ json: { bubble: { ...W, mine }, replies: [] } });
+    if (/\/api\/bubbles\/\d+$/.test(req.url())) return r.fulfill({ json: { bubble: { ...W, mine, ...extra }, replies: [] } });
     return r.fulfill({ json: { bubbles: [W] } });
   });
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -72,5 +72,41 @@ for (const mine of [true, false]) {
   console.log(`${visible === mine ? 'PASS' : 'FAIL'}  delete button ${mine ? 'shown' : 'hidden'} when server says mine=${mine}`);
   const claimed = await page.evaluate(() => localStorage.getItem('my_bubbles'));
   if (!mine) console.log(`${!claimed ? 'PASS' : 'FAIL'}  looking a name up does not claim it (my_bubbles=${claimed})`);
+  await b.close();
+}
+
+
+// 3. Keeping somebody else's story: offered on theirs, never on your own.
+for (const [mine, expected] of [[false, true], [true, false]]) {
+  const { b, page } = await open(mine);
+  await page.click('#find-icon');
+  await page.fill('#find-input', 'tester');
+  await page.click('#find-submit');
+  await page.click('#find-result .find-result-row');
+  await page.waitForSelector('#read-overlay:not(.hidden)');
+  const visible = await page.locator('#read-save-btn').isVisible();
+  console.log(`${visible === expected ? 'PASS' : 'FAIL'}  keep button ${expected ? 'offered on' : 'hidden on'} ${mine ? 'your own' : "somebody else's"} whisper`);
+  await b.close();
+}
+
+// 4. My Sky is found by the device secret, not by typing a name.
+{
+  const { b, page } = await open(false);
+  let authHeader = null;
+  await page.route('**/api/me', (r) => {
+    authHeader = r.request().headers()['x-author'] || null;
+    return r.fulfill({
+      json: { mine: [{ id: 1, type: 'pain', content: '我写的那条' }], saved: [], gone: 2 },
+    });
+  });
+  // Give the device an identity the way a first whisper would.
+  await page.evaluate(() => localStorage.setItem('aya_author_secret', 'ABCDEFGHJKMNPQRSTVWX'));
+  await page.click('#find-icon');
+  await page.waitForFunction(() => document.querySelector('#mysky').children.length > 0, { timeout: 5000 });
+  const shown = await page.locator('#mysky').textContent();
+  const note = await page.locator('#mysky-msg').textContent();
+  console.log(`${/^[0-9a-f]{64}$/.test(authHeader || '') ? 'PASS' : 'FAIL'}  my sky asks with the hash, never the secret`);
+  console.log(`${shown.includes('我写的那条') ? 'PASS' : 'FAIL'}  my own whispers are listed`);
+  console.log(`${note.includes('2') ? 'PASS' : 'FAIL'}  says how many kept stories their authors took back (${note})`);
   await b.close();
 }

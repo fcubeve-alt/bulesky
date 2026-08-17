@@ -90,6 +90,12 @@ const els = {
   readLightBtn: $('read-light-btn'),
   readReportBtn: $('read-report-btn'),
   readDeleteBtn: $('read-delete-btn'),
+  readSaveBtn: $('read-save-btn'),
+  mysky: $('mysky'),
+  myskyMsg: $('mysky-msg'),
+  restoreLabel: $('restore-label'),
+  restoreInput: $('restore-input'),
+  restoreSubmit: $('restore-submit'),
   recoveryBlock: $('recovery-block'),
   recoveryLabel: $('recovery-label'),
   recoveryCode: $('recovery-code'),
@@ -185,6 +191,9 @@ function applyText() {
   els.readListenBtn.textContent = t('listen');
   els.readLightBtn.textContent = t('leaveLight');
   els.readDeleteBtn.textContent = t('deleteMine');
+  els.restoreLabel.textContent = t('restoreLabel');
+  els.restoreInput.placeholder = t('restorePlaceholder');
+  els.restoreSubmit.textContent = t('restoreSubmit');
   els.replyCode.placeholder = t('replyCodePlaceholder');
   els.replySubmit.textContent = t('replySubmit');
   els.iosTitle.textContent = t('iosTitle');
@@ -472,6 +481,10 @@ function renderRead(bubble, replies, rect) {
   // what used to answer this question, and it could be wrong in the direction
   // that matters.
   els.readDeleteBtn.classList.toggle('hidden', !bubble.mine);
+  // Your own whisper is already yours; offering to keep it is noise.
+  els.readSaveBtn.classList.toggle('hidden', Boolean(bubble.mine));
+  els.readSaveBtn.textContent = bubble.saved ? t('savedToSky') : t('saveToSky');
+  els.readSaveBtn.classList.toggle('reported', Boolean(bubble.saved));
   els.readOverlay.dataset.type = bubble.type;
   els.readContent.textContent = bubble.content;
   setLightButtonState(bubble.id);
@@ -1035,6 +1048,105 @@ function toggleListen() {
 }
 
 
+// Keep a stranger's story, or let it go again.
+//
+// What is stored is a reference, never the words: when its author deletes it,
+// it leaves every shelf at the same moment. Nobody here ends up holding a
+// private permanent copy of somebody else's worst night, and that is the point
+// rather than a limitation.
+async function toggleSave() {
+  const bubble = state.detailBubble;
+  if (!bubble) return;
+  const nowSaved = !bubble.saved;
+
+  els.readSaveBtn.disabled = true;
+  try {
+    const res = await fetch('/api/saves', {
+      method: nowSaved ? 'POST' : 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ secret: identity.secret(), itemType: 'bubble', itemId: bubble.id }),
+    });
+    if (!res.ok) throw new Error('failed');
+    bubble.saved = nowSaved;
+    els.readSaveBtn.textContent = nowSaved ? t('savedToSky') : t('saveToSky');
+    els.readSaveBtn.classList.toggle('reported', nowSaved);
+    showToast(nowSaved ? t('saveDone') : t('saveUndone'));
+  } catch {
+    showToast(t('errorGeneric'));
+  } finally {
+    els.readSaveBtn.disabled = false;
+  }
+}
+
+// My Sky: what I wrote, and what I kept.
+//
+// Found by the secret this device holds — not by typing a name into a box, the
+// way it used to work. A name is printed under every whisper; a secret is not
+// written down anywhere a reader can see it.
+async function loadMySky() {
+  const box = els.mysky;
+  box.textContent = '';
+  if (!identity.hasSecret()) {
+    els.myskyMsg.textContent = t('mySkyEmpty');
+    return;
+  }
+  try {
+    const hash = await identity.hash();
+    const res = await fetch('/api/me', { headers: { 'x-author': hash } });
+    const data = await res.json();
+    if (!res.ok) throw new Error('failed');
+
+    const sections = [
+      [t('myBalloons'), data.mine || []],
+      [t('mySaved'), data.saved || []],
+    ];
+    let any = false;
+    for (const [title, items] of sections) {
+      if (!items.length) continue;
+      any = true;
+      const h = document.createElement('p');
+      h.className = 'find-results-title';
+      h.textContent = `${title} · ${items.length}`;
+      box.appendChild(h);
+      for (const item of items) {
+        const row = document.createElement('button');
+        row.className = 'find-result-row';
+        const icon = item.itemType === 'reply' ? '🤍 ' : item.type === 'wish' ? '✦ ' : '❁ ';
+        const text = (item.content || '').trim();
+        row.textContent = icon + text.slice(0, 42) + (text.length > 42 ? '…' : '');
+        row.addEventListener('click', () => {
+          els.findPanel.classList.add('hidden');
+          openDetail(item.itemType === 'reply' ? item.bubble_id : item.id);
+        });
+        box.appendChild(row);
+      }
+    }
+
+    // A shelf that quietly shrinks is unsettling. Say it plainly instead: the
+    // story was taken back by the person who wrote it, which is how this works.
+    els.myskyMsg.textContent = !any
+      ? t('mySkyEmpty')
+      : data.gone
+        ? t('savedGone').replace('{n}', data.gone)
+        : '';
+  } catch {
+    els.myskyMsg.textContent = t('errorGeneric');
+  }
+}
+
+// Carry an identity over from another phone.
+function restoreIdentity() {
+  const value = els.restoreInput.value.trim();
+  if (!value) return;
+  if (!identity.adopt(value)) {
+    els.myskyMsg.textContent = t('restoreBad');
+    return;
+  }
+  els.restoreInput.value = '';
+  els.myskyMsg.textContent = t('restoreOk');
+  loadMySky();
+}
+
 // Take back your own whisper.
 //
 // Two taps, because it cannot be undone, and the second one says what actually
@@ -1363,6 +1475,9 @@ function init() {
   });
   els.readLightBtn.addEventListener('click', leaveLight);
   els.readDeleteBtn.addEventListener('click', deleteMine);
+  els.readSaveBtn.addEventListener('click', toggleSave);
+  els.restoreSubmit.addEventListener('click', restoreIdentity);
+  els.restoreInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') restoreIdentity(); });
   els.readReportBtn.addEventListener('click', () => {
     const id = state.detailBubbleId;
     if (!id) return;
@@ -1389,6 +1504,7 @@ function init() {
 
   els.findIcon.addEventListener('click', () => {
     els.findResult.innerHTML = '';
+    loadMySky();
     els.findPanel.classList.toggle('hidden');
     els.aboutPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');
