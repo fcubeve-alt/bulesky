@@ -1,538 +1,556 @@
 {
- "tracks": [
-  {
-   "id": "classical-beethoven-fur-elise",
-   "title": "Für Elise (Bagatelle No. 25 in A minor, WoO 59)",
-   "artist": "Ludwig van Beethoven",
-   "src": "/music/classical-beethoven-fur-elise.mp3",
-   "source": "https://archive.org/details/jamendo-325328",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "pinned": true,
-   "bytes": 4536192
-  },
-  {
-   "id": "classical-pachelbel-canon",
-   "title": "Canon in D major",
-   "artist": "Johann Pachelbel",
-   "src": "/music/classical-pachelbel-canon.mp3",
-   "source": "https://archive.org/details/PachelbelsCanoninD",
-   "license": "http://creativecommons.org/licenses/publicdomain/",
-   "pinned": true,
-   "bytes": 18472770
-  },
-  {
-   "id": "classical-vivaldi-winter-largo",
-   "title": "The Four Seasons — Winter, II. Largo",
-   "artist": "Antonio Vivaldi",
-   "src": "/music/classical-vivaldi-winter-largo.mp3",
-   "source": "https://archive.org/details/lp_the-four-seasons_antonio-vivaldi-leonard-bernstein-the-new",
-   "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-   "pinned": true,
-   "bytes": 10732982
-  },
-  {
-   "id": "classical-schubert-serenade",
-   "title": "Serenade (Ständchen), D. 957",
-   "artist": "Franz Schubert",
-   "src": "/music/classical-schubert-serenade.mp3",
-   "source": "https://archive.org/details/lp_die-winterreise-schwanengesang-songs_hans-hotter-gerald-moore-franz-schubert-jo",
-   "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-   "pinned": true,
-   "bytes": 11234700
-  },
-  {
-   "id": "classical-tchaikovsky-october",
-   "title": "The Seasons, Op. 37a — October (Autumn Song)",
-   "artist": "Pyotr Ilyich Tchaikovsky",
-   "src": "/music/classical-tchaikovsky-october.mp3",
-   "source": "https://archive.org/details/lp_the-seasons_pyotr-ilyich-tchaikovsky-lev-oborin",
-   "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-   "pinned": true,
-   "bytes": 8593297
-  },
-  {
-   "id": "classical-debussy-arabesque-1",
-   "title": "Arabesque No. 1",
-   "artist": "Claude Debussy",
-   "src": "/music/classical-debussy-arabesque-1.mp3",
-   "source": "https://archive.org/details/lp_childrens-corner-arabesque-no-1-est_claude-debussy-ramon-coll",
-   "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-   "pinned": true,
-   "bytes": 7464425
-  },
-  {
-   "id": "classical-bach-cello-suite-1-prelude",
-   "title": "Cello Suite No. 1 in G major, BWV 1007 — Prélude",
-   "artist": "J. S. Bach",
-   "src": "/music/classical-bach-cello-suite-1-prelude.mp3",
-   "source": "https://archive.org/details/lp_suites-for-unaccompanied-violoncello-no-1_pablo-casals-johann-sebastian-bach",
-   "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-   "pinned": true,
-   "bytes": 5937077
-  },
-  {
-   "id": "classical-bach-air-g-string",
-   "title": "Air on the G String (Orchestral Suite No. 3, BWV 1068)",
-   "artist": "J. S. Bach",
-   "src": "/music/classical-bach-air-g-string.mp3",
-   "source": "https://archive.org/details/78_air-on-the-g-string_bach_gbia0012890a",
-   "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-   "pinned": true,
-   "bytes": 3637926
-  },
-  {
-   "id": "classical-beethoven-moonlight-1",
-   "title": "Piano Sonata No. 14 \"Moonlight\", Op. 27 No. 2 — Adagio sostenuto",
-   "artist": "Ludwig van Beethoven",
-   "src": "/music/classical-beethoven-moonlight-1.mp3",
-   "source": "https://archive.org/details/lp_moonlight-sonata_ludwig-van-beethoven-frdric-chopin-alexand",
-   "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-   "pinned": true,
-   "bytes": 11873016
-  },
-  {
-   "id": "classical-elgar-cello-concerto-1",
-   "title": "Cello Concerto in E minor, Op. 85 — I. Adagio",
-   "artist": "Edward Elgar",
-   "src": "/music/classical-elgar-cello-concerto-1.mp3",
-   "source": "https://archive.org/details/lp_cello-concerto-cello-encores-bach-sa_sir-edward-elgar-jacqueline-du-pre-sir",
-   "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-   "pinned": true,
-   "bytes": 16119644
-  },
-  {
-   "id": "classical-saint-saens-swan",
-   "title": "The Swan (Le Cygne), from The Carnival of the Animals",
-   "artist": "Camille Saint-Saëns",
-   "src": "/music/classical-saint-saens-swan.mp3",
-   "source": "https://archive.org/details/78_the-swan-le-cygne_mischa-elman-carroll-hollister-saint-sans_gbia0451299a",
-   "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-   "pinned": true,
-   "bytes": 4030998
-  },
-  {
-   "id": "classical-bach-chaconne",
-   "title": "Partita No. 2 in D minor, BWV 1004 — Chaconne",
-   "artist": "J. S. Bach",
-   "src": "/music/classical-bach-chaconne.mp3",
-   "source": "https://archive.org/details/chaconne-d-moll-heifetz",
-   "license": "http://creativecommons.org/publicdomain/mark/1.0/",
-   "pinned": true,
-   "bytes": 17903168
-  },
-  {
-   "id": "jamendo-22286",
-   "title": "Electric",
-   "artist": "Slim",
-   "src": "/music/jamendo-22286.mp3",
-   "source": "https://www.jamendo.com/track/22286",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 3304448
-  },
-  {
-   "id": "jamendo-1124574",
-   "title": "Viejo mi querido viejo",
-   "artist": "Alfredo Gg",
-   "src": "/music/jamendo-1124574.mp3",
-   "source": "https://www.jamendo.com/track/1124574",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2408960
-  },
-  {
-   "id": "jamendo-18865",
-   "title": "16 - DIESE - Loud Fly",
-   "artist": "Alterlabel",
-   "src": "/music/jamendo-18865.mp3",
-   "source": "https://www.jamendo.com/track/18865",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 3040768
-  },
-  {
-   "id": "jamendo-1195294",
-   "title": "Happy home",
-   "artist": "Simon van Gend",
-   "src": "/music/jamendo-1195294.mp3",
-   "source": "https://www.jamendo.com/track/1195294",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 1957888
-  },
-  {
-   "id": "jamendo-1195293",
-   "title": "Weasel you out",
-   "artist": "Simon van Gend",
-   "src": "/music/jamendo-1195293.mp3",
-   "source": "https://www.jamendo.com/track/1195293",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2792448
-  },
-  {
-   "id": "jamendo-78730",
-   "title": "Symmetry and the Pocket of Angels",
-   "artist": "Josh Woodward",
-   "src": "/music/jamendo-78730.mp3",
-   "source": "https://www.jamendo.com/track/78730",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2992640
-  },
-  {
-   "id": "jamendo-472893",
-   "title": "Winter Sunlight (airtone feat. Leza2unes)",
-   "artist": "Snowflake & ccMixter",
-   "src": "/music/jamendo-472893.mp3",
-   "source": "https://www.jamendo.com/track/472893",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 1955328
-  },
-  {
-   "id": "jamendo-26743",
-   "title": "Empty",
-   "artist": "Tryad",
-   "src": "/music/jamendo-26743.mp3",
-   "source": "https://www.jamendo.com/track/26743",
-   "license": "http://creativecommons.org/licenses/by-sa/2.5/",
-   "bytes": 3999744
-  },
-  {
-   "id": "jamendo-1658279",
-   "title": "Beyond the Sky",
-   "artist": "Josh Woodward",
-   "src": "/music/jamendo-1658279.mp3",
-   "source": "https://www.jamendo.com/track/1658279",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2820096
-  },
-  {
-   "id": "jamendo-78728",
-   "title": "She Dreams in Blue",
-   "artist": "Josh Woodward",
-   "src": "/music/jamendo-78728.mp3",
-   "source": "https://www.jamendo.com/track/78728",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 3830272
-  },
-  {
-   "id": "jamendo-78307",
-   "title": "Gravity",
-   "artist": "Josh Woodward",
-   "src": "/music/jamendo-78307.mp3",
-   "source": "https://www.jamendo.com/track/78307",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2845696
-  },
-  {
-   "id": "jamendo-1174817",
-   "title": "Leave and Never Look Back",
-   "artist": "madelyn munsell",
-   "src": "/music/jamendo-1174817.mp3",
-   "source": "https://www.jamendo.com/track/1174817",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 3019264
-  },
-  {
-   "id": "jamendo-1538430",
-   "title": "Till The Wheels Fall Off",
-   "artist": "Saint Anyway",
-   "src": "/music/jamendo-1538430.mp3",
-   "source": "https://www.jamendo.com/track/1538430",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2819584
-  },
-  {
-   "id": "jamendo-1234660",
-   "title": "Yes or No",
-   "artist": "studyBreak",
-   "src": "/music/jamendo-1234660.mp3",
-   "source": "https://www.jamendo.com/track/1234660",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 2667520
-  },
-  {
-   "id": "jamendo-1234661",
-   "title": "Waves",
-   "artist": "studyBreak",
-   "src": "/music/jamendo-1234661.mp3",
-   "source": "https://www.jamendo.com/track/1234661",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 3048448
-  },
-  {
-   "id": "jamendo-620941",
-   "title": "Satellites",
-   "artist": "Emorej",
-   "src": "/music/jamendo-620941.mp3",
-   "source": "https://www.jamendo.com/track/620941",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 3435008
-  },
-  {
-   "id": "jamendo-621361",
-   "title": "The Storm",
-   "artist": "Emorej",
-   "src": "/music/jamendo-621361.mp3",
-   "source": "https://www.jamendo.com/track/621361",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 2785792
-  },
-  {
-   "id": "jamendo-1816224",
-   "title": "If I Let You Go",
-   "artist": "Townhouse Woods",
-   "src": "/music/jamendo-1816224.mp3",
-   "source": "https://www.jamendo.com/track/1816224",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 2273792
-  },
-  {
-   "id": "jamendo-1195289",
-   "title": "Brave ones",
-   "artist": "Simon van Gend",
-   "src": "/music/jamendo-1195289.mp3",
-   "source": "https://www.jamendo.com/track/1195289",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 3040768
-  },
-  {
-   "id": "jamendo-479453",
-   "title": "Silent Night",
-   "artist": "Jason Silver",
-   "src": "/music/jamendo-479453.mp3",
-   "source": "https://www.jamendo.com/track/479453",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 3434496
-  },
-  {
-   "id": "jamendo-1195297",
-   "title": "Lonely dreamer's song",
-   "artist": "Simon van Gend",
-   "src": "/music/jamendo-1195297.mp3",
-   "source": "https://www.jamendo.com/track/1195297",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 3013120
-  },
-  {
-   "id": "jamendo-1436507",
-   "title": "Five4One - Music (Original Mix)",
-   "artist": "Five4One",
-   "src": "/music/jamendo-1436507.mp3",
-   "source": "https://www.jamendo.com/track/1436507",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2862592
-  },
-  {
-   "id": "jamendo-1243463",
-   "title": "Smile",
-   "artist": "David Amber",
-   "src": "/music/jamendo-1243463.mp3",
-   "source": "https://www.jamendo.com/track/1243463",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2806272
-  },
-  {
-   "id": "jamendo-582243",
-   "title": "Thanks For Coming",
-   "artist": "Josh Woodward",
-   "src": "/music/jamendo-582243.mp3",
-   "source": "https://www.jamendo.com/track/582243",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2746880
-  },
-  {
-   "id": "jamendo-34657",
-   "title": "Ordinary Day",
-   "artist": "WhiteRoom",
-   "src": "/music/jamendo-34657.mp3",
-   "source": "https://www.jamendo.com/track/34657",
-   "license": "http://creativecommons.org/licenses/by-sa/2.5/",
-   "bytes": 2853376
-  },
-  {
-   "id": "jamendo-1571345",
-   "title": "Molly",
-   "artist": "ALLIIOP",
-   "src": "/music/jamendo-1571345.mp3",
-   "source": "https://www.jamendo.com/track/1571345",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 2489856
-  },
-  {
-   "id": "jamendo-1533251",
-   "title": "So High",
-   "artist": "Caroline",
-   "src": "/music/jamendo-1533251.mp3",
-   "source": "https://www.jamendo.com/track/1533251",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 3226624
-  },
-  {
-   "id": "jamendo-711500",
-   "title": "kreata",
-   "artist": "dirty lil' trollops",
-   "src": "/music/jamendo-711500.mp3",
-   "source": "https://www.jamendo.com/track/711500",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 1338880
-  },
-  {
-   "id": "jamendo-1224349",
-   "title": "Road to Olympus",
-   "artist": "PeerGynt Lobogris",
-   "src": "/music/jamendo-1224349.mp3",
-   "source": "https://www.jamendo.com/track/1224349",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 3665408
-  },
-  {
-   "id": "jamendo-1195824",
-   "title": "Path to innocence",
-   "artist": "zero-project",
-   "src": "/music/jamendo-1195824.mp3",
-   "source": "https://www.jamendo.com/track/1195824",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 4013568
-  },
-  {
-   "id": "jamendo-135529",
-   "title": "Versace",
-   "artist": "WALIBI",
-   "src": "/music/jamendo-135529.mp3",
-   "source": "https://www.jamendo.com/track/135529",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 3277824
-  },
-  {
-   "id": "jamendo-320060",
-   "title": "I'll Be Right Behind You, Josephine",
-   "artist": "Josh Woodward",
-   "src": "/music/jamendo-320060.mp3",
-   "source": "https://www.jamendo.com/track/320060",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 3129856
-  },
-  {
-   "id": "jamendo-1083530",
-   "title": "Ghost Town",
-   "artist": "Jason Silver",
-   "src": "/music/jamendo-1083530.mp3",
-   "source": "https://www.jamendo.com/track/1083530",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 2669568
-  },
-  {
-   "id": "jamendo-317054",
-   "title": "An Elvis Fan",
-   "artist": "Emorej",
-   "src": "/music/jamendo-317054.mp3",
-   "source": "https://www.jamendo.com/track/317054",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 3062784
-  },
-  {
-   "id": "jamendo-1941486",
-   "title": "On the other Side",
-   "artist": "1st Contact",
-   "src": "/music/jamendo-1941486.mp3",
-   "source": "https://www.jamendo.com/track/1941486",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 2924513
-  },
-  {
-   "id": "jamendo-1195291",
-   "title": "See me sink see me rise",
-   "artist": "Simon van Gend",
-   "src": "/music/jamendo-1195291.mp3",
-   "source": "https://www.jamendo.com/track/1195291",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2861568
-  },
-  {
-   "id": "jamendo-34646",
-   "title": "Papillons",
-   "artist": "WhiteRoom",
-   "src": "/music/jamendo-34646.mp3",
-   "source": "https://www.jamendo.com/track/34646",
-   "license": "http://creativecommons.org/licenses/by-sa/2.5/",
-   "bytes": 3271680
-  },
-  {
-   "id": "jamendo-1483588",
-   "title": "Who",
-   "artist": "Seth Power",
-   "src": "/music/jamendo-1483588.mp3",
-   "source": "https://www.jamendo.com/track/1483588",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 3537920
-  },
-  {
-   "id": "jamendo-1711840",
-   "title": "Song Of My Life",
-   "artist": "Eliot Feldman",
-   "src": "/music/jamendo-1711840.mp3",
-   "source": "https://www.jamendo.com/track/1711840",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2602496
-  },
-  {
-   "id": "jamendo-334008",
-   "title": "The Other Side Of Love",
-   "artist": "Lip Service",
-   "src": "/music/jamendo-334008.mp3",
-   "source": "https://www.jamendo.com/track/334008",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 1762304
-  },
-  {
-   "id": "jamendo-26739",
-   "title": "Listen",
-   "artist": "Tryad",
-   "src": "/music/jamendo-26739.mp3",
-   "source": "https://www.jamendo.com/track/26739",
-   "license": "http://creativecommons.org/licenses/by-sa/2.5/",
-   "bytes": 3909120
-  },
-  {
-   "id": "jamendo-1381522",
-   "title": "Uncharted Lands",
-   "artist": "Finn Anderson",
-   "src": "/music/jamendo-1381522.mp3",
-   "source": "https://www.jamendo.com/track/1381522",
-   "license": "http://creativecommons.org/licenses/by/3.0/",
-   "bytes": 2723840
-  },
-  {
-   "id": "jamendo-1083525",
-   "title": "Happy Birthday",
-   "artist": "Jason Silver",
-   "src": "/music/jamendo-1083525.mp3",
-   "source": "https://www.jamendo.com/track/1083525",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 1901568
-  },
-  {
-   "id": "jamendo-1403220",
-   "title": "Baby Go",
-   "artist": "eve",
-   "src": "/music/jamendo-1403220.mp3",
-   "source": "https://www.jamendo.com/track/1403220",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 2579968
-  },
-  {
-   "id": "jamendo-382",
-   "title": "Soon and Very Soon (Negro Spiritual)",
-   "artist": "Les Petits Chanteurs de Montigny",
-   "src": "/music/jamendo-382.mp3",
-   "source": "https://www.jamendo.com/track/382",
-   "license": "http://creativecommons.org/licenses/by-sa/2.0/",
-   "bytes": 2567680
-  },
-  {
-   "id": "jamendo-520420",
-   "title": "Air Nostalgie",
-   "artist": "Hari Harahani",
-   "src": "/music/jamendo-520420.mp3",
-   "source": "https://www.jamendo.com/track/520420",
-   "license": "http://creativecommons.org/licenses/by-sa/3.0/",
-   "bytes": 2455040
-  }
- ]
+  "tracks": [
+    {
+      "id": "classical-beethoven-fur-elise",
+      "title": "Für Elise (Bagatelle No. 25 in A minor, WoO 59)",
+      "artist": "Ludwig van Beethoven",
+      "src": "/music/classical-beethoven-fur-elise.mp3",
+      "source": "https://archive.org/details/jamendo-325328",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "pinned": true,
+      "bytes": 4536192
+    },
+    {
+      "id": "classical-pachelbel-canon",
+      "title": "Canon in D major",
+      "artist": "Johann Pachelbel",
+      "src": "/music/classical-pachelbel-canon.mp3",
+      "source": "https://archive.org/details/PachelbelsCanoninD",
+      "license": "http://creativecommons.org/licenses/publicdomain/",
+      "pinned": true,
+      "bytes": 18472770
+    },
+    {
+      "id": "classical-vivaldi-winter-largo",
+      "title": "The Four Seasons — Winter, II. Largo",
+      "artist": "Antonio Vivaldi",
+      "src": "/music/classical-vivaldi-winter-largo.mp3",
+      "source": "https://archive.org/details/lp_the-four-seasons_antonio-vivaldi-leonard-bernstein-the-new",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true,
+      "bytes": 10732982
+    },
+    {
+      "id": "classical-schubert-serenade",
+      "title": "Serenade (Ständchen), D. 957",
+      "artist": "Franz Schubert",
+      "src": "/music/classical-schubert-serenade.mp3",
+      "source": "https://archive.org/details/lp_die-winterreise-schwanengesang-songs_hans-hotter-gerald-moore-franz-schubert-jo",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true,
+      "bytes": 11234700
+    },
+    {
+      "id": "classical-tchaikovsky-october",
+      "title": "The Seasons, Op. 37a — October (Autumn Song)",
+      "artist": "Pyotr Ilyich Tchaikovsky",
+      "src": "/music/classical-tchaikovsky-october.mp3",
+      "source": "https://archive.org/details/lp_the-seasons_pyotr-ilyich-tchaikovsky-lev-oborin",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true,
+      "bytes": 8593297
+    },
+    {
+      "id": "classical-debussy-arabesque-1",
+      "title": "Arabesque No. 1",
+      "artist": "Claude Debussy",
+      "src": "/music/classical-debussy-arabesque-1.mp3",
+      "source": "https://archive.org/details/lp_childrens-corner-arabesque-no-1-est_claude-debussy-ramon-coll",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true,
+      "bytes": 7464425
+    },
+    {
+      "id": "classical-bach-cello-suite-1-prelude",
+      "title": "Cello Suite No. 1 in G major, BWV 1007 — Prélude",
+      "artist": "J. S. Bach",
+      "src": "/music/classical-bach-cello-suite-1-prelude.mp3",
+      "source": "https://archive.org/details/lp_suites-for-unaccompanied-violoncello-no-1_pablo-casals-johann-sebastian-bach",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true,
+      "bytes": 5937077
+    },
+    {
+      "id": "classical-bach-air-g-string",
+      "title": "Air on the G String (Orchestral Suite No. 3, BWV 1068)",
+      "artist": "J. S. Bach",
+      "src": "/music/classical-bach-air-g-string.mp3",
+      "source": "https://archive.org/details/78_air-on-the-g-string_bach_gbia0012890a",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true,
+      "bytes": 3637926
+    },
+    {
+      "id": "classical-beethoven-moonlight-1",
+      "title": "Piano Sonata No. 14 \"Moonlight\", Op. 27 No. 2 — Adagio sostenuto",
+      "artist": "Ludwig van Beethoven",
+      "src": "/music/classical-beethoven-moonlight-1.mp3",
+      "source": "https://archive.org/details/lp_moonlight-sonata_ludwig-van-beethoven-frdric-chopin-alexand",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true,
+      "bytes": 11873016
+    },
+    {
+      "id": "classical-elgar-cello-concerto-1",
+      "title": "Cello Concerto in E minor, Op. 85 — I. Adagio",
+      "artist": "Edward Elgar",
+      "src": "/music/classical-elgar-cello-concerto-1.mp3",
+      "source": "https://archive.org/details/lp_cello-concerto-cello-encores-bach-sa_sir-edward-elgar-jacqueline-du-pre-sir",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true,
+      "bytes": 16119644
+    },
+    {
+      "id": "classical-saint-saens-swan",
+      "title": "The Swan (Le Cygne), from The Carnival of the Animals",
+      "artist": "Camille Saint-Saëns",
+      "src": "/music/classical-saint-saens-swan.mp3",
+      "source": "https://archive.org/details/78_the-swan-le-cygne_mischa-elman-carroll-hollister-saint-sans_gbia0451299a",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true,
+      "bytes": 4030998
+    },
+    {
+      "id": "classical-bach-chaconne",
+      "title": "Partita No. 2 in D minor, BWV 1004 — Chaconne",
+      "artist": "J. S. Bach",
+      "src": "/music/classical-bach-chaconne.mp3",
+      "source": "https://archive.org/details/chaconne-d-moll-heifetz",
+      "license": "http://creativecommons.org/publicdomain/mark/1.0/",
+      "pinned": true,
+      "bytes": 17903168
+    },
+    {
+      "id": "jamendo-334001",
+      "title": "The Garden Of Love",
+      "artist": "Lip Service",
+      "src": "/music/jamendo-334001.mp3",
+      "source": "https://www.jamendo.com/track/334001",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 2077696
+    },
+    {
+      "id": "jamendo-449165",
+      "title": "Abuelito",
+      "artist": "Sikior",
+      "src": "/music/jamendo-449165.mp3",
+      "source": "https://www.jamendo.com/track/449165",
+      "license": "http://creativecommons.org/licenses/by-sa/2.5/pe/",
+      "bytes": 1963520
+    },
+    {
+      "id": "jamendo-22286",
+      "title": "Electric",
+      "artist": "Slim",
+      "src": "/music/jamendo-22286.mp3",
+      "source": "https://www.jamendo.com/track/22286",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 3304448
+    },
+    {
+      "id": "jamendo-1124574",
+      "title": "Viejo mi querido viejo",
+      "artist": "Alfredo Gg",
+      "src": "/music/jamendo-1124574.mp3",
+      "source": "https://www.jamendo.com/track/1124574",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2408960
+    },
+    {
+      "id": "jamendo-18865",
+      "title": "16 - DIESE - Loud Fly",
+      "artist": "Alterlabel",
+      "src": "/music/jamendo-18865.mp3",
+      "source": "https://www.jamendo.com/track/18865",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 3040768
+    },
+    {
+      "id": "jamendo-1195294",
+      "title": "Happy home",
+      "artist": "Simon van Gend",
+      "src": "/music/jamendo-1195294.mp3",
+      "source": "https://www.jamendo.com/track/1195294",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 1957888
+    },
+    {
+      "id": "jamendo-1195293",
+      "title": "Weasel you out",
+      "artist": "Simon van Gend",
+      "src": "/music/jamendo-1195293.mp3",
+      "source": "https://www.jamendo.com/track/1195293",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2792448
+    },
+    {
+      "id": "jamendo-78730",
+      "title": "Symmetry and the Pocket of Angels",
+      "artist": "Josh Woodward",
+      "src": "/music/jamendo-78730.mp3",
+      "source": "https://www.jamendo.com/track/78730",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2992640
+    },
+    {
+      "id": "jamendo-472893",
+      "title": "Winter Sunlight (airtone feat. Leza2unes)",
+      "artist": "Snowflake & ccMixter",
+      "src": "/music/jamendo-472893.mp3",
+      "source": "https://www.jamendo.com/track/472893",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 1955328
+    },
+    {
+      "id": "jamendo-26743",
+      "title": "Empty",
+      "artist": "Tryad",
+      "src": "/music/jamendo-26743.mp3",
+      "source": "https://www.jamendo.com/track/26743",
+      "license": "http://creativecommons.org/licenses/by-sa/2.5/",
+      "bytes": 3999744
+    },
+    {
+      "id": "jamendo-1658279",
+      "title": "Beyond the Sky",
+      "artist": "Josh Woodward",
+      "src": "/music/jamendo-1658279.mp3",
+      "source": "https://www.jamendo.com/track/1658279",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2820096
+    },
+    {
+      "id": "jamendo-78728",
+      "title": "She Dreams in Blue",
+      "artist": "Josh Woodward",
+      "src": "/music/jamendo-78728.mp3",
+      "source": "https://www.jamendo.com/track/78728",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 3830272
+    },
+    {
+      "id": "jamendo-78307",
+      "title": "Gravity",
+      "artist": "Josh Woodward",
+      "src": "/music/jamendo-78307.mp3",
+      "source": "https://www.jamendo.com/track/78307",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2845696
+    },
+    {
+      "id": "jamendo-1174817",
+      "title": "Leave and Never Look Back",
+      "artist": "madelyn munsell",
+      "src": "/music/jamendo-1174817.mp3",
+      "source": "https://www.jamendo.com/track/1174817",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 3019264
+    },
+    {
+      "id": "jamendo-1538430",
+      "title": "Till The Wheels Fall Off",
+      "artist": "Saint Anyway",
+      "src": "/music/jamendo-1538430.mp3",
+      "source": "https://www.jamendo.com/track/1538430",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2819584
+    },
+    {
+      "id": "jamendo-1234660",
+      "title": "Yes or No",
+      "artist": "studyBreak",
+      "src": "/music/jamendo-1234660.mp3",
+      "source": "https://www.jamendo.com/track/1234660",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 2667520
+    },
+    {
+      "id": "jamendo-1234661",
+      "title": "Waves",
+      "artist": "studyBreak",
+      "src": "/music/jamendo-1234661.mp3",
+      "source": "https://www.jamendo.com/track/1234661",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 3048448
+    },
+    {
+      "id": "jamendo-620941",
+      "title": "Satellites",
+      "artist": "Emorej",
+      "src": "/music/jamendo-620941.mp3",
+      "source": "https://www.jamendo.com/track/620941",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 3435008
+    },
+    {
+      "id": "jamendo-621361",
+      "title": "The Storm",
+      "artist": "Emorej",
+      "src": "/music/jamendo-621361.mp3",
+      "source": "https://www.jamendo.com/track/621361",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 2785792
+    },
+    {
+      "id": "jamendo-1816224",
+      "title": "If I Let You Go",
+      "artist": "Townhouse Woods",
+      "src": "/music/jamendo-1816224.mp3",
+      "source": "https://www.jamendo.com/track/1816224",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 2273792
+    },
+    {
+      "id": "jamendo-1195289",
+      "title": "Brave ones",
+      "artist": "Simon van Gend",
+      "src": "/music/jamendo-1195289.mp3",
+      "source": "https://www.jamendo.com/track/1195289",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 3040768
+    },
+    {
+      "id": "jamendo-479453",
+      "title": "Silent Night",
+      "artist": "Jason Silver",
+      "src": "/music/jamendo-479453.mp3",
+      "source": "https://www.jamendo.com/track/479453",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 3434496
+    },
+    {
+      "id": "jamendo-1195297",
+      "title": "Lonely dreamer's song",
+      "artist": "Simon van Gend",
+      "src": "/music/jamendo-1195297.mp3",
+      "source": "https://www.jamendo.com/track/1195297",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 3013120
+    },
+    {
+      "id": "jamendo-1436507",
+      "title": "Five4One - Music (Original Mix)",
+      "artist": "Five4One",
+      "src": "/music/jamendo-1436507.mp3",
+      "source": "https://www.jamendo.com/track/1436507",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2862592
+    },
+    {
+      "id": "jamendo-1243463",
+      "title": "Smile",
+      "artist": "David Amber",
+      "src": "/music/jamendo-1243463.mp3",
+      "source": "https://www.jamendo.com/track/1243463",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2806272
+    },
+    {
+      "id": "jamendo-582243",
+      "title": "Thanks For Coming",
+      "artist": "Josh Woodward",
+      "src": "/music/jamendo-582243.mp3",
+      "source": "https://www.jamendo.com/track/582243",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2746880
+    },
+    {
+      "id": "jamendo-34657",
+      "title": "Ordinary Day",
+      "artist": "WhiteRoom",
+      "src": "/music/jamendo-34657.mp3",
+      "source": "https://www.jamendo.com/track/34657",
+      "license": "http://creativecommons.org/licenses/by-sa/2.5/",
+      "bytes": 2853376
+    },
+    {
+      "id": "jamendo-1571345",
+      "title": "Molly",
+      "artist": "ALLIIOP",
+      "src": "/music/jamendo-1571345.mp3",
+      "source": "https://www.jamendo.com/track/1571345",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 2489856
+    },
+    {
+      "id": "jamendo-1533251",
+      "title": "So High",
+      "artist": "Caroline",
+      "src": "/music/jamendo-1533251.mp3",
+      "source": "https://www.jamendo.com/track/1533251",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 3226624
+    },
+    {
+      "id": "jamendo-711500",
+      "title": "kreata",
+      "artist": "dirty lil' trollops",
+      "src": "/music/jamendo-711500.mp3",
+      "source": "https://www.jamendo.com/track/711500",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 1338880
+    },
+    {
+      "id": "jamendo-1224349",
+      "title": "Road to Olympus",
+      "artist": "PeerGynt Lobogris",
+      "src": "/music/jamendo-1224349.mp3",
+      "source": "https://www.jamendo.com/track/1224349",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 3665408
+    },
+    {
+      "id": "jamendo-1195824",
+      "title": "Path to innocence",
+      "artist": "zero-project",
+      "src": "/music/jamendo-1195824.mp3",
+      "source": "https://www.jamendo.com/track/1195824",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 4013568
+    },
+    {
+      "id": "jamendo-135529",
+      "title": "Versace",
+      "artist": "WALIBI",
+      "src": "/music/jamendo-135529.mp3",
+      "source": "https://www.jamendo.com/track/135529",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 3277824
+    },
+    {
+      "id": "jamendo-320060",
+      "title": "I'll Be Right Behind You, Josephine",
+      "artist": "Josh Woodward",
+      "src": "/music/jamendo-320060.mp3",
+      "source": "https://www.jamendo.com/track/320060",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 3129856
+    },
+    {
+      "id": "jamendo-1083530",
+      "title": "Ghost Town",
+      "artist": "Jason Silver",
+      "src": "/music/jamendo-1083530.mp3",
+      "source": "https://www.jamendo.com/track/1083530",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 2669568
+    },
+    {
+      "id": "jamendo-317054",
+      "title": "An Elvis Fan",
+      "artist": "Emorej",
+      "src": "/music/jamendo-317054.mp3",
+      "source": "https://www.jamendo.com/track/317054",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 3062784
+    },
+    {
+      "id": "jamendo-1941486",
+      "title": "On the other Side",
+      "artist": "1st Contact",
+      "src": "/music/jamendo-1941486.mp3",
+      "source": "https://www.jamendo.com/track/1941486",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 2924513
+    },
+    {
+      "id": "jamendo-1195291",
+      "title": "See me sink see me rise",
+      "artist": "Simon van Gend",
+      "src": "/music/jamendo-1195291.mp3",
+      "source": "https://www.jamendo.com/track/1195291",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2861568
+    },
+    {
+      "id": "jamendo-34646",
+      "title": "Papillons",
+      "artist": "WhiteRoom",
+      "src": "/music/jamendo-34646.mp3",
+      "source": "https://www.jamendo.com/track/34646",
+      "license": "http://creativecommons.org/licenses/by-sa/2.5/",
+      "bytes": 3271680
+    },
+    {
+      "id": "jamendo-1483588",
+      "title": "Who",
+      "artist": "Seth Power",
+      "src": "/music/jamendo-1483588.mp3",
+      "source": "https://www.jamendo.com/track/1483588",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 3537920
+    },
+    {
+      "id": "jamendo-1711840",
+      "title": "Song Of My Life",
+      "artist": "Eliot Feldman",
+      "src": "/music/jamendo-1711840.mp3",
+      "source": "https://www.jamendo.com/track/1711840",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2602496
+    },
+    {
+      "id": "jamendo-334008",
+      "title": "The Other Side Of Love",
+      "artist": "Lip Service",
+      "src": "/music/jamendo-334008.mp3",
+      "source": "https://www.jamendo.com/track/334008",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 1762304
+    },
+    {
+      "id": "jamendo-26739",
+      "title": "Listen",
+      "artist": "Tryad",
+      "src": "/music/jamendo-26739.mp3",
+      "source": "https://www.jamendo.com/track/26739",
+      "license": "http://creativecommons.org/licenses/by-sa/2.5/",
+      "bytes": 3909120
+    },
+    {
+      "id": "jamendo-1381522",
+      "title": "Uncharted Lands",
+      "artist": "Finn Anderson",
+      "src": "/music/jamendo-1381522.mp3",
+      "source": "https://www.jamendo.com/track/1381522",
+      "license": "http://creativecommons.org/licenses/by/3.0/",
+      "bytes": 2723840
+    },
+    {
+      "id": "jamendo-1083525",
+      "title": "Happy Birthday",
+      "artist": "Jason Silver",
+      "src": "/music/jamendo-1083525.mp3",
+      "source": "https://www.jamendo.com/track/1083525",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 1901568
+    },
+    {
+      "id": "jamendo-1403220",
+      "title": "Baby Go",
+      "artist": "eve",
+      "src": "/music/jamendo-1403220.mp3",
+      "source": "https://www.jamendo.com/track/1403220",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 2579968
+    },
+    {
+      "id": "jamendo-382",
+      "title": "Soon and Very Soon (Negro Spiritual)",
+      "artist": "Les Petits Chanteurs de Montigny",
+      "src": "/music/jamendo-382.mp3",
+      "source": "https://www.jamendo.com/track/382",
+      "license": "http://creativecommons.org/licenses/by-sa/2.0/",
+      "bytes": 2567680
+    },
+    {
+      "id": "jamendo-520420",
+      "title": "Air Nostalgie",
+      "artist": "Hari Harahani",
+      "src": "/music/jamendo-520420.mp3",
+      "source": "https://www.jamendo.com/track/520420",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 2455040
+    }
+  ]
 }
