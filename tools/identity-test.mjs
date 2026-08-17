@@ -110,3 +110,44 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
   console.log(`${note.includes('2') ? 'PASS' : 'FAIL'}  says how many kept stories their authors took back (${note})`);
   await b.close();
 }
+
+// 5. The share card: drawn on the device, offered only on your own whisper,
+//    and a long whisper becomes an opening plus a link rather than a wall.
+{
+  const { b, page } = await open(true);
+  await page.click('#find-icon');
+  await page.fill('#find-input', 'tester');
+  await page.click('#find-submit');
+  await page.click('#find-result .find-result-row');
+  await page.waitForSelector('#read-overlay:not(.hidden)');
+  const offered = await page.locator('#read-share-btn').isVisible();
+  console.log(`${offered ? 'PASS' : 'FAIL'}  share offered on your own whisper`);
+
+  const drew = await page.evaluate(async () => {
+    const { drawCard, excerpt } = await import('/js/sharecard.js');
+    const long = '我还是会偷偷跟你说话。'.repeat(40);
+    const cut = excerpt(long);
+    const blob = await drawCard({ text: long, type: 'pain', label: '读全文 ↓' });
+    return { bytes: blob ? blob.size : 0, mime: blob ? blob.type : '', trimmed: cut.trimmed, len: cut.text.length };
+  });
+  console.log(`${drew.bytes > 5000 && drew.mime === 'image/png' ? 'PASS' : 'FAIL'}  card renders to a PNG on the device (${drew.bytes} bytes)`);
+  console.log(`${drew.trimmed && drew.len <= 230 ? 'PASS' : 'FAIL'}  a long whisper is cut to an opening (${drew.len} chars)`);
+  await b.close();
+}
+
+// 6. The card's link opens that whisper, not the sky.
+{
+  const b = await chromium.launch({ executablePath: browserPath() });
+  const page = await b.newPage();
+  let asked = null;
+  await page.route('**/api/**', (r) => r.fulfill({ json: {} }));
+  await page.route('**/api/bubbles**', (r) => {
+    const m = /\/api\/bubbles\/(\d+)$/.exec(r.request().url());
+    if (m) { asked = m[1]; return r.fulfill({ json: { bubble: { ...W, id: 7, mine: false }, replies: [] } }); }
+    return r.fulfill({ json: { bubbles: [W] } });
+  });
+  await page.goto(`${BASE}/?w=7`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#read-overlay:not(.hidden)', { timeout: 5000 }).catch(() => {});
+  console.log(`${asked === '7' ? 'PASS' : 'FAIL'}  ?w=7 opens whisper 7 (asked for ${asked})`);
+  await b.close();
+}

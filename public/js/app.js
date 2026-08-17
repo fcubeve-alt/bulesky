@@ -3,6 +3,7 @@ import { createWhisperWorld } from './scene.js';
 import { initAmbient } from './ambient.js';
 import { initBackgrounds } from './backgrounds.js';
 import * as identity from './identity.js';
+import { drawCard, shareCard } from './sharecard.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -91,6 +92,7 @@ const els = {
   readReportBtn: $('read-report-btn'),
   readDeleteBtn: $('read-delete-btn'),
   readSaveBtn: $('read-save-btn'),
+  readShareBtn: $('read-share-btn'),
   mysky: $('mysky'),
   myskyMsg: $('mysky-msg'),
   restoreLabel: $('restore-label'),
@@ -191,6 +193,7 @@ function applyText() {
   els.readListenBtn.textContent = t('listen');
   els.readLightBtn.textContent = t('leaveLight');
   els.readDeleteBtn.textContent = t('deleteMine');
+  els.readShareBtn.textContent = t('shareMine');
   els.restoreLabel.textContent = t('restoreLabel');
   els.restoreInput.placeholder = t('restorePlaceholder');
   els.restoreSubmit.textContent = t('restoreSubmit');
@@ -483,6 +486,7 @@ function renderRead(bubble, replies, rect) {
   els.readDeleteBtn.classList.toggle('hidden', !bubble.mine);
   // Your own whisper is already yours; offering to keep it is noise.
   els.readSaveBtn.classList.toggle('hidden', Boolean(bubble.mine));
+  els.readShareBtn.classList.toggle('hidden', !bubble.mine);
   els.readSaveBtn.textContent = bubble.saved ? t('savedToSky') : t('saveToSky');
   els.readSaveBtn.classList.toggle('reported', Boolean(bubble.saved));
   els.readOverlay.dataset.type = bubble.type;
@@ -1048,6 +1052,31 @@ function toggleListen() {
 }
 
 
+// Make a picture of your own whisper.
+//
+// Drawn on the device (see sharecard.js), so it costs nothing and needs no
+// server. A long whisper becomes an opening plus the link rather than a wall of
+// text: the card is a poster for the story, not a copy of it — the words stay
+// here, where their author can still take them back.
+async function shareMine() {
+  const bubble = state.detailBubble;
+  if (!bubble || !bubble.mine) return;
+
+  els.readShareBtn.disabled = true;
+  els.readShareBtn.textContent = t('shareWorking');
+  try {
+    const url = `${location.origin}/?w=${bubble.id}`;
+    const blob = await drawCard({ text: bubble.content, type: bubble.type, label: t('shareCardRead') });
+    const how = await shareCard(blob, { title: t('shareCardTitle'), url });
+    if (how === 'downloaded') showToast(t('shareSaved'));
+  } catch {
+    showToast(t('errorGeneric'));
+  } finally {
+    els.readShareBtn.disabled = false;
+    els.readShareBtn.textContent = t('shareMine');
+  }
+}
+
 // Keep a stranger's story, or let it go again.
 //
 // What is stored is a reference, never the words: when its author deletes it,
@@ -1476,6 +1505,7 @@ function init() {
   els.readLightBtn.addEventListener('click', leaveLight);
   els.readDeleteBtn.addEventListener('click', deleteMine);
   els.readSaveBtn.addEventListener('click', toggleSave);
+  els.readShareBtn.addEventListener('click', shareMine);
   els.restoreSubmit.addEventListener('click', restoreIdentity);
   els.restoreInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') restoreIdentity(); });
   els.readReportBtn.addEventListener('click', () => {
@@ -1590,6 +1620,15 @@ function init() {
   maybeShowNotice();
   maybeShowIosGuide();
   maybeShowFirstHint();
+
+  // ?w=<id> opens one whisper straight away. This is what the link on a share
+  // card points at, and without it the card would be a picture with a URL that
+  // lands on the sky and leaves the reader hunting for the story it came from.
+  // A whisper its author has since deleted simply is not found, which is the
+  // right ending: the card outlives the words only as a picture, never as a way
+  // back into them.
+  const wanted = parseInt(new URLSearchParams(location.search).get('w') || '', 10);
+  if (Number.isFinite(wanted)) openDetail(wanted);
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
