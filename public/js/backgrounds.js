@@ -8,6 +8,10 @@
 // The background is video only; with no videos yet a plain dark gradient
 // (#sky-bg) shows behind the whispers.
 
+// Same as the music: the clips live on the site, and the App has to be told so
+// rather than looking for them inside its own bundle. See config.js.
+import { url as mediaUrl } from './config.js';
+
 const AUTO_KEY = 'bulesky_bg_auto';
 // Longest a single clip stays on screen before dissolving to the next. Stock
 // scenery clips run 30–60s, and waiting out every one of them meant a five
@@ -56,7 +60,7 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
     if (standby.dataset.idx === String(nextIdx) && standby.readyState >= 3) return;
     standby.dataset.idx = String(nextIdx);
     standby.preload = 'auto';
-    standby.src = options[nextIdx].src;
+    standby.src = mediaUrl(options[nextIdx].src);
     standby.classList.remove('hidden');
     standby.load();
   }
@@ -135,7 +139,7 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
     index = ((i % options.length) + options.length) % options.length;
     const cur = layers[active];
     cur.dataset.idx = String(index);
-    cur.src = options[index].src;
+    cur.src = mediaUrl(options[index].src);
     cur.classList.remove('hidden');
     scrim.classList.remove('hidden');
     document.body.classList.add('has-video');
@@ -166,7 +170,7 @@ export function initBackgrounds({ videoA, videoB, scrim }) {
 
   (async () => {
     try {
-      const res = await fetch('/video/manifest.json', { cache: 'no-cache' });
+      const res = await fetch(mediaUrl('/video/manifest.json'), { cache: 'no-cache' });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.videos)) {

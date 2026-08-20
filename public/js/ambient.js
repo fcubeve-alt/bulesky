@@ -10,6 +10,11 @@
 
 // ---------------- Synth fallback ----------------
 
+// Media paths come from a manifest and are relative on the website. Inside the
+// App they have to point back at the site, or a phone would be asked for files
+// that live on a server. See config.js.
+import { url as mediaUrl } from './config.js';
+
 const CHORD = [
   { freq: 110, gain: 0.05, pan: -0.25 },
   { freq: 165, gain: 0.035, pan: 0.25 },
@@ -187,7 +192,7 @@ export function initAmbient(opts = {}) {
     if (libraryLoaded) return;
     libraryLoaded = true;
     try {
-      const res = await fetch('/music/manifest.json', { cache: 'no-cache' });
+      const res = await fetch(mediaUrl('/music/manifest.json'), { cache: 'no-cache' });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.tracks)) {
@@ -348,7 +353,7 @@ export function initAmbient(opts = {}) {
     currentTrack = track;
     currentTitle = track.title || track.src.split('/').pop();
     onChange();
-    to.src = track.src;
+    to.src = mediaUrl(track.src);
     to.volume = 0;
     let started = false;
     const begin = () => {
@@ -401,7 +406,7 @@ export function initAmbient(opts = {}) {
     segEnds[0] = Number.isFinite(track.end) ? track.end : Infinity;
     currentTrack = track;
     currentTitle = track.title || track.src.split('/').pop();
-    p.src = track.src;
+    p.src = mediaUrl(track.src);
     setLevel(0, vol());
     p.play().catch(() => {});
     onChange();

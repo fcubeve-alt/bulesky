@@ -1,0 +1,15 @@
+{
+  "appId": "com.cubewithin.areyoualright",
+  "appName": "Are you alright?",
+  "webDir": "www",
+  "ios": { "contentInset": "always", "backgroundColor": "#070c1e" },
+  "android": { "backgroundColor": "#070c1e" },
+  "server": { "androidScheme": "https" },
+  "plugins": {
+    "SplashScreen": {
+      "backgroundColor": "#070c1e",
+      "launchAutoHide": true,
+      "showSpinner": false
+    }
+  }
+}

@@ -16,6 +16,8 @@
 // Only ever the author's own words: the button that calls this is shown only
 // when the server says the whisper is yours.
 
+import { share } from './native.js';
+
 const W = 1080;
 const H = 1350; // 4:5 — the tallest an image can be before Instagram crops it
 
@@ -200,14 +202,12 @@ export async function drawCard({ text, type = 'pain', label = '' }) {
 export async function shareCard(blob, { title, url }) {
   const file = new File([blob], 'are-you-alright.png', { type: 'image/png' });
 
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], text: `${title}\n${url}` });
-      return 'shared';
-    } catch (e) {
-      // Cancelling is not a failure and must not be reported as one.
-      if (e && e.name === 'AbortError') return 'cancelled';
-    }
+  try {
+    await share({ files: [file], text: `${title}\n${url}`, title, url });
+    return 'shared';
+  } catch (e) {
+    // Cancelling is not a failure and must not be reported as one.
+    if (e && e.name === 'AbortError') return 'cancelled';
   }
 
   const link = document.createElement('a');

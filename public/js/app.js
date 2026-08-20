@@ -3,6 +3,8 @@ import { createWhisperWorld } from './scene.js';
 import { initAmbient } from './ambient.js';
 import { initBackgrounds } from './backgrounds.js';
 import * as identity from './identity.js';
+import { url as apiUrl } from './config.js';
+import * as native from './native.js';
 import { drawCard, shareCard } from './sharecard.js';
 
 const $ = (id) => document.getElementById(id);
@@ -235,7 +237,7 @@ async function loadWhispers() {
     // 40, not 80: the refresh below replaces the deck every 90s and a balloon
     // rises every ~3.4s, so only the first ~26 of a sample were ever dealt —
     // the rest was downloaded and thrown away.
-    const res = await fetch('/api/bubbles?limit=40');
+    const res = await fetch(apiUrl('/api/bubbles?limit=40'));
     const data = await res.json();
     const whispers = data.bubbles || [];
     whisperWorld.setWhispers(whispers);
@@ -333,7 +335,7 @@ async function sendReport(targetType, id, btn, onHidden) {
   rememberReported(targetType, id);
   markReportButton(btn);
   try {
-    const res = await fetch('/api/report', {
+    const res = await fetch(apiUrl('/api/report'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ targetType, targetId: id }),
@@ -390,7 +392,7 @@ async function submitCompose() {
     // every whisper after that.
     const firstEver = !identity.hasSecret();
     const secret = identity.secret();
-    const res = await fetch('/api/bubbles', {
+    const res = await fetch(apiUrl('/api/bubbles'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ type: state.composeType, content, code, lang: currentLang, secret }),
@@ -398,6 +400,7 @@ async function submitCompose() {
     const data = await res.json();
     if (!res.ok) return showError(els.composeError, t(ERROR_KEYS[data.error] || 'errorGeneric'));
     closeSheet(els.composeOverlay, els.composeSheet);
+    native.tap('heavy'); // it left your hands
     rememberMyBubble(data.id);
     showConfirm(data, firstEver && Boolean(secret));
     // The author must always see their own whisper: pin it so a balloon
@@ -445,7 +448,7 @@ async function openDetail(id, rect) {
     // The hash, not the secret. It is enough for the server to answer "yours",
     // and worth nothing to anyone who sees it go past.
     const mineHash = await identity.hash();
-    const res = await fetch(`/api/bubbles/${id}`, {
+    const res = await fetch(apiUrl(`/api/bubbles/${id}`), {
       headers: mineHash ? { 'x-author': mineHash } : {},
     });
     const data = await res.json();
@@ -549,7 +552,7 @@ function renderRead(bubble, replies, rect) {
           if (!window.confirm(t('deleteReplyConfirm'))) return;
           remove.disabled = true;
           try {
-            const res = await fetch(`/api/replies/${r.id}`, {
+            const res = await fetch(apiUrl(`/api/replies/${r.id}`), {
               method: 'DELETE',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ secret: identity.secret() }),
@@ -1006,7 +1009,7 @@ function toggleListen() {
     speakInBrowser(text);
   };
 
-  fetch(`/api/voice/${id}`)
+  fetch(apiUrl(`/api/voice/${id}`))
     .then(async (res) => {
       // Judge it by what came back, not by the status.
       //
@@ -1090,7 +1093,7 @@ async function toggleSave() {
 
   els.readSaveBtn.disabled = true;
   try {
-    const res = await fetch('/api/saves', {
+    const res = await fetch(apiUrl('/api/saves'), {
       method: nowSaved ? 'POST' : 'DELETE',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ secret: identity.secret(), itemType: 'bubble', itemId: bubble.id }),
@@ -1121,7 +1124,7 @@ async function loadMySky() {
   }
   try {
     const hash = await identity.hash();
-    const res = await fetch('/api/me', { headers: { 'x-author': hash } });
+    const res = await fetch(apiUrl('/api/me'), { headers: { 'x-author': hash } });
     const data = await res.json();
     if (!res.ok) throw new Error('failed');
 
@@ -1190,7 +1193,7 @@ async function deleteMine() {
 
   els.readDeleteBtn.disabled = true;
   try {
-    const res = await fetch(`/api/bubbles/${id}`, {
+    const res = await fetch(apiUrl(`/api/bubbles/${id}`), {
       method: 'DELETE',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ secret: identity.secret() }),
@@ -1210,6 +1213,9 @@ async function deleteMine() {
 async function leaveLight() {
   const id = state.detailBubbleId;
   if (!id || hasLeftLight(id)) return;
+  // A light is a small, deliberate thing. Feeling it land is most of why it
+  // feels like more than a counter going up.
+  native.tap('light');
   rememberLight(id);
   setLightButtonState(id);
   // Clear, immediate feedback: the whisper warms up and a little spark floats
@@ -1219,7 +1225,7 @@ async function leaveLight() {
   showToast(t('lightThanks'));
   warmOpenWhisper({ lights: (state.detailBubble?.lights || 0) + 1 });
   try {
-    const res = await fetch(`/api/bubbles/${id}/lights`, { method: 'POST' });
+    const res = await fetch(apiUrl(`/api/bubbles/${id}/lights`), { method: 'POST' });
     const data = await res.json();
     // Take the server's count — someone else may have left one too.
     if (Number.isFinite(data?.lights)) warmOpenWhisper({ lights: data.lights });
@@ -1239,7 +1245,7 @@ async function submitReply() {
   if (!content) return showError(els.replyError, t('errorEmptyContent'));
   els.replySubmit.disabled = true;
   try {
-    const res = await fetch(`/api/bubbles/${state.detailBubbleId}/replies`, {
+    const res = await fetch(apiUrl(`/api/bubbles/${state.detailBubbleId}/replies`), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -1271,7 +1277,7 @@ async function submitFind() {
   els.findResult.innerHTML = '';
   if (!code) return;
   try {
-    const res = await fetch(`/api/bubbles?code=${encodeURIComponent(code)}`);
+    const res = await fetch(apiUrl(`/api/bubbles?code=${encodeURIComponent(code)}`));
     const data = await res.json();
     if (res.status === 429) {
       els.findResult.textContent = t('findTooMany');
@@ -1630,7 +1636,22 @@ function init() {
   const wanted = parseInt(new URLSearchParams(location.search).get('w') || '', 10);
   if (Number.isFinite(wanted)) openDetail(wanted);
 
-  if ('serviceWorker' in navigator) {
+  // The App only. On the web every one of these is a no-op.
+  native.dressWindow();
+  native.onBackButton((canGoBack) => {
+    // Back closes what is open before it closes anything else. Android users
+    // expect the button to undo the last step, and an App that quits from
+    // inside a whisper reads as a crash.
+    if (!els.readOverlay.classList.contains('hidden')) return closeRead();
+    if (!els.composeSheet.classList.contains('hidden')) return closeSheet(els.composeOverlay, els.composeSheet);
+    if (!els.findPanel.classList.contains('hidden')) return els.findPanel.classList.add('hidden');
+    if (canGoBack) history.back();
+  });
+
+  // The service worker belongs to the website. In the App the files are
+  // already on the phone, and a second cache in front of them is one more
+  // thing that can serve something stale.
+  if ('serviceWorker' in navigator && !native.inApp()) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 }
