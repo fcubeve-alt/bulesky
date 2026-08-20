@@ -61,6 +61,37 @@ jobs:
             fi
           done
 
+      # A deploy that reports success while the database is behind is worse
+      # than a deploy that fails — the site then runs new code against an old
+      # schema, and what the owner sees is "the new features are missing AND
+      # publishing is broken". That happened: four ALTER TABLEs shared one
+      # migration file, D1 rolls a whole file back on any error, and the loop
+      # above only looks at output when wrangler exits non-zero.
+      #
+      # So the schema the code depends on is checked here, before anything is
+      # deployed. Each column and table is asked for by name; a missing one
+      # fails the query, fails this step, and stops the deploy while the site
+      # is still serving the last working version.
+      - name: Verify the database has what the code needs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          check() {
+            if ! out=$(npx wrangler d1 execute bulesky-db --remote --command "$1" 2>&1); then
+              echo "$out"
+              echo "::error::Schema check failed: $2 — the database is behind the code. Deploy stopped."
+              exit 1
+            fi
+            echo "  ok: $2"
+          }
+          check "SELECT author_hash, deleted_at FROM bubbles LIMIT 1" "bubbles.author_hash / deleted_at"
+          check "SELECT author_hash, deleted_at FROM replies LIMIT 1" "replies.author_hash / deleted_at"
+          check "SELECT author_hash, item_type, item_id FROM saves LIMIT 1" "saves"
+          check "SELECT item_type, item_id, status, auto FROM reports LIMIT 1" "reports"
+          check "SELECT bucket, window_start, count FROM rate_limits LIMIT 1" "rate_limits"
+
       - name: Ensure Pages project exists
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
