@@ -453,44 +453,51 @@ body.has-video #mist { display: none; }
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
   animation: fade-in 0.18s ease-out;
 }
-/* My Sky is the one panel that holds your own words rather than a control, so
-   it is the one panel that is not night-blue. Warm, translucent, lamplit — a
-   note left on the table instead of another setting.
-   Light panel means dark ink: the site's text colours are built for a dark
-   surface, and left as they are on this one the labels wash out to nothing.
-   Everything the panel contains is re-coloured here for that reason, not for
-   decoration. */
-#find-panel {
-  background: rgba(255, 241, 196, 0.82);
+/* The panels behind the top row are all one material now: warm, translucent
+   paper against the night, instead of the same blue-grey as the sky.
+   A light surface means dark ink. Every colour in this block exists for that
+   reason rather than for decoration — the site's text colours are built for a
+   dark panel, and left alone on a pale one the labels wash out to nothing
+   (which is exactly what the first attempt did). */
+.mini-panel {
+  background: rgba(255, 241, 196, 0.9);
   border-color: rgba(196, 156, 60, 0.5);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
-#find-panel label,
-#find-panel .hint,
-#find-panel .find-result,
-#find-panel .find-results-title {
-  color: rgba(64, 46, 12, 0.78);
+.mini-panel label,
+.mini-panel .hint,
+.mini-panel .find-result,
+.mini-panel .find-results-title,
+.mini-panel p,
+.mini-panel .music-now,
+.mini-panel .music-credit,
+.mini-panel #coffee-text,
+.mini-panel #about-panel-text {
+  color: rgba(64, 46, 12, 0.82);
 }
-#find-panel .find-results-title { opacity: 1; font-weight: 600; }
-#find-panel .mini-close { color: rgba(64, 46, 12, 0.6); }
-#find-panel input[type="text"] {
-  background: rgba(255, 252, 240, 0.9);
+.mini-panel .music-now,
+.mini-panel .find-results-title { color: #3a2a08; font-weight: 600; opacity: 1; }
+.mini-panel .mini-close { color: rgba(64, 46, 12, 0.6); }
+.mini-panel a { color: #7a4a06; }
+.mini-panel input[type="text"] {
+  background: rgba(255, 252, 240, 0.92);
   border-color: rgba(150, 116, 40, 0.35);
   color: #3a2a08;
 }
-#find-panel input[type="text"]::placeholder { color: rgba(70, 52, 18, 0.45); }
-#find-panel .find-result-row {
-  background: rgba(255, 252, 240, 0.72);
+.mini-panel input[type="text"]::placeholder { color: rgba(70, 52, 18, 0.45); }
+.mini-panel .btn-secondary {
+  background: rgba(255, 252, 240, 0.8);
+  border-color: rgba(150, 116, 40, 0.38);
+  color: #3a2a08;
+}
+.mini-panel .btn-secondary:active { background: rgba(255, 246, 214, 1); }
+.mini-panel .find-result-row {
+  background: rgba(255, 252, 240, 0.75);
   border-color: rgba(150, 116, 40, 0.28);
   color: #33250a;
 }
-#find-panel .find-result-row:active { background: rgba(255, 248, 220, 0.95); }
-#find-panel .find-result-row.removed { color: rgba(70, 52, 18, 0.5); background: rgba(255, 252, 240, 0.4); }
-#find-panel .btn-secondary {
-  background: rgba(255, 252, 240, 0.75);
-  border-color: rgba(150, 116, 40, 0.35);
-  color: #3a2a08;
-}
+.mini-panel .find-result-row:active { background: rgba(255, 248, 220, 0.95); }
+.mini-panel .find-result-row.removed { color: rgba(70, 52, 18, 0.5); background: rgba(255, 252, 240, 0.45); }
 
 .mini-panel-row { display: flex; gap: 8px; margin-top: 8px; }
 .mini-panel input[type="text"] { flex: 1; min-width: 0; }

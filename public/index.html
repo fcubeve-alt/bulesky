@@ -77,6 +77,12 @@
      bottom for whoever lost their code and still remembers what they signed. -->
 <div id="find-panel" class="mini-panel hidden">
   <button class="mini-close" id="find-close" aria-label="Close">×</button>
+  <!-- The panel says what it is before it lists anything. Without this it
+       reads as a search box with two mysterious lists above it, and the one
+       thing people need to know — that this follows the phone, not the name
+       you signed with — is the thing nothing was saying. -->
+  <p id="mysky-title" class="music-now"></p>
+  <p id="mysky-intro" class="hint"></p>
   <div id="mysky"></div>
   <p id="mysky-msg" class="hint"></p>
 

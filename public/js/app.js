@@ -96,6 +96,8 @@ const els = {
   readSaveBtn: $('read-save-btn'),
   readShareBtn: $('read-share-btn'),
   mysky: $('mysky'),
+  myskyTitle: $('mysky-title'),
+  myskyIntro: $('mysky-intro'),
   myskyMsg: $('mysky-msg'),
   restoreLabel: $('restore-label'),
   restoreInput: $('restore-input'),
@@ -196,6 +198,8 @@ function applyText() {
   els.readLightBtn.textContent = t('leaveLight');
   els.readDeleteBtn.textContent = t('deleteMine');
   els.readShareBtn.textContent = t('shareMine');
+  els.myskyTitle.textContent = t('mySkyTitle');
+  els.myskyIntro.textContent = t('mySkyIntro');
   els.restoreLabel.textContent = t('restoreLabel');
   els.restoreInput.placeholder = t('restorePlaceholder');
   els.restoreSubmit.textContent = t('restoreSubmit');
