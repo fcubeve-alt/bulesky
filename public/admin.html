@@ -37,6 +37,7 @@
     <h1>Posts</h1>
     <div class="row" style="margin:0">
       <button id="open-reports" type="button">Reports</button>
+      <button id="open-claim" type="button">Claim old whispers</button>
       <button id="open-images" type="button">Images</button>
       <button id="new-post" class="primary" type="button">New post</button>
     </div>
@@ -58,7 +59,37 @@
   <p id="reports-msg" class="msg hidden"></p>
 </main>
 
-<!-- 4. Images -->
+<!-- 4. Claim old whispers -->
+<main id="view-claim" class="hidden">
+  <div class="admin-bar">
+    <h1>Claim old whispers</h1>
+    <button id="claim-back" class="link" type="button">← All posts</button>
+  </div>
+  <article class="card">
+    <p class="meta">
+      Whispers written before the site had authorship have no owner, and nothing
+      can prove who wrote them — so the normal delete and share buttons never
+      appear on them. This attaches them to your recovery code, which puts them
+      in your My Sky where those buttons work.
+    </p>
+    <p class="meta">
+      Fill in the name you signed them with, so you take your own and leave
+      everyone else's alone. Leave it empty only if you really mean every
+      unowned whisper on the site.
+    </p>
+    <label for="claim-code">Name they were signed with</label>
+    <input id="claim-code" type="text" autocomplete="off" placeholder="e.g. 夜里的猫" />
+    <label for="claim-secret">Your recovery code</label>
+    <input id="claim-secret" type="text" autocomplete="off" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" />
+    <div class="row">
+      <button id="claim-count" type="button">Count first</button>
+      <button id="claim-go" class="primary" type="button">Claim them</button>
+    </div>
+  </article>
+  <p id="claim-msg" class="msg hidden"></p>
+</main>
+
+<!-- 5. Images -->
 <main id="view-images" class="hidden">
   <div class="admin-bar">
     <h1>Images</h1>
@@ -121,6 +152,7 @@ const views = {
   login: $('view-login'),
   list: $('view-list'),
   reports: $('view-reports'),
+  claim: $('view-claim'),
   images: $('view-images'),
   edit: $('view-edit'),
 };
@@ -499,6 +531,39 @@ $('reports-filter').addEventListener('click', () => {
   reportFilter = reportFilter === 'open' ? 'all' : 'open';
   loadReports().catch((e) => say($('reports-msg'), e.message));
 });
+$('open-claim').addEventListener('click', () => { show('claim'); say($('claim-msg'), ''); });
+$('claim-back').addEventListener('click', () => loadList().catch(() => {}));
+
+// Counting first is not decoration: "leave the name empty" quietly means every
+// unowned whisper on the site, and seeing the number beforehand is what stops
+// that being a surprise.
+async function claim(withSecret) {
+  const code = $('claim-code').value.trim();
+  const secret = withSecret ? $('claim-secret').value.trim() : '';
+  if (withSecret && !secret) return say($('claim-msg'), 'Paste your recovery code first.');
+  if (withSecret && !code && !confirm('No name given — this claims EVERY unowned whisper on the site, including other people\'s. Continue?')) return;
+  try {
+    const data = await api('/api/admin/claim', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code, secret }),
+    });
+    const n = data.would || data.claimed;
+    const who = data.code ? `signed "${data.code}"` : 'with no owner';
+    say(
+      $('claim-msg'),
+      data.dryRun
+        ? `${n.bubbles} whispers and ${n.replies} replies ${who} would be claimed.`
+        : `Claimed ${n.bubbles} whispers and ${n.replies} replies. They are in your My Sky now.`,
+      'ok'
+    );
+  } catch (e) {
+    say($('claim-msg'), e.message);
+  }
+}
+$('claim-count').addEventListener('click', () => claim(false));
+$('claim-go').addEventListener('click', () => claim(true));
+
 $('open-images').addEventListener('click', () => loadImages().catch(() => {}));
 $('images-back').addEventListener('click', () => loadList().catch(() => {}));
 

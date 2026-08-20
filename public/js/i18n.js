@@ -161,7 +161,7 @@ const DICTS = {
     myBalloons: 'What I wrote',
     mySaved: 'What I kept',
     mySkyEmpty: 'Nothing here yet. Write your first, or keep a story that finds you.',
-    savedGone: '{n} of the stories you kept have left the sky.',
+    savedGone: 'Stories you kept that have left the sky: {n}.',
     restoreLabel: 'Bring my sky to this device',
     restorePlaceholder: 'Paste your recovery code',
     restoreSubmit: 'Restore',

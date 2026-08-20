@@ -453,6 +453,45 @@ body.has-video #mist { display: none; }
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
   animation: fade-in 0.18s ease-out;
 }
+/* My Sky is the one panel that holds your own words rather than a control, so
+   it is the one panel that is not night-blue. Warm, translucent, lamplit — a
+   note left on the table instead of another setting.
+   Light panel means dark ink: the site's text colours are built for a dark
+   surface, and left as they are on this one the labels wash out to nothing.
+   Everything the panel contains is re-coloured here for that reason, not for
+   decoration. */
+#find-panel {
+  background: rgba(255, 241, 196, 0.82);
+  border-color: rgba(196, 156, 60, 0.5);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+#find-panel label,
+#find-panel .hint,
+#find-panel .find-result,
+#find-panel .find-results-title {
+  color: rgba(64, 46, 12, 0.78);
+}
+#find-panel .find-results-title { opacity: 1; font-weight: 600; }
+#find-panel .mini-close { color: rgba(64, 46, 12, 0.6); }
+#find-panel input[type="text"] {
+  background: rgba(255, 252, 240, 0.9);
+  border-color: rgba(150, 116, 40, 0.35);
+  color: #3a2a08;
+}
+#find-panel input[type="text"]::placeholder { color: rgba(70, 52, 18, 0.45); }
+#find-panel .find-result-row {
+  background: rgba(255, 252, 240, 0.72);
+  border-color: rgba(150, 116, 40, 0.28);
+  color: #33250a;
+}
+#find-panel .find-result-row:active { background: rgba(255, 248, 220, 0.95); }
+#find-panel .find-result-row.removed { color: rgba(70, 52, 18, 0.5); background: rgba(255, 252, 240, 0.4); }
+#find-panel .btn-secondary {
+  background: rgba(255, 252, 240, 0.75);
+  border-color: rgba(150, 116, 40, 0.35);
+  color: #3a2a08;
+}
+
 .mini-panel-row { display: flex; gap: 8px; margin-top: 8px; }
 .mini-panel input[type="text"] { flex: 1; min-width: 0; }
 .mini-close {
