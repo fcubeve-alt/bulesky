@@ -1177,16 +1177,15 @@ async function toggleSave() {
 
 // A list of results under a heading.
 //
-// Open, always. Your own sky is the point of this panel, so it shows what is in
-// it — folding "what I wrote" shut and making someone tap to find out is hiding
-// the answer behind the question. However many there are, the list scrolls
-// INSIDE its own box (.result-group > div), so the panel is the same size with
-// three whispers in it or three hundred. The heading is still a <details>
-// summary, so anyone who wants a list out of the way can fold it themselves.
-function resultGroup(title, count) {
+// Folded. Opening My Sky shows four lines and nothing else — what I wrote,
+// what I kept, my recovery code, find by name — each with its count, each
+// opening on a tap. Spilling two full lists the moment the panel appears is
+// what made it look like a mess; the count on the heading already answers
+// "is there anything in there".
+function resultGroup(title, count, open = false) {
   const group = document.createElement('details');
   group.className = 'result-group';
-  group.open = true;
+  group.open = open;
   const head = document.createElement('summary');
   head.className = 'find-results-title';
   head.textContent = `${title} · ${count}`;
@@ -1205,29 +1204,22 @@ async function loadMySky() {
   const box = els.mysky;
   box.textContent = '';
   // A device that has never written anything has no code to show, and asking
-  // for one would mint an identity nobody asked for (identity.js).
+  // for one would mint an identity nobody asked for (identity.js). The section
+  // itself stays — the box for pasting a code IN lives here too, and the person
+  // who most needs it is exactly the one with nothing of their own yet.
   const code = identity.hasSecret() ? identity.recoveryCode() : null;
-  els.recoveryBox.classList.toggle('hidden', !code);
   els.recoveryBox.open = false;
+  els.recoveryNote.classList.toggle('hidden', !code);
+  els.myRecovery.classList.toggle('hidden', !code);
+  els.myRecoveryCopy.classList.toggle('hidden', !code);
   if (code) els.myRecovery.textContent = code;
-  if (!identity.hasSecret()) {
-    els.myskyMsg.textContent = t('mySkyEmpty');
-    return;
-  }
-  try {
-    const hash = await identity.hash();
-    const res = await fetch(apiUrl('/api/me'), { headers: { 'x-author': hash } });
-    const data = await res.json();
-    if (!res.ok) throw new Error('failed');
 
-    const sections = [
-      [t('myBalloons'), data.mine || []],
-      [t('mySaved'), data.saved || []],
-    ];
-    let any = false;
-    for (const [title, items] of sections) {
-      if (!items.length) continue;
-      any = true;
+  // Both headings show, always, even at zero — and even on a device that has
+  // never written anything. A section that vanishes when it is empty makes the
+  // panel a different shape every time it opens, and leaves "where did my
+  // whispers go" unanswered: "我写的 · 0" is an answer, a missing line is not.
+  const render = (mine, saved) => {
+    for (const [title, items] of [[t('myBalloons'), mine], [t('mySaved'), saved]]) {
       const group = resultGroup(title, items.length);
       for (const item of items) {
         const row = document.createElement('button');
@@ -1243,6 +1235,23 @@ async function loadMySky() {
       }
       box.appendChild(group.parentNode);
     }
+  };
+
+  if (!identity.hasSecret()) {
+    render([], []);
+    els.myskyMsg.textContent = t('mySkyEmpty');
+    return;
+  }
+  try {
+    const hash = await identity.hash();
+    const res = await fetch(apiUrl('/api/me'), { headers: { 'x-author': hash } });
+    const data = await res.json();
+    if (!res.ok) throw new Error('failed');
+
+    const mine = data.mine || [];
+    const saved = data.saved || [];
+    const any = mine.length > 0 || saved.length > 0;
+    render(mine, saved);
 
     // A shelf that quietly shrinks is unsettling. Say it plainly instead: the
     // story was taken back by the person who wrote it, which is how this works.
@@ -1391,7 +1400,9 @@ function renderFindResults(bubbles) {
   // meant anyone who read a byline could take the whisper over. Ownership now
   // comes from the device secret and nothing else.
   els.findResult.innerHTML = '';
-  const group = resultGroup(t('findResultsTitle'), bubbles.length);
+  // Open: someone typed a name and pressed find, so the answer is what they
+  // asked for. Folding it would be answering a question with a closed box.
+  const group = resultGroup(t('findResultsTitle'), bubbles.length, true);
   els.findResult.appendChild(group.parentNode);
   for (const b of bubbles) {
     const row = document.createElement('button');
@@ -1685,8 +1696,30 @@ function init() {
     refreshBgPanel();
   });
 
+  // The ♪ in the top row is a music button, so it had better make music.
+  //
+  // It only ever opened this panel. That is fine while the music is already
+  // playing — autostart brings it in on the first touch of the visit — but
+  // anyone who has once pressed pause has autostart switched off from then on
+  // (MUSIC_OFF_KEY), and for them tapping ♪ opened a panel and produced
+  // silence. Tap it again, panel closes. Again, opens. That is the reported
+  // "点了好几次都没有声音".
+  //
+  // So: silent → this turns the music on, and shows the panel so it is obvious
+  // what happened and what is playing. Already playing → it is just the panel
+  // toggle it always was. The button never does nothing.
   els.musicIcon.addEventListener('click', () => {
-    els.musicPanel.classList.toggle('hidden');
+    const wasSilent = !ambient.isPlaying;
+    if (wasSilent) {
+      // No await before this: the sound has to begin inside the gesture or iOS
+      // refuses it outright (see ambient.toggle and CLAUDE.md §7f).
+      const playing = ambient.toggle();
+      els.musicIcon.setAttribute('aria-pressed', String(playing));
+      localStorage.setItem(MUSIC_OFF_KEY, playing ? '0' : '1');
+      els.musicPanel.classList.remove('hidden');
+    } else {
+      els.musicPanel.classList.toggle('hidden');
+    }
     els.aboutPanel.classList.add('hidden');
     els.findPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');

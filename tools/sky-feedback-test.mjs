@@ -10,7 +10,11 @@
 //      drag, and the small far ones were under half the size a thumb can hit;
 //   3. the reading view waited on the network before drawing anything, so a
 //      slow connection meant a tap that did nothing at all for a second;
-//   4. a long list of results ran off the bottom of the panel.
+//   4. a long list of results ran off the bottom of the panel;
+//   5. the invitation to reply arrives late on purpose — and shoved the two
+//      buttons upward as it did, right as a thumb was reaching for one;
+//   6. the ♪ button opened a panel and made no sound, for anyone who had once
+//      pressed pause (that switches autostart off for good).
 //
 //   npm i -D playwright && python3 -m http.server 8788 --directory public
 //   node tools/sky-feedback-test.mjs
@@ -45,9 +49,9 @@ function check(ok, label) {
 
 // `detailDelayMs` stalls the single-whisper fetch, which is how a slow phone
 // behaves and the only way to see whether the reading view waits for it.
-async function open({ detailDelayMs = 0, mine = false, mySky = null } = {}) {
+async function open({ detailDelayMs = 0, mine = false, mySky = null, locale = 'en-GB' } = {}) {
   const b = await chromium.launch({ executablePath: browserPath() });
-  const page = await b.newPage({ viewport: { width: 390, height: 780 }, hasTouch: true });
+  const page = await b.newPage({ viewport: { width: 390, height: 780 }, hasTouch: true, locale });
   await page.route('**/api/**', (r) => r.fulfill({ json: {} }));
   if (mySky) await page.route('**/api/me**', (r) => r.fulfill({ json: mySky }));
   await page.route('**/api/bubbles**', async (r) => {
@@ -196,36 +200,97 @@ function reachableBalloon(page) {
       rows: g.querySelectorAll('.find-result-row').length,
     }))
   );
-  check(groups.length === 2, `what I wrote and what I kept, both listed (${groups.length})`);
-  // Everything is listed, whatever the count — this panel IS your own sky, so
-  // folding the answer away behind a tap is hiding it.
+  check(groups.length === 2, `what I wrote and what I kept, both there (${groups.length})`);
+  // Four quiet lines and nothing else. The counts on the headings already
+  // answer "is there anything in there", so spilling two full lists the moment
+  // the panel opens is only mess.
   check(
-    groups[0] && groups[0].rows === 30 && groups[0].open === true,
-    `all thirty are listed, not folded away (${groups[0] ? groups[0].rows : 0} rows, open=${groups[0] && groups[0].open})`
+    groups.every((g) => g.open === false),
+    `every list starts folded (${groups.map((g) => g.open).join(', ')})`
   );
-  check(groups[1] && groups[1].open === true, 'what I kept is listed too');
+  check(groups[0] && groups[0].rows === 30, `and holds all thirty (${groups[0] ? groups[0].rows : 0})`);
 
-  // …and the panel is still the size of the panel: the lists scroll inside
-  // themselves rather than growing it off the screen.
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll('#find-panel > .result-group, #find-panel #mysky > .result-group')]
+      .map((g) => ({ id: g.id || 'list', open: g.open }))
+  );
+  check(
+    rows.length === 4 && rows.every((r) => r.open === false),
+    `the panel opens as four folded rows (${rows.map((r) => r.id).join(', ')})`
+  );
+
+  // …so it is short, whatever is in it.
   const panel = await page.locator('#find-panel').boundingBox();
-  check(panel.height <= 780, `the panel still fits the screen (${Math.round(panel.height)}px of 780)`);
+  check(panel.height < 420, `and stays small (${Math.round(panel.height)}px of 780)`);
 
-  // Searching by name is a fallback and sits at the bottom, folded.
-  const search = await page.evaluate(() => {
-    const d = document.getElementById('find-box');
-    const my = document.getElementById('mysky');
-    return d && my ? { open: d.open, below: d.compareDocumentPosition(my) & Node.DOCUMENT_POSITION_PRECEDING } : null;
-  });
-  check(
-    search && search.open === false && Boolean(search.below),
-    'searching by name is folded away below your own sky'
-  );
-
-  // The recovery code has a home now: it used to be shown once, ever.
-  const codeVisible = await page.locator('#recovery-box').isVisible();
+  // The recovery code still has a home, and so does pasting one in.
   await page.click('#recovery-summary');
   const code = (await page.locator('#my-recovery').textContent()) || '';
-  check(codeVisible && /^[0-9A-Z-]{20,}$/.test(code), `the recovery code can be fetched again (${code})`);
+  const restoreVisible = await page.locator('#restore-input').isVisible();
+  check(/^[0-9A-Z-]{20,}$/.test(code), `the recovery code can be fetched again (${code})`);
+  check(restoreVisible, 'and a code from another phone can be pasted in under the same heading');
+
+  await b.close();
+}
+
+// 5. The reply invitation appears without moving anything already on screen.
+//
+// In Chinese, because that is where it bites: the invitation was a wrapped flex
+// item, so a SHORT sentence left room beside it and the "leave a light" button
+// jumped up onto the invitation's line. The English sentence is long enough to
+// fill the row on its own, which is why this went unseen until the interface
+// started following the phone.
+{
+  const { b, page } = await open({ locale: 'zh-CN' });
+  await page.waitForSelector('.lantern', { timeout: 4000 });
+  await page.waitForTimeout(2500);
+  const spot = await reachableBalloon(page);
+  await page.mouse.click(spot.cx, spot.cy);
+  await page.waitForSelector('#read-overlay:not(.hidden)', { timeout: 3000 });
+
+  const before = await page.locator('#read-light-btn').boundingBox();
+  // The invitation is held back until the whisper has nearly finished rising.
+  await page.waitForSelector('#read-invite:not(.hidden)', { timeout: 60000 });
+  await page.waitForTimeout(900); // let its entrance animation settle
+  const after = await page.locator('#read-light-btn').boundingBox();
+  const moved = Math.abs(before.y - after.y);
+  check(moved < 2, `the light button does not jump when the invitation lands (moved ${moved.toFixed(1)}px)`);
+
+  const invite = await page.locator('#read-invite').boundingBox();
+  check(
+    invite.y + invite.height <= after.y + 1,
+    'the invitation sits above the buttons rather than between them'
+  );
+  await b.close();
+}
+
+// 6. The music button makes music.
+{
+  const { b, page } = await open();
+  // Someone who once pressed pause: autostart is off for them from then on,
+  // and ♪ was a panel toggle that produced silence however many times it was
+  // pressed.
+  await page.evaluate(() => localStorage.setItem('bulesky_music_off', '1'));
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  const ok = page.locator('#notice-ok');
+  if (await ok.isVisible().catch(() => false)) await ok.click();
+  await page.waitForTimeout(600);
+
+  const silent = await page.evaluate(() => document.getElementById('music-icon').getAttribute('aria-pressed'));
+  check(silent === 'false', `starts silent, as that person left it (aria-pressed=${silent})`);
+
+  await page.click('#music-icon');
+  await page.waitForTimeout(400);
+  const nowOn = await page.evaluate(() => document.getElementById('music-icon').getAttribute('aria-pressed'));
+  const panelOpen = await page.locator('#music-panel').isVisible();
+  check(nowOn === 'true', 'one tap on ♪ turns the music on');
+  check(panelOpen, 'and shows the panel, so it is obvious what happened');
+
+  // A second tap must not silence it — that is the panel toggle, not a stop.
+  await page.click('#music-icon');
+  await page.waitForTimeout(200);
+  const stillOn = await page.evaluate(() => document.getElementById('music-icon').getAttribute('aria-pressed'));
+  check(stillOn === 'true', 'tapping again closes the panel and leaves the music playing');
   await b.close();
 }
 

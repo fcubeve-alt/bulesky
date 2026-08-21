@@ -92,20 +92,23 @@
        them to paste it was asking for something that did not exist. Folded
        shut because it is a thing you fetch when you need it, not something to
        leave lying open on a shared screen. -->
-  <details id="recovery-box" class="result-group hidden">
+  <details id="recovery-box" class="result-group">
     <summary id="recovery-summary" class="find-results-title"></summary>
     <p id="recovery-note" class="hint"></p>
     <code id="my-recovery" class="recovery-code"></code>
     <div class="mini-panel-row">
       <button id="my-recovery-copy" class="btn-secondary btn-small"></button>
     </div>
+    <!-- Reading your code out and typing someone else's in are the same
+         subject, so they live under the same heading. Kept apart they were two
+         more permanently-open rows in a panel that is supposed to open as four
+         quiet lines. -->
+    <label id="restore-label" for="restore-input"></label>
+    <div class="mini-panel-row">
+      <input id="restore-input" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
+      <button id="restore-submit" class="btn-secondary btn-small"></button>
+    </div>
   </details>
-
-  <label id="restore-label" for="restore-input"></label>
-  <div class="mini-panel-row">
-    <input id="restore-input" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
-    <button id="restore-submit" class="btn-secondary btn-small"></button>
-  </div>
 
   <!-- Searching by name is a fallback, and it is folded away as one.
        It used to sit here as a labelled box with its own button, level with

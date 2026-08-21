@@ -1061,9 +1061,20 @@ body.reading #now-playing { display: none; }
 /* "If you can, leave a little warmth behind." — an invitation, never a demand:
    its own line above the two actions, quiet enough to ignore. */
 .read-invite {
-  flex-basis: 100%;
-  max-width: fit-content; /* shrink to the sentence, then centre on its own line */
-  margin: 0 auto 6px;
+  /* OUT of the flex row, on purpose.
+     It used to be a wrapped flex item (flex-basis: 100%), so the moment it
+     appeared it added a line to a row anchored to the bottom of the screen —
+     and the two buttons underneath jumped upward. The invitation arriving is
+     the intended event; the buttons moving is not, and it happens right as
+     someone is reaching for one. Stacked above the row instead, so nothing
+     that was already on screen shifts by a pixel. */
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  margin: 0 auto 8px;
   padding: 5px 15px;
   border-radius: 999px;
   text-align: center;

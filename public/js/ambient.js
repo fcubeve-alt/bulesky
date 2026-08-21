@@ -385,7 +385,10 @@ export function initAmbient(opts = {}) {
   function pickLightTrack() {
     const sized = playlist.filter((t) => Number.isFinite(t.bytes));
     if (sized.length < 4) return pickTrack();
-    const median = sized.map((t) => t.bytes).sort((a, b) => a - b)[Math.floor(sized.length / 2)];
+    // Lower median. With an even number of tracks the upper one lets the
+    // middle — and therefore heaviest of the light half — count as light,
+    // which in a small library means the 17MB file is a valid opener.
+    const median = sized.map((t) => t.bytes).sort((a, b) => a - b)[Math.floor((sized.length - 1) / 2)];
     const light = sized.filter((t) => t.bytes <= median);
     return light[Math.floor(Math.random() * light.length)] || pickTrack();
   }
