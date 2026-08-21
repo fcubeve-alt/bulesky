@@ -145,6 +145,8 @@ const ERROR_KEYS = {
   content_too_long: 'errorTooLong',
   code_too_long: 'errorTooLong',
   blocked_abusive: 'errorAbusive',
+  blocked_guidelines: 'errorGuidelines',
+  too_many_replies: 'errorTooManyReplies',
   code_taken: 'errorCodeTaken',
 };
 
@@ -173,6 +175,11 @@ function updateNowPlaying() {
 }
 
 const ambient = initAmbient({ onChange: () => updateNowPlaying() });
+
+// Kept in step with the server (functions/api/bubbles/[id]/replies.js): a
+// reply that the box lets you finish and the server then refuses is the worst
+// version of a limit.
+const REPLY_MAX = 150;
 
 function applyText() {
   // <html lang> and <html dir>. Never called while the interface was pinned to
@@ -572,7 +579,7 @@ function renderRead(bubble, replies, rect) {
   els.replyLabel.textContent = bubble.type === 'pain' ? t('replyLabelPain') : t('replyLabelWish');
   els.replyContent.placeholder = bubble.type === 'pain' ? t('replyPlaceholderPain') : t('replyPlaceholderWish');
   els.replyContent.value = '';
-  els.replyCount.textContent = '0 / 300';
+  els.replyCount.textContent = `0 / ${REPLY_MAX}`;
   els.replyCode.value = '';
   els.replyError.classList.add('hidden');
 
@@ -1569,7 +1576,7 @@ function init() {
   els.composeCancel.addEventListener('click', () => closeSheet(els.composeOverlay, els.composeSheet));
   els.composeSubmit.addEventListener('click', submitCompose);
   els.replyContent.addEventListener('input', () => {
-    els.replyCount.textContent = `${els.replyContent.value.length} / 300`;
+    els.replyCount.textContent = `${els.replyContent.value.length} / ${REPLY_MAX}`;
   });
   els.composeContent.addEventListener('input', () => {
     els.composeCount.textContent = `${els.composeContent.value.length} / 1000`;

@@ -1,5 +1,6 @@
 import { containsAbusive, containsCrisisKeyword, maskContactInfo } from '../../../src/filters.js';
 import { cleanSecret, hashSecret } from '../../../src/identity.js';
+import { blocksPublishing, recordAiConcern, screen } from '../../../src/moderation.js';
 import { overLimit } from '../../../src/rate-limit.js';
 
 // Kept in step with /api/bubbles/by-code/<name>: same lookup, same limit.
@@ -133,6 +134,19 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'blocked_abusive' }, 400);
   }
 
+  // Read before it goes up, not after somebody complains.
+  //
+  // The keyword list above catches a dozen Chinese and English insults; this
+  // reads the actual sentence, in any language, which for every language but
+  // those two is the only thing that reads it at all. Bounded to 2.5s and
+  // failing open (src/moderation.js).
+  //
+  // Only `severe` is refused here — see blocksPublishing for why the other
+  // direction is the expensive mistake. A plain violation goes up and is filed
+  // for review in the same breath.
+  const verdict = await screen(env, trimmedContent);
+  if (blocksPublishing(verdict)) return json({ error: 'blocked_guidelines' }, 400);
+
   const { text: safeContent, masked } = maskContactInfo(trimmedContent);
   const crisisFlag = type === 'pain' && containsCrisisKeyword(trimmedContent) ? 1 : 0;
   const safeLang = typeof lang === 'string' ? lang.slice(0, 10) : null;
@@ -158,6 +172,8 @@ export async function onRequestPost({ request, env }) {
     )
       .bind(finalCode, type, safeContent, safeLang, crisisFlag, now, authorHash)
       .run();
+
+    await recordAiConcern(env, 'bubble', result.meta.last_row_id, verdict);
 
     return json(
       {
