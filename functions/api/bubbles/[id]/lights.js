@@ -13,16 +13,16 @@ export async function onRequestPost({ params, env }) {
   const id = parseInt(params.id, 10);
   if (!Number.isFinite(id)) return json({ error: 'invalid_id' }, 400);
 
-  const bubble = await env.DB.prepare(`SELECT id FROM bubbles WHERE id = ? AND hidden = 0`)
-    .bind(id)
-    .first();
-  if (!bubble) return json({ error: 'not_found' }, 404);
-
+  // One statement, not two. The SELECT that used to run first was asking the
+  // same question the UPDATE already answers — RETURNING gives back nothing at
+  // all when the row is missing or hidden — so it was a second round trip to
+  // the database on the most-tapped write in the product, for nothing.
   const row = await env.DB.prepare(
-    `UPDATE bubbles SET lights = lights + 1 WHERE id = ? RETURNING lights`
+    `UPDATE bubbles SET lights = lights + 1 WHERE id = ? AND hidden = 0 RETURNING lights`
   )
     .bind(id)
     .first();
+  if (!row) return json({ error: 'not_found' }, 404);
 
-  return json({ id, lights: row ? row.lights : null }, 201);
+  return json({ id, lights: row.lights }, 201);
 }
