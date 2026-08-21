@@ -107,12 +107,24 @@
     <button id="restore-submit" class="btn-secondary btn-small"></button>
   </div>
 
-  <label id="find-label" for="find-input"></label>
-  <div class="mini-panel-row">
-    <input id="find-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-    <button id="find-submit" class="btn-primary btn-small"></button>
-  </div>
-  <div id="find-result" class="find-result"></div>
+  <!-- Searching by name is a fallback, and it is folded away as one.
+       It used to sit here as a labelled box with its own button, level with
+       "what I wrote" and "what I kept", which made it look like a third thing
+       this panel is for. It is not: this panel is your own sky, and your own
+       sky follows the device. The search still has to exist, because it is the
+       only way back for whispers written before this device had an identity,
+       or from a phone whose recovery code was never saved — but it is read
+       only, it cannot prove anyone is anyone, and it belongs at the bottom
+       behind a fold. -->
+  <details id="find-box" class="result-group">
+    <summary id="find-summary" class="find-results-title"></summary>
+    <p id="find-note" class="hint"></p>
+    <div class="mini-panel-row">
+      <input id="find-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      <button id="find-submit" class="btn-secondary btn-small"></button>
+    </div>
+    <div id="find-result" class="find-result"></div>
+  </details>
 </div>
 
 <div id="share-panel" class="mini-panel hidden">

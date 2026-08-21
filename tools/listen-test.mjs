@@ -111,6 +111,9 @@ async function openAndPressListen(page, voiceHandler) {
   await page.locator('#notice-overlay').waitFor({ state: 'hidden' }).catch(() => {});
 
   await page.click('#find-icon');
+  // Searching by name is a fallback now and lives behind a fold at the bottom
+  // of My Sky — open it before typing into it.
+  await page.click('#find-summary');
   await page.fill('#find-input', WHISPER.code);
   await page.click('#find-submit');
   await page.click('#find-result .find-result-row');

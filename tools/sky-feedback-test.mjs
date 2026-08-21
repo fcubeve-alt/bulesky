@@ -196,16 +196,30 @@ function reachableBalloon(page) {
       rows: g.querySelectorAll('.find-result-row').length,
     }))
   );
-  check(groups.length === 2, `both lists are folding groups (${groups.length})`);
+  check(groups.length === 2, `what I wrote and what I kept, both listed (${groups.length})`);
+  // Everything is listed, whatever the count — this panel IS your own sky, so
+  // folding the answer away behind a tap is hiding it.
   check(
-    groups[0] && groups[0].rows === 30 && groups[0].open === false,
-    'thirty whispers start folded away'
+    groups[0] && groups[0].rows === 30 && groups[0].open === true,
+    `all thirty are listed, not folded away (${groups[0] ? groups[0].rows : 0} rows, open=${groups[0] && groups[0].open})`
   );
-  check(groups[1] && groups[1].open === true, 'a short list stays open — folding it hides nothing');
+  check(groups[1] && groups[1].open === true, 'what I kept is listed too');
 
-  // The panel must fit the screen whatever the lists hold.
+  // …and the panel is still the size of the panel: the lists scroll inside
+  // themselves rather than growing it off the screen.
   const panel = await page.locator('#find-panel').boundingBox();
   check(panel.height <= 780, `the panel still fits the screen (${Math.round(panel.height)}px of 780)`);
+
+  // Searching by name is a fallback and sits at the bottom, folded.
+  const search = await page.evaluate(() => {
+    const d = document.getElementById('find-box');
+    const my = document.getElementById('mysky');
+    return d && my ? { open: d.open, below: d.compareDocumentPosition(my) & Node.DOCUMENT_POSITION_PRECEDING } : null;
+  });
+  check(
+    search && search.open === false && Boolean(search.below),
+    'searching by name is folded away below your own sky'
+  );
 
   // The recovery code has a home now: it used to be shown once, ever.
   const codeVisible = await page.locator('#recovery-box').isVisible();

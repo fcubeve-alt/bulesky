@@ -6,6 +6,12 @@ export const SUPPORTED = ['zh', 'en', 'es', 'ar', 'fr'];
 
 const DICTS = {
   zh: {
+    findResultsTitle: '签这个名字的悄悄话',
+    firstHint: '轻触任意处开始 —— 音乐会随你第一次触碰响起。',
+    shareTitle: '扫码打开',
+    shareHint: '扫这个码,就能在任何一台手机上打开这片星空。',
+    copyLink: '复制链接',
+    linkCopied: '链接已复制',
     appName: '心灵星空',
     appSubtitle: '一个匿名的树洞，全球共享同一片星空',
     tagline: '夜色正在倾听。\n放一盏灯，让心事随光漂远。',
@@ -34,7 +40,8 @@ const DICTS = {
     copyCode: '复制暗号',
     copied: '已复制',
     close: '知道了',
-    findLabel: '也可以按你发布时签的名字来找(只能看,不能删)',
+    findLabel: '按名字找以前写的',
+    findNote: '给这台手机认不出来的那些:身份功能上线以前发的,或者从别的手机发的、恢复码又没存下来。按你当时签的名字找 —— 只能看,不能删,因为名字是公开的,证明不了是你。',
     findSubmit: '寻找',
     findNotFound: '没有找到这个暗号对应的气泡，再检查一下？',
     findTooMany: '短时间里查得太多了，请过几分钟再试。',
@@ -45,7 +52,7 @@ const DICTS = {
     mySkyTitle: '我的星空',
     myCodeTitle: '我的恢复码',
     myCodeNote: '换手机、或者想在别的设备上看到同一片星空,就把这串字符抄过去。它也是唯一能删掉这些悄悄话的东西 —— 谁拿到它,谁就能删,所以别发给别人。',
-    copyCode: '复制恢复码',
+    copyRecovery: '复制恢复码',
     mySkyIntro: '下面这些认的是这台手机,和你发布时写了什么名字没有关系 —— 你用过几个名字都会在一起。',
     myBalloons: '我写的',
     mySaved: '我收藏的',
@@ -155,7 +162,8 @@ const DICTS = {
     copyCode: 'Copy name',
     copied: 'Copied',
     close: 'Got it',
-    findLabel: 'Or find them by the name you signed with (read only)',
+    findLabel: 'Find older ones by name',
+    findNote: 'For whispers this phone cannot recognise: written before it had an identity, or from another phone whose recovery code was never saved. Search by the name you signed with — read only, because a name is public and cannot prove anyone is anyone.',
     findSubmit: 'Find',
     findNotFound: 'No whispers found under that name — double check it?',
     findTooMany: 'That is a lot of lookups in a short while. Please wait a few minutes and try again.',
@@ -166,7 +174,7 @@ const DICTS = {
     mySkyTitle: 'My Sky',
     myCodeTitle: 'My recovery code',
     myCodeNote: 'Take this with you to a new phone, or to any device where you want the same sky. It is also the only thing that can delete these whispers — whoever holds it can delete them, so keep it to yourself.',
-    copyCode: 'Copy code',
+    copyRecovery: 'Copy code',
     mySkyIntro: 'This follows the phone, not the name you signed with — however many names you have used, they all show up here together.',
     myBalloons: 'What I wrote',
     mySaved: 'What I kept',
@@ -254,6 +262,25 @@ const DICTS = {
     iosClose: 'Got it',
   },
   es: {
+    findResultsTitle: 'Susurros firmados con ese nombre',
+    firstHint: 'Toca en cualquier parte para empezar: la música arranca con tu primer toque.',
+    shareTitle: 'Escanea para abrir',
+    shareHint: 'Escanea este código para abrir este cielo en cualquier teléfono.',
+    copyLink: 'Copiar enlace',
+    linkCopied: 'Enlace copiado',
+    tagline: 'La noche está escuchando.\nDeja una luz a la deriva en el lago.',
+    tapHint: 'Toca una luz para leer un corazón · arrastra para recorrer el cielo',
+    musicPlay: 'Reproducir',
+    musicPause: 'Pausa',
+    musicNext: 'Siguiente',
+    musicIdle: 'El sonido ambiente está apagado',
+    musicSynth: 'Tonos suaves de ambiente',
+    musicEmptyNote: 'Aún no hay pistas: sonando tonos suaves. Puedes añadir tu propia música a la biblioteca.',
+    bgNext: 'Otro fondo',
+    bgAutoOn: 'Rotación automática: activada',
+    bgAutoOff: 'Rotación automática: desactivada',
+    bgProcedural: 'Lago pintado (por defecto)',
+    bgEmptyNote: 'Aún no hay vídeos de fondo: el cielo busca paisajes libres con el tiempo, o añade los tuyos.',
     appName: 'Cielo Mental',
     appSubtitle: 'Un rincón anónimo para desahogarse, un mismo cielo para todos',
     entryPain: 'Necesito contarlo',
@@ -280,7 +307,8 @@ const DICTS = {
     copyCode: 'Copiar código',
     copied: 'Copiado',
     close: 'Entendido',
-    findLabel: 'O búscalos por el nombre con que los firmaste (solo lectura)',
+    findLabel: 'Buscar los antiguos por nombre',
+    findNote: 'Para susurros que este teléfono no reconoce: escritos antes de que tuviera identidad, o desde otro teléfono cuyo código de recuperación nunca se guardó. Busca por el nombre con que los firmaste: solo lectura, porque un nombre es público y no prueba que seas tú.',
     findSubmit: 'Buscar',
     findNotFound: 'No se encontró ninguna burbuja con ese código.',
     findTooMany: 'Demasiadas búsquedas en poco tiempo. Espera unos minutos e inténtalo de nuevo.',
@@ -291,7 +319,7 @@ const DICTS = {
     mySkyTitle: 'Mi cielo',
     myCodeTitle: 'Mi código de recuperación',
     myCodeNote: 'Llévatelo a un teléfono nuevo, o a cualquier dispositivo donde quieras el mismo cielo. Es también lo único que puede borrar estos susurros: quien lo tenga puede borrarlos, así que no lo compartas.',
-    copyCode: 'Copiar código',
+    copyRecovery: 'Copiar código',
     mySkyIntro: 'Esto sigue al teléfono, no al nombre que firmaste: hayas usado los nombres que hayas usado, aparecen todos aquí.',
     myBalloons: 'Lo que escribí',
     mySaved: 'Lo que guardé',
@@ -362,6 +390,25 @@ const DICTS = {
     iosClose: 'Entendido',
   },
   fr: {
+    findResultsTitle: 'Murmures signés de ce nom',
+    firstHint: 'Touchez n’importe où pour commencer — la musique démarre au premier contact.',
+    shareTitle: 'Scannez pour ouvrir',
+    shareHint: 'Scannez ce code pour ouvrir ce ciel sur n’importe quel téléphone.',
+    copyLink: 'Copier le lien',
+    linkCopied: 'Lien copié',
+    tagline: 'La nuit écoute.\nLaissez une lumière dériver sur le lac.',
+    tapHint: 'Touchez une lumière pour lire un cœur · glissez pour parcourir le ciel',
+    musicPlay: 'Lecture',
+    musicPause: 'Pause',
+    musicNext: 'Suivant',
+    musicIdle: 'Le son d’ambiance est coupé',
+    musicSynth: 'Nappes d’ambiance douces',
+    musicEmptyNote: 'Aucun morceau pour l’instant — nappes douces en cours. Vous pouvez ajouter votre propre musique.',
+    bgNext: 'Autre fond',
+    bgAutoOn: 'Rotation automatique : activée',
+    bgAutoOff: 'Rotation automatique : désactivée',
+    bgProcedural: 'Lac peint (par défaut)',
+    bgEmptyNote: 'Aucune vidéo de fond — le ciel récupère des paysages libres au fil du temps, ou ajoutez les vôtres.',
     appName: 'Ciel Intérieur',
     appSubtitle: 'Un coin anonyme pour se confier, un seul ciel pour tous',
     entryPain: "J'ai besoin d'en parler",
@@ -388,7 +435,8 @@ const DICTS = {
     copyCode: 'Copier le code',
     copied: 'Copié',
     close: 'Compris',
-    findLabel: 'Ou retrouvez-les par le nom signé (lecture seule)',
+    findLabel: 'Retrouver les anciens par nom',
+    findNote: 'Pour les murmures que ce téléphone ne reconnaît pas : écrits avant qu\u2019il ait une identité, ou depuis un autre téléphone dont le code de récupération n\u2019a jamais été gardé. Cherchez par le nom signé \u2014 lecture seule, car un nom est public et ne prouve rien.',
     findSubmit: 'Rechercher',
     findNotFound: 'Aucune bulle trouvée pour ce code.',
     findTooMany: 'Trop de recherches en peu de temps. Patientez quelques minutes.',
@@ -399,7 +447,7 @@ const DICTS = {
     mySkyTitle: 'Mon ciel',
     myCodeTitle: 'Mon code de récupération',
     myCodeNote: 'Emportez-le sur un nouveau téléphone, ou sur tout appareil où vous voulez le même ciel. C\u2019est aussi la seule chose qui puisse supprimer ces murmures : qui le détient peut les effacer, alors gardez-le pour vous.',
-    copyCode: 'Copier le code',
+    copyRecovery: 'Copier le code',
     mySkyIntro: 'Ceci suit le téléphone, pas le nom que vous avez signé — quels que soient les noms utilisés, tout apparaît ici.',
     myBalloons: 'Ce que j’ai écrit',
     mySaved: 'Ce que j’ai gardé',
@@ -470,6 +518,25 @@ const DICTS = {
     iosClose: 'Compris',
   },
   ar: {
+    findResultsTitle: 'همسات موقّعة بهذا الاسم',
+    firstHint: 'المس أي مكان للبدء — تبدأ الموسيقى مع أول لمسة.',
+    shareTitle: 'امسح الرمز للفتح',
+    shareHint: 'امسح هذا الرمز لفتح هذه السماء على أي هاتف.',
+    copyLink: 'نسخ الرابط',
+    linkCopied: 'تم نسخ الرابط',
+    tagline: 'الليل يُصغي.\nأطلق ضوءًا يطفو على البحيرة.',
+    tapHint: 'المس ضوءًا لتقرأ قلبًا · اسحب لتتجول في السماء',
+    musicPlay: 'تشغيل',
+    musicPause: 'إيقاف مؤقت',
+    musicNext: 'التالي',
+    musicIdle: 'الصوت المحيط متوقف',
+    musicSynth: 'نغمات محيطة هادئة',
+    musicEmptyNote: 'لا توجد مقطوعات بعد — يُشغَّل صوت هادئ. يمكنك إضافة موسيقاك إلى المكتبة.',
+    bgNext: 'خلفية أخرى',
+    bgAutoOn: 'التبديل التلقائي: مُفعَّل',
+    bgAutoOff: 'التبديل التلقائي: متوقف',
+    bgProcedural: 'بحيرة مرسومة (افتراضي)',
+    bgEmptyNote: 'لا توجد مقاطع خلفية بعد — تجلب السماء مناظر حرة مع الوقت، أو أضِف مقاطعك.',
     appName: 'سماء الروح',
     appSubtitle: 'ركن مجهول للبوح، سماء واحدة يتشاركها الجميع',
     entryPain: 'أريد أن أتحدث',
@@ -496,7 +563,8 @@ const DICTS = {
     copyCode: 'نسخ الرمز',
     copied: 'تم النسخ',
     close: 'فهمت',
-    findLabel: 'أو ابحث عنها بالاسم الذي وقّعت به (للقراءة فقط)',
+    findLabel: 'ابحث عن القديمة بالاسم',
+    findNote: 'للهمسات التي لا يعرفها هذا الهاتف: كُتبت قبل أن تكون له هوية، أو من هاتف آخر لم يُحفَظ رمز استرجاعه. ابحث بالاسم الذي وقّعت به — للقراءة فقط، لأن الاسم علني ولا يُثبت هوية أحد.',
     findSubmit: 'بحث',
     findNotFound: 'لم يتم العثور على فقاعة بهذا الرمز.',
     findTooMany: 'عمليات بحث كثيرة في وقت قصير. انتظر بضع دقائق ثم حاول مجددًا.',
@@ -507,7 +575,7 @@ const DICTS = {
     mySkyTitle: 'سمائي',
     myCodeTitle: 'رمز الاسترجاع الخاص بي',
     myCodeNote: 'خذه معك إلى هاتف جديد، أو إلى أي جهاز تريد فيه السماء نفسها. وهو أيضًا الشيء الوحيد القادر على حذف هذه الهمسات — من يملكه يستطيع حذفها، فاحتفظ به لنفسك.',
-    copyCode: 'نسخ الرمز',
+    copyRecovery: 'نسخ الرمز',
     mySkyIntro: 'هذا يتبع الهاتف، لا الاسم الذي وقّعت به — مهما استخدمت من أسماء، تظهر كلها هنا معًا.',
     myBalloons: 'ما كتبته',
     mySaved: 'ما احتفظت به',
@@ -588,9 +656,19 @@ export function detectLang() {
   return 'en';
 }
 
-// This is a global-first product: default to English regardless of browser
-// locale. detectLang() is kept for a future manual language switcher.
-export const currentLang = 'en';
+// Follow the phone.
+//
+// This used to be pinned to English for everyone, from a "global-first" call
+// made before there was anything to read in the other four languages. There is
+// now — every dictionary is complete — and showing a Chinese speaker an English
+// interface to write Chinese into was the wrong kind of global.
+//
+// Only the INTERFACE moves. What people write is stored and shown exactly as
+// they wrote it, in every language, to everyone: a whisper written in Chinese
+// reads as Chinese on a French phone. Nothing here translates anyone's words.
+//
+// A phone set to something we do not have falls back to English (detectLang).
+export const currentLang = detectLang();
 
 export function t(key) {
   return (DICTS[currentLang] && DICTS[currentLang][key]) || DICTS.en[key] || key;

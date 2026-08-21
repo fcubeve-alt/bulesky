@@ -485,6 +485,11 @@ body.has-video #mist { display: none; }
   backdrop-filter: blur(14px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
   animation: fade-in 0.18s ease-out;
+  /* Never taller than the screen it opens on. My Sky can hold a hundred
+     whispers and a hundred kept stories; the lists scroll inside themselves,
+     and this is the backstop for everything else in the panel. */
+  max-height: calc(100vh - 56px - var(--safe-top) - 16px);
+  overflow-y: auto;
 }
 /* The panels behind the top row are all one material now: warm, translucent
    paper against the night, instead of the same blue-grey as the sky.
@@ -591,7 +596,9 @@ body.has-video #mist { display: none; }
   transition: transform 0.15s ease;
 }
 .result-group[open] > summary::before { transform: rotate(90deg); }
-.result-group > div { max-height: 38vh; overflow-y: auto; }
+/* Both of My Sky's lists are open at once, so neither may claim the screen on
+   its own — a quarter of the height each, scrolling within. */
+.result-group > div { max-height: 26vh; overflow-y: auto; }
 /* Big, spaced and monospaced: this gets read off one screen and typed into
    another, which is exactly where 0/O and 1/l go wrong. */
 .recovery-code {

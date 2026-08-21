@@ -1,4 +1,4 @@
-import { t, currentLang } from './i18n.js';
+import { t, currentLang, applyStaticI18n } from './i18n.js';
 import { createWhisperWorld } from './scene.js';
 import { initAmbient } from './ambient.js';
 import { initBackgrounds } from './backgrounds.js';
@@ -28,7 +28,8 @@ const els = {
   bgNote: $('bg-note'),
   findPanel: $('find-panel'),
   findClose: $('find-close'),
-  findLabel: $('find-label'),
+  findSummary: $('find-summary'),
+  findNote: $('find-note'),
   findInput: $('find-input'),
   findSubmit: $('find-submit'),
   findResult: $('find-result'),
@@ -174,8 +175,14 @@ function updateNowPlaying() {
 const ambient = initAmbient({ onChange: () => updateNowPlaying() });
 
 function applyText() {
+  // <html lang> and <html dir>. Never called while the interface was pinned to
+  // English, and nothing missed it — now that the interface follows the phone
+  // it is what makes Arabic read right to left, and what the browser's own
+  // speech synthesis reads to pick a voice when the server route is down.
+  applyStaticI18n();
   els.appTitle.textContent = 'Are you alright?'; // fixed signature brand (CSS uppercases it)
-  els.findLabel.textContent = t('findLabel');
+  els.findSummary.textContent = t('findLabel');
+  els.findNote.textContent = t('findNote');
   els.findInput.placeholder = t('codePlaceholder');
   els.findSubmit.textContent = t('findSubmit');
   els.aboutPanelText.textContent = t('aboutPanelIntro');
@@ -195,7 +202,7 @@ function applyText() {
   els.composeCancel.textContent = t('cancel');
   els.composeSubmit.textContent = t('submit');
   els.confirmCopy.textContent = t('copyCode');
-  els.recoveryCopy.textContent = t('copyCode');
+  els.recoveryCopy.textContent = t('copyRecovery');
   els.confirmHint.textContent = t('confirmHint');
   els.confirmClose.textContent = t('close');
   els.readInviteText.textContent = t('readInvite');
@@ -208,7 +215,7 @@ function applyText() {
   els.myskyIntro.textContent = t('mySkyIntro');
   els.recoverySummary.textContent = t('myCodeTitle');
   els.recoveryNote.textContent = t('myCodeNote');
-  els.myRecoveryCopy.textContent = t('copyCode');
+  els.myRecoveryCopy.textContent = t('copyRecovery');
   els.restoreLabel.textContent = t('restoreLabel');
   els.restoreInput.placeholder = t('restorePlaceholder');
   els.restoreSubmit.textContent = t('restoreSubmit');
@@ -1168,21 +1175,18 @@ async function toggleSave() {
   }
 }
 
-// A foldable list of results.
+// A list of results under a heading.
 //
-// A name with forty whispers under it, or a well-used shelf, used to unroll as
-// one long strip and pushed everything else in the panel off the bottom of the
-// screen. Each list is now a heading you can tap open. Short ones start open
-// because folding two rows away hides nothing and just costs a tap; anything
-// longer starts shut, so the panel is always the same tidy size when it opens.
-// <details> rather than a homemade toggle: the browser gives the arrow, the
-// keyboard support and the screen-reader state for free.
-const OPEN_UP_TO = 5;
-
+// Open, always. Your own sky is the point of this panel, so it shows what is in
+// it — folding "what I wrote" shut and making someone tap to find out is hiding
+// the answer behind the question. However many there are, the list scrolls
+// INSIDE its own box (.result-group > div), so the panel is the same size with
+// three whispers in it or three hundred. The heading is still a <details>
+// summary, so anyone who wants a list out of the way can fold it themselves.
 function resultGroup(title, count) {
   const group = document.createElement('details');
   group.className = 'result-group';
-  group.open = count <= OPEN_UP_TO;
+  group.open = true;
   const head = document.createElement('summary');
   head.className = 'find-results-title';
   head.textContent = `${title} · ${count}`;

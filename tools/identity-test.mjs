@@ -64,6 +64,9 @@ async function open(mine, extra = {}) {
 for (const mine of [true, false]) {
   const { b, page } = await open(mine);
   await page.click('#find-icon');
+  // Searching by name is a fallback now and lives behind a fold at the bottom
+  // of My Sky — open it before typing into it.
+  await page.click('#find-summary');
   await page.fill('#find-input', 'tester');
   await page.click('#find-submit');
   await page.click('#find-result .find-result-row');
@@ -80,6 +83,9 @@ for (const mine of [true, false]) {
 for (const [mine, expected] of [[false, true], [true, false]]) {
   const { b, page } = await open(mine);
   await page.click('#find-icon');
+  // Searching by name is a fallback now and lives behind a fold at the bottom
+  // of My Sky — open it before typing into it.
+  await page.click('#find-summary');
   await page.fill('#find-input', 'tester');
   await page.click('#find-submit');
   await page.click('#find-result .find-result-row');
@@ -102,6 +108,9 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
   // Give the device an identity the way a first whisper would.
   await page.evaluate(() => localStorage.setItem('aya_author_secret', 'ABCDEFGHJKMNPQRSTVWX'));
   await page.click('#find-icon');
+  // Searching by name is a fallback now and lives behind a fold at the bottom
+  // of My Sky — open it before typing into it.
+  await page.click('#find-summary');
   await page.waitForFunction(() => document.querySelector('#mysky').children.length > 0, { timeout: 5000 });
   const shown = await page.locator('#mysky').textContent();
   const note = await page.locator('#mysky-msg').textContent();
@@ -116,6 +125,9 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
 {
   const { b, page } = await open(true);
   await page.click('#find-icon');
+  // Searching by name is a fallback now and lives behind a fold at the bottom
+  // of My Sky — open it before typing into it.
+  await page.click('#find-summary');
   await page.fill('#find-input', 'tester');
   await page.click('#find-submit');
   await page.click('#find-result .find-result-row');
