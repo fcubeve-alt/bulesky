@@ -1,6 +1,6 @@
 import { containsAbusive, containsCrisisKeyword, maskContactInfo } from '../../../../src/filters.js';
 import { cleanSecret, hashSecret } from '../../../../src/identity.js';
-import { blocksPublishing, recordAiConcern, screen } from '../../../../src/moderation.js';
+import { blocksPublishing, recordAiConcern, screenOnPublish } from '../../../../src/moderation.js';
 
 // 150, down from 300. A reply here is meant to be "I read this" — the safety
 // rules ask for 100-150 deliberately, because length is what a long put-down
@@ -61,7 +61,7 @@ export async function onRequestPost({ request, params, env }) {
   // their week, so this side of the wall matters more than the other. Same
   // screen, same rules (src/moderation.js): severe is refused outright, a
   // plain violation goes up and is queued for review immediately.
-  const verdict = await screen(env, trimmed);
+  const verdict = await screenOnPublish(env, trimmed);
   if (blocksPublishing(verdict)) return json({ error: 'blocked_guidelines' }, 400);
 
   const { text: safeContent, masked } = maskContactInfo(trimmed);

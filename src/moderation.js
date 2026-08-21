@@ -68,6 +68,22 @@ function withTimeout(promise, ms) {
   ]);
 }
 
+// The off switch, and why it exists.
+//
+// Workers AI gives 10,000 Neurons a day free, and one call here costs about
+// two — so roughly five thousand whispers and replies a day are read for
+// nothing, which is far more than this site sees. Past that it is $0.011 per
+// thousand Neurons: ten thousand posts a day works out around $4 a month.
+//
+// But this is a project with no revenue, and "the bill is small" is not the
+// same promise as "the bill cannot surprise you". Setting MODERATE_ON_PUBLISH
+// to 0 in the Pages environment turns publish-time screening off in one
+// click, with no deploy: the keyword lists (src/filters.js) and the report
+// path keep working exactly as they did before any of this existed.
+function screeningIsOn(env) {
+  return String((env && env.MODERATE_ON_PUBLISH) ?? '1') !== '0';
+}
+
 // Read one piece of writing. Never throws.
 export async function screen(env, text, timeoutMs = TIMEOUT_MS) {
   if (!env || !env.AI || !text || !String(text).trim()) return 'unknown';
@@ -119,6 +135,15 @@ export async function screen(env, text, timeoutMs = TIMEOUT_MS) {
 // until a stranger complained.
 export function blocksPublishing(verdict) {
   return verdict === 'severe';
+}
+
+// The screen a publish path runs. Same as screen(), except the owner can turn
+// it off from the dashboard without a deploy (see screeningIsOn). Reporting
+// always runs the real thing — that is one call per complaint, not one per
+// post, and it is the layer the whole safety story rests on.
+export async function screenOnPublish(env, text) {
+  if (!screeningIsOn(env)) return 'unknown';
+  return screen(env, text);
 }
 
 // File an AI-flagged post into the moderation queue at the moment it is

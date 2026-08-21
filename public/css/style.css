@@ -617,6 +617,28 @@ body.has-video #mist { display: none; }
   border-radius: 10px;
   padding: 9px 11px;
 }
+/* Five reasons, stacked, each a full-width target. Reporting happens on a
+   phone, one-handed, usually by someone who has just read something that upset
+   them — this is not the moment for a row of small chips. */
+.sheet-title {
+  margin: 2px 0 12px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.report-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+.report-reason {
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
 .share-qr {
   display: block;
   width: 180px;

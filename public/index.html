@@ -284,6 +284,28 @@
   </div>
 </div>
 
+<!-- Why you are reporting this.
+     One tap used to file a report that said nothing, so the queue showed a
+     number and no reason — and whoever reviews it had to guess what the
+     complaint even was. Five buttons, no typing: the reasons are the
+     categories the rules are written in, so the queue can be read by
+     category and the filters can be improved from what actually gets
+     reported. "Cancel" is a real option; a report you cannot back out of is
+     a trap on a button people press by accident. -->
+<div id="report-overlay" class="overlay hidden"></div>
+<section id="report-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="report-title">
+  <div class="sheet-handle"></div>
+  <p id="report-title" class="sheet-title"></p>
+  <div class="report-reasons">
+    <button class="btn-secondary report-reason" data-reason="attack"></button>
+    <button class="btn-secondary report-reason" data-reason="self-harm"></button>
+    <button class="btn-secondary report-reason" data-reason="spam"></button>
+    <button class="btn-secondary report-reason" data-reason="sexual"></button>
+    <button class="btn-secondary report-reason" data-reason="other"></button>
+  </div>
+  <button id="report-cancel" class="btn-secondary btn-small"></button>
+</section>
+
 <!-- Reply input (small sheet, opened from the read view) -->
 <div id="reply-overlay" class="overlay hidden"></div>
 <section id="reply-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="reply-label">

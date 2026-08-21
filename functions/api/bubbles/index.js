@@ -1,7 +1,8 @@
 import { containsAbusive, containsCrisisKeyword, maskContactInfo } from '../../../src/filters.js';
 import { cleanSecret, hashSecret } from '../../../src/identity.js';
-import { blocksPublishing, recordAiConcern, screen } from '../../../src/moderation.js';
+import { blocksPublishing, recordAiConcern, screenOnPublish } from '../../../src/moderation.js';
 import { overLimit } from '../../../src/rate-limit.js';
+import { maybeSweep } from '../../../src/retention.js';
 
 // Kept in step with /api/bubbles/by-code/<name>: same lookup, same limit.
 const MAX_LOOKUPS = 20;
@@ -144,7 +145,7 @@ export async function onRequestPost({ request, env }) {
   // Only `severe` is refused here — see blocksPublishing for why the other
   // direction is the expensive mistake. A plain violation goes up and is filed
   // for review in the same breath.
-  const verdict = await screen(env, trimmedContent);
+  const verdict = await screenOnPublish(env, trimmedContent);
   if (blocksPublishing(verdict)) return json({ error: 'blocked_guidelines' }, 400);
 
   const { text: safeContent, masked } = maskContactInfo(trimmedContent);
@@ -174,6 +175,11 @@ export async function onRequestPost({ request, env }) {
       .run();
 
     await recordAiConcern(env, 'bubble', result.meta.last_row_id, verdict);
+
+    // Nothing here stays forever, and there is no cron on Pages — so the
+    // year-old whispers go out with the traffic, on about one publish in
+    // fifty. See src/retention.js.
+    await maybeSweep(env);
 
     return json(
       {

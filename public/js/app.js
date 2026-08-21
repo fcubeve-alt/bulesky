@@ -96,6 +96,10 @@ const els = {
   readDeleteBtn: $('read-delete-btn'),
   readSaveBtn: $('read-save-btn'),
   readShareBtn: $('read-share-btn'),
+  reportOverlay: $('report-overlay'),
+  reportSheet: $('report-sheet'),
+  reportTitle: $('report-title'),
+  reportCancel: $('report-cancel'),
   mysky: $('mysky'),
   recoveryBox: $('recovery-box'),
   recoverySummary: $('recovery-summary'),
@@ -220,6 +224,11 @@ function applyText() {
   els.readShareBtn.textContent = t('shareMine');
   els.myskyTitle.textContent = t('mySkyTitle');
   els.myskyIntro.textContent = t('mySkyIntro');
+  els.reportTitle.textContent = t('reportWhy');
+  els.reportCancel.textContent = t('cancel');
+  for (const b of document.querySelectorAll('.report-reason')) {
+    b.textContent = t(`reportReason_${b.dataset.reason.replace('-', '')}`);
+  }
   els.recoverySummary.textContent = t('myCodeTitle');
   els.recoveryNote.textContent = t('myCodeNote');
   els.myRecoveryCopy.textContent = t('copyRecovery');
@@ -357,7 +366,26 @@ function markReportButton(btn) {
 // Send one report. The server answers whether the content ended up hidden —
 // either because the moderation model confirmed the violation on this very
 // report, or because it has now been flagged enough times.
-async function sendReport(targetType, id, btn, onHidden) {
+// Ask what is wrong with it, then send.
+//
+// The reason is not paperwork: the queue used to show a count and nothing
+// else, so whoever reviews a report had to open it and guess at the
+// complaint — and there was no way to see which category of harm was actually
+// turning up. Five buttons, no typing.
+let pendingReport = null;
+
+function askReportReason(targetType, id, btn, onHidden) {
+  if (hasReported(targetType, id)) return;
+  pendingReport = { targetType, id, btn, onHidden };
+  openSheet(els.reportOverlay, els.reportSheet);
+}
+
+function closeReportSheet() {
+  pendingReport = null;
+  closeSheet(els.reportOverlay, els.reportSheet);
+}
+
+async function sendReport(targetType, id, btn, onHidden, reason) {
   if (hasReported(targetType, id)) return;
   rememberReported(targetType, id);
   markReportButton(btn);
@@ -365,7 +393,7 @@ async function sendReport(targetType, id, btn, onHidden) {
     const res = await fetch(apiUrl('/api/report'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ targetType, targetId: id }),
+      body: JSON.stringify({ targetType, targetId: id, reason }),
     });
     const data = await res.json();
     if (!res.ok) return showToast(t('errorGeneric'));
@@ -607,7 +635,7 @@ function renderRead(bubble, replies, rect) {
       flag.classList.toggle('reported', flagged);
       flag.addEventListener('click', (e) => {
         e.stopPropagation(); // a tap on the overlay closes the reading view
-        sendReport('reply', r.id, flag, () => item.remove());
+        askReportReason('reply', r.id, flag, () => item.remove());
       });
       who.appendChild(flag);
 
@@ -816,6 +844,7 @@ function stopSpeaking() {
     speech.audio.onerror = null;
     speech.audio.oncanplay = null;
     speech.audio.onplaying = null;
+    speech.audio.ontimeupdate = null;
     speech.audio.removeAttribute('src');
     speech.audio.load();
     speech.audio = null;
@@ -1068,11 +1097,31 @@ function toggleListen() {
   // it in another voice. Stopping with a reason is honest; two readers is not.
   let heard = false;
 
+  // …and "heard" has to mean the sound, not the event that announces it.
+  //
+  // This was hung on `onplaying` alone, and `onplaying` is dispatched
+  // asynchronously: the element can be unpaused with the clock already
+  // advancing — audible, out loud, in someone's ear — while the handler is
+  // still queued. A decode failure landing in that window found `heard` false,
+  // took the "nothing played" path, and started the whisper again from the
+  // first word in the phone's voice. Rare, and exactly the two-voices fault
+  // everything above is written to prevent. So the clock counts as evidence
+  // too.
+  //
+  // But only once THIS reading is what the clock is measuring. `addSpace`
+  // played a fraction of a second of silence through this same element inside
+  // the tap, to buy iOS's permission — so `currentTime` is already past zero
+  // before the whisper has a source at all, and reading it any earlier says
+  // "heard" about a reading that never began. `oncanplay` is the line: past it
+  // the element is loaded with the reading itself.
+  let sourceReady = false;
+  const hasBeenHeard = () => heard || (sourceReady && audio.currentTime > 0);
+
   const giveUpToBrowser = (why) => {
     if (speech.id !== id) return;
     const reason = `listen fell back: ${why || 'unknown'}`;
     console.warn(reason);
-    if (heard) {
+    if (hasBeenHeard()) {
       showToast(VOICE_DEBUG ? `${t('listenCutShort')} (${reason})` : t('listenCutShort'), 6000);
       stopSpeaking();
       return;
@@ -1110,7 +1159,11 @@ function toggleListen() {
       audio.onended = stopSpeaking;
       audio.onerror = () => giveUpToBrowser(`cannot decode ${blob.type} (${blob.size} bytes)`);
       audio.onplaying = () => { heard = true; };
+      audio.ontimeupdate = () => { if (sourceReady && audio.currentTime > 0) heard = true; };
       audio.oncanplay = () => {
+        // From here the clock belongs to this reading, not to the silence
+        // played inside the tap.
+        sourceReady = true;
         if (speech.id !== id) return;
         // Some browsers reset the rate when a new source loads.
         audio.preservesPitch = true;
@@ -1631,11 +1684,21 @@ function init() {
     if (!id) return;
     // A whisper that gets hidden leaves the sky, so close the view it was
     // being read in and re-deal the deck.
-    sendReport('bubble', id, els.readReportBtn, () => {
+    askReportReason('bubble', id, els.readReportBtn, () => {
       closeRead();
       loadWhispers();
     });
   });
+  els.reportCancel.addEventListener('click', closeReportSheet);
+  els.reportOverlay.addEventListener('click', closeReportSheet);
+  for (const b of document.querySelectorAll('.report-reason')) {
+    b.addEventListener('click', () => {
+      const r = pendingReport;
+      if (!r) return;
+      closeReportSheet();
+      sendReport(r.targetType, r.id, r.btn, r.onHidden, b.dataset.reason);
+    });
+  }
   els.replyClose.addEventListener('click', () => closeSheet(els.replyOverlay, els.replySheet));
   els.replySubmit.addEventListener('click', submitReply);
   wireOverlayClose(els.replyOverlay, els.replySheet);
