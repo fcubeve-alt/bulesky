@@ -247,6 +247,10 @@ const DEPTH_TIERS = [
   { zMin: 0.58, zMax: 0.74, weight: 4, rise: 28 }, // mid-near
   { zMin: 0.88, zMax: 1.0, weight: 3, rise: 36 }, // near: big, bright, fastest
 ];
+// The tier the author's own new whisper is seated in: big enough to read at a
+// glance, and the slower of the two readable layers, so it is on screen for
+// close to half a minute rather than sailing past.
+const SPOTLIGHT_TIER = 2;
 const DEPTH_TIER_TOTAL = DEPTH_TIERS.reduce((s, t) => s + t.weight, 0);
 // Seconds a balloon spends on screen, per pixel of travel — the average of
 // 1/rise, NOT 1 / average-rise. Slow balloons linger, so they are
@@ -331,6 +335,13 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
     return Math.max(minPan, Math.min(0, x));
   }
 
+  // How far a finger may slide and still count as a tap. Six pixels was a
+  // mouse's tolerance, not a thumb's: an ordinary tap on a phone wanders about
+  // ten, so real taps on real balloons were being read as drags and swallowed —
+  // the "sometimes it just doesn't open" everyone kept hitting. Twelve is what
+  // the platforms themselves use for touch slop.
+  const TAP_SLOP = 12;
+
   function onDown(e) {
     dragging = true;
     moved = false;
@@ -341,7 +352,10 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
     if (!dragging) return;
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
     const dx = cx - startX;
-    if (Math.abs(dx) > 6) moved = true;
+    // A sky no wider than the screen has nowhere to drag to, so nothing the
+    // finger does sideways can be a drag — and treating it as one only costs
+    // the tap.
+    if (Math.abs(dx) > TAP_SLOP && worldW > window.innerWidth + 4) moved = true;
     panX = clampPan(startPan + dx);
     // Parallax is applied per balloon in the frame loop (near layers pan more
     // than far ones), so we don't move `world` as a single block here.
@@ -449,16 +463,54 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
   // pace that reads as 3D), its horizontal spot, and its depth styling. Every
   // tier stays populated, so there are always tiny dim dots far back and a few
   // big readable ones up front — all still tappable.
-  function seatDepth(it) {
-    const ti = pickTierIndex();
+  // A finger needs about 44px of target whatever the balloon's depth says.
+  //
+  // A far balloon is drawn at roughly a third of its box, so a 70px lantern
+  // becomes a 24px dot — half the size anyone can reliably hit, and the reason
+  // taps on the small ones so often did nothing. The padding is expressed in
+  // the element's OWN pixels and therefore scales with it, so it has to be
+  // divided by the scale to come out at 44 on the glass. Invisible: it is a
+  // transparent ring outside the drawn lantern (see .lantern::after).
+  const MIN_TOUCH = 44;
+  function seatTouchPad(it) {
+    // The SMALLEST it will get, not the size it starts at: every balloon
+    // breathes toward and away from the viewer (`zAmp` in the frame loop), and
+    // a far one measured at its nearest is a third smaller at its farthest —
+    // which is when someone reaches for it and misses.
+    const scale = 0.3 + Math.max(0, it.z0 - it.zAmp) * 1.0;
+    const short = Math.min(it.w, it.h) * scale;
+    const pad = Math.max(0, (MIN_TOUCH - short) / 2 / scale);
+    it.el.style.setProperty('--pad', pad.toFixed(1) + 'px');
+  }
+
+  // `force` seats the author's own new whisper deliberately rather than at
+  // random: a readable tier, and somewhere on the part of the sky they are
+  // actually looking at.
+  function seatDepth(it, force) {
+    const ti = force ? SPOTLIGHT_TIER : pickTierIndex();
     const tier = DEPTH_TIERS[ti];
     it.tier = ti;
     it.z0 = tier.zMin + Math.random() * (tier.zMax - tier.zMin);
     it.rise = tier.rise; // px per second, fixed for the whole tier
-    it.baseX = pickFreeX(it);
+    it.baseX = force ? pickVisibleX(it) : pickFreeX(it);
     it.el.style.opacity = (0.38 + it.z0 * 0.62).toFixed(2);
     it.el.style.filter = it.z0 < 0.34 ? `blur(${((0.34 - it.z0) * 5).toFixed(2)}px)` : '';
     it.el.style.zIndex = String(Math.round(it.z0 * 100));
+    seatTouchPad(it);
+  }
+
+  // Where the author will see it. `pickFreeX` chooses anywhere in a world that
+  // is wider than the screen, so the one balloon that must not be missed could
+  // be parked off to the side behind the edge — which is exactly what "I posted
+  // it and then had to go looking for it" was.
+  function pickVisibleX(it) {
+    const W = window.innerWidth;
+    const parallax = panX * (0.24 + it.z0 * 0.76);
+    const scale = 0.3 + it.z0 * 1.0;
+    const half = (it.w * scale) / 2;
+    const margin = Math.min(W * 0.3, half + 24);
+    const wantCx = rand(margin, Math.max(margin, W - margin));
+    return Math.max(0, Math.min(worldW - it.w, wantCx - it.w / 2 - parallax));
   }
 
   // Point an existing balloon at a (new) whisper: size, colour, glow, preview
@@ -511,7 +563,12 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
     it.el.style.display = '';
     applyWhisper(it, wsp);
     it.y = window.innerHeight + 8 + rand(0, 10); // seatDepth reads this
-    seatDepth(it);
+    seatDepth(it, wsp.spotlight);
+    // The author's own, just written. It is marked for one flight only: the
+    // flag is cleared here so that when this balloon recycles onto it again
+    // hours later it is simply another whisper in the sky.
+    it.el.classList.toggle('spotlight', Boolean(wsp.spotlight));
+    if (wsp.spotlight) delete wsp.spotlight;
     return true;
   }
 
@@ -569,6 +626,9 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
   function makeItem() {
     const el = document.createElement('button');
     el.className = 'lantern';
+    const hit = document.createElement('i');
+    hit.className = 'lantern-hit';
+    el.appendChild(hit);
     const span = document.createElement('span');
     span.className = 'lantern-text';
     el.appendChild(span);
@@ -596,7 +656,9 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
     };
     // Tap opens whatever whisper this balloon currently carries — near or far.
     el.addEventListener('click', () => {
-      if (!moved && it.wsp) onTap(it.wsp.id, el.getBoundingClientRect());
+      // The whisper goes with the tap: the reading view can open on the words
+      // the balloon is already showing instead of waiting for the network.
+      if (!moved && it.wsp) onTap(it.wsp.id, el.getBoundingClientRect(), it.wsp);
     });
     world.appendChild(el);
     return it;
@@ -765,9 +827,9 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
     // Surface a whisper right away (the author's own new post). It jumps into
     // the deck ahead of the queue and the balloon nearest the top re-enters
     // carrying it, so the author sees their own balloon within a moment.
-    pin(wsp) {
+    pin(wsp, opts) {
       if (!wsp || wsp.id == null) return;
-      pinned.push(wsp);
+      pinned.push(opts && opts.spotlight ? { ...wsp, spotlight: true } : wsp);
       // Straight up on the next frame, not on the next beat: recycle whichever
       // balloon is closest to leaving if none is parked (SKY_FEED §7).
       if (launchOne()) return;

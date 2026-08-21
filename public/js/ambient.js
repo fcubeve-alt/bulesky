@@ -390,7 +390,16 @@ export function initAmbient(opts = {}) {
     return light[Math.floor(Math.random() * light.length)] || pickTrack();
   }
 
-  // Start the first library track outright (no crossfade — nothing to fade from).
+  // Start the first library track, with the synth holding the silence.
+  //
+  // Nothing can be heard from a file until enough of it has arrived, and the
+  // lighter half of the library is still two to four megabytes — several
+  // seconds on a phone, during which the tap appears to have done nothing at
+  // all. That is the "点了半天没反应". So the synth is already humming by the
+  // time we get here (see toggle), the track loads underneath it at zero
+  // volume, and the two swap over the moment the track is genuinely playing.
+  // A tap therefore always makes a sound immediately, whatever the network is
+  // doing.
   function playFirstTrack() {
     const track = pickLightTrack();
     if (!track) return;
@@ -404,11 +413,39 @@ export function initAmbient(opts = {}) {
     setLevel(1, 0);
     trackOf[0] = track;
     segEnds[0] = Number.isFinite(track.end) ? track.end : Infinity;
-    currentTrack = track;
-    currentTitle = track.title || track.src.split('/').pop();
     p.src = mediaUrl(track.src);
-    setLevel(0, vol());
-    p.play().catch(() => {});
+    const bridged = Boolean(synth);
+    setLevel(0, bridged ? 0 : vol());
+    const takeOver = () => {
+      if (!playing || trackOf[0] !== track) return;
+      currentTrack = track;
+      currentTitle = track.title || track.src.split('/').pop();
+      // Up in about the time the synth takes to fade out, so the handover is a
+      // dissolve rather than a dip. Not the 3s track-to-track crossfade: that
+      // long a fade under a pad that has already gone quiet is a hole.
+      if (crossTimer) clearInterval(crossTimer);
+      const steps = 24;
+      let i = 0;
+      crossTimer = setInterval(() => {
+        i += 1;
+        setLevel(0, vol() * Math.min(1, i / steps));
+        if (i >= steps) {
+          clearInterval(crossTimer);
+          crossTimer = null;
+        }
+      }, 1000 / 20);
+      stopSynth();
+      onChange();
+    };
+    if (bridged) p.addEventListener('playing', takeOver, { once: true });
+    else {
+      currentTrack = track;
+      currentTitle = track.title || track.src.split('/').pop();
+    }
+    p.play().catch(() => {
+      // Offline, or the file is gone. The synth is already playing and simply
+      // stays — a button that made a sound is the whole point.
+    });
     onChange();
   }
 
@@ -429,9 +466,14 @@ export function initAmbient(opts = {}) {
       masterGain.connect(ctx.destination);
     }
     if (ctx.state === 'suspended') ctx.resume();
+    if (synth) return; // already humming — a second tap must not stack voices
     synth = startSynth(ctx, masterGain);
     masterGain.gain.cancelScheduledValues(ctx.currentTime);
-    masterGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 2.5);
+    // Just under a second. This is now the sound that answers the tap while a
+    // track downloads, so it has to arrive while the finger is still on the
+    // glass; the old 2.5s swell was written for a fallback nobody was waiting
+    // on.
+    masterGain.gain.linearRampToValueAtTime(0.3 * duckFactor, ctx.currentTime + 0.9);
     currentTitle = null;
     currentTrack = null;
     onChange();
@@ -470,9 +512,10 @@ export function initAmbient(opts = {}) {
     if (ctx && ctx.state === 'suspended') ctx.resume();
   }
 
+  // The synth is already running by the time this is called (see toggle), so an
+  // empty library needs nothing more: the fallback IS what is playing.
   function beginPlayback() {
     if (playlist.length > 0) playFirstTrack();
-    else startSynthFallback();
   }
 
   return {
@@ -513,17 +556,17 @@ export function initAmbient(opts = {}) {
         return false;
       }
       playing = true;
+      // Sound on the same frame as the tap, always. The synth needs no network
+      // and no file, so it is what answers the button; a real track then takes
+      // over from underneath it whenever it is ready. Before this, tapping with
+      // the manifest already loaded went straight to a multi-megabyte download
+      // and the sky stayed silent until it arrived.
+      startSynthFallback();
       if (libraryLoaded) {
         beginPlayback();
       } else {
-        // Manifest hasn't landed yet: start the soft synth right now (allowed
-        // in-gesture), then swap to a real track the moment it arrives.
-        startSynthFallback();
         loadLibrary().then(() => {
-          if (playing && playlist.length > 0) {
-            stopSynth();
-            playFirstTrack();
-          }
+          if (playing && playlist.length > 0) playFirstTrack();
         });
       }
       return true;

@@ -86,6 +86,21 @@
   <div id="mysky"></div>
   <p id="mysky-msg" class="hint"></p>
 
+  <!-- The recovery code, on demand. It used to be shown once, on the very
+       first whisper, and then never again anywhere — so anyone who did not
+       write it down that minute had no way to get it, and the box below asking
+       them to paste it was asking for something that did not exist. Folded
+       shut because it is a thing you fetch when you need it, not something to
+       leave lying open on a shared screen. -->
+  <details id="recovery-box" class="result-group hidden">
+    <summary id="recovery-summary" class="find-results-title"></summary>
+    <p id="recovery-note" class="hint"></p>
+    <code id="my-recovery" class="recovery-code"></code>
+    <div class="mini-panel-row">
+      <button id="my-recovery-copy" class="btn-secondary btn-small"></button>
+    </div>
+  </details>
+
   <label id="restore-label" for="restore-input"></label>
   <div class="mini-panel-row">
     <input id="restore-input" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />

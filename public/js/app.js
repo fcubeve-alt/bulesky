@@ -96,6 +96,11 @@ const els = {
   readSaveBtn: $('read-save-btn'),
   readShareBtn: $('read-share-btn'),
   mysky: $('mysky'),
+  recoveryBox: $('recovery-box'),
+  recoverySummary: $('recovery-summary'),
+  recoveryNote: $('recovery-note'),
+  myRecovery: $('my-recovery'),
+  myRecoveryCopy: $('my-recovery-copy'),
   myskyTitle: $('mysky-title'),
   myskyIntro: $('mysky-intro'),
   myskyMsg: $('mysky-msg'),
@@ -148,6 +153,7 @@ const state = {
   detailBubbleId: null,
   detailBubble: null,
   detailWarmed: false, // did the reader leave a light or a reply on this one?
+  pendingMine: null, // just published, waiting for the confirmation to close
 };
 let whisperWorld = null;
 let backgrounds = null;
@@ -200,6 +206,9 @@ function applyText() {
   els.readShareBtn.textContent = t('shareMine');
   els.myskyTitle.textContent = t('mySkyTitle');
   els.myskyIntro.textContent = t('mySkyIntro');
+  els.recoverySummary.textContent = t('myCodeTitle');
+  els.recoveryNote.textContent = t('myCodeNote');
+  els.myRecoveryCopy.textContent = t('copyCode');
   els.restoreLabel.textContent = t('restoreLabel');
   els.restoreInput.placeholder = t('restorePlaceholder');
   els.restoreSubmit.textContent = t('restoreSubmit');
@@ -406,10 +415,14 @@ async function submitCompose() {
     closeSheet(els.composeOverlay, els.composeSheet);
     native.tap('heavy'); // it left your hands
     rememberMyBubble(data.id);
+    // The author must always see their own whisper — and see it AFTER the
+    // confirmation is out of the way. Pinning it here used to send it up behind
+    // the confirmation sheet, so by the time that was dismissed the balloon was
+    // already near the top or gone, and the whole thing read as "I posted it
+    // and it vanished". It is held instead, then launched into a readable tier
+    // in the middle of the screen with a ring around it.
+    state.pendingMine = { id: data.id, type: data.type, content: data.content, warmth: 0, lights: 0 };
     showConfirm(data, firstEver && Boolean(secret));
-    // The author must always see their own whisper: pin it so a balloon
-    // carrying it rises within moments, even if the random sample missed it.
-    whisperWorld.pin({ id: data.id, type: data.type, content: data.content, warmth: 0, lights: 0 });
     loadWhispers();
   } catch {
     showError(els.composeError, t('errorGeneric'));
@@ -421,6 +434,18 @@ async function submitCompose() {
 function showError(el, msg) {
   el.textContent = msg;
   el.classList.remove('hidden');
+}
+
+// Close the confirmation and send the author's own whisper up, ringed, into a
+// readable tier in the part of the sky they are looking at. Both ways out of
+// the sheet come here, so there is no way to dismiss it and not see the
+// balloon.
+function releaseMyWhisper() {
+  closeSheet(els.confirmOverlay, els.confirmSheet);
+  const mine = state.pendingMine;
+  if (!mine) return;
+  state.pendingMine = null;
+  whisperWorld.pin(mine, { spotlight: true });
 }
 
 function showConfirm(data, showRecovery = false) {
@@ -447,20 +472,49 @@ function showConfirm(data, showRecovery = false) {
 
 // ---------- Detail / replies ----------
 
-async function openDetail(id, rect) {
+// Open the whisper the balloon is carrying.
+//
+// The words are already here — the balloon has been showing them — so the
+// reading view opens on them at once and the fetch only fills in what the sky
+// does not know: the replies, whether it is yours, whether you kept it. It used
+// to await the fetch before drawing anything, which on a slow connection meant
+// a tap that did nothing at all for a second or more, then either opened or
+// silently gave up. That is most of "sometimes the balloon doesn't open".
+//
+// Same rule as the Listen button (CLAUDE.md §7f): nothing may sit between the
+// tap and the response.
+const DETAIL_TIMEOUT_MS = 8000;
+
+async function openDetail(id, rect, known) {
+  if (known) {
+    // `isMyBubble` is this device's own note of what it has written. The server
+    // is the authority and overrules it a moment later; using it here only
+    // stops the author's own delete button flickering into existence.
+    renderRead({ ...known, mine: isMyBubble(id), saved: false }, [], rect);
+    openRead();
+  }
   try {
     // The hash, not the secret. It is enough for the server to answer "yours",
     // and worth nothing to anyone who sees it go past.
     const mineHash = await identity.hash();
+    // A request with no ceiling is how a tap ends in nothing: the fetch never
+    // settles, so neither branch below ever runs.
     const res = await fetch(apiUrl(`/api/bubbles/${id}`), {
       headers: mineHash ? { 'x-author': mineHash } : {},
+      signal: AbortSignal.timeout(DETAIL_TIMEOUT_MS),
     });
     const data = await res.json();
-    if (!res.ok) return showToast(t('errorGeneric'));
+    if (!res.ok) {
+      if (!known) showToast(t('errorGeneric'));
+      return;
+    }
+    // Still the same whisper? A second tap while this was in flight must not be
+    // overwritten by the slower answer to the first.
+    if (known && state.detailBubbleId !== id) return;
     renderRead(data.bubble, data.replies, rect);
-    openRead();
+    if (!known) openRead();
   } catch {
-    showToast(t('errorGeneric'));
+    if (!known) showToast(t('errorGeneric'));
   }
 }
 
@@ -1114,6 +1168,30 @@ async function toggleSave() {
   }
 }
 
+// A foldable list of results.
+//
+// A name with forty whispers under it, or a well-used shelf, used to unroll as
+// one long strip and pushed everything else in the panel off the bottom of the
+// screen. Each list is now a heading you can tap open. Short ones start open
+// because folding two rows away hides nothing and just costs a tap; anything
+// longer starts shut, so the panel is always the same tidy size when it opens.
+// <details> rather than a homemade toggle: the browser gives the arrow, the
+// keyboard support and the screen-reader state for free.
+const OPEN_UP_TO = 5;
+
+function resultGroup(title, count) {
+  const group = document.createElement('details');
+  group.className = 'result-group';
+  group.open = count <= OPEN_UP_TO;
+  const head = document.createElement('summary');
+  head.className = 'find-results-title';
+  head.textContent = `${title} · ${count}`;
+  group.appendChild(head);
+  const body = document.createElement('div');
+  group.appendChild(body);
+  return body;
+}
+
 // My Sky: what I wrote, and what I kept.
 //
 // Found by the secret this device holds — not by typing a name into a box, the
@@ -1122,6 +1200,12 @@ async function toggleSave() {
 async function loadMySky() {
   const box = els.mysky;
   box.textContent = '';
+  // A device that has never written anything has no code to show, and asking
+  // for one would mint an identity nobody asked for (identity.js).
+  const code = identity.hasSecret() ? identity.recoveryCode() : null;
+  els.recoveryBox.classList.toggle('hidden', !code);
+  els.recoveryBox.open = false;
+  if (code) els.myRecovery.textContent = code;
   if (!identity.hasSecret()) {
     els.myskyMsg.textContent = t('mySkyEmpty');
     return;
@@ -1140,10 +1224,7 @@ async function loadMySky() {
     for (const [title, items] of sections) {
       if (!items.length) continue;
       any = true;
-      const h = document.createElement('p');
-      h.className = 'find-results-title';
-      h.textContent = `${title} · ${items.length}`;
-      box.appendChild(h);
+      const group = resultGroup(title, items.length);
       for (const item of items) {
         const row = document.createElement('button');
         row.className = 'find-result-row';
@@ -1154,8 +1235,9 @@ async function loadMySky() {
           els.findPanel.classList.add('hidden');
           openDetail(item.itemType === 'reply' ? item.bubble_id : item.id);
         });
-        box.appendChild(row);
+        group.appendChild(row);
       }
+      box.appendChild(group.parentNode);
     }
 
     // A shelf that quietly shrinks is unsettling. Say it plainly instead: the
@@ -1305,10 +1387,8 @@ function renderFindResults(bubbles) {
   // meant anyone who read a byline could take the whisper over. Ownership now
   // comes from the device secret and nothing else.
   els.findResult.innerHTML = '';
-  const title = document.createElement('p');
-  title.className = 'find-results-title';
-  title.textContent = `${t('findResultsTitle')} · ${bubbles.length}`;
-  els.findResult.appendChild(title);
+  const group = resultGroup(t('findResultsTitle'), bubbles.length);
+  els.findResult.appendChild(group.parentNode);
   for (const b of bubbles) {
     const row = document.createElement('button');
     row.className = 'find-result-row';
@@ -1319,7 +1399,7 @@ function renderFindResults(bubbles) {
       row.classList.add('removed');
       row.textContent = t('removedNotice');
       row.disabled = true;
-      els.findResult.appendChild(row);
+      group.appendChild(row);
       continue;
     }
     const icon = b.type === 'wish' ? '✦ ' : '❁ ';
@@ -1329,7 +1409,7 @@ function renderFindResults(bubbles) {
       els.findPanel.classList.add('hidden');
       openDetail(b.id);
     });
-    els.findResult.appendChild(row);
+    group.appendChild(row);
   }
 }
 
@@ -1481,10 +1561,16 @@ function init() {
   });
   wireOverlayClose(els.composeOverlay, els.composeSheet);
 
-  els.confirmClose.addEventListener('click', () => closeSheet(els.confirmOverlay, els.confirmSheet));
+  els.confirmClose.addEventListener('click', releaseMyWhisper);
   els.confirmCopy.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(els.confirmCode.textContent);
+      showToast(t('copied'));
+    } catch { /* ignore */ }
+  });
+  els.myRecoveryCopy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(els.myRecovery.textContent);
       showToast(t('copied'));
     } catch { /* ignore */ }
   });
@@ -1494,7 +1580,7 @@ function init() {
       showToast(t('copied'));
     } catch { /* ignore */ }
   });
-  wireOverlayClose(els.confirmOverlay, els.confirmSheet);
+  els.confirmOverlay.addEventListener('click', releaseMyWhisper);
 
   els.readClose.addEventListener('click', closeRead);
   // Tap on empty space (overlay or the non-interactive viewport) closes.

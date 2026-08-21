@@ -189,6 +189,39 @@ body.has-video #mist { display: none; }
   background-size: 100% 100%;
   pointer-events: none;
 }
+/* An invisible ring that makes a far balloon as easy to hit as a near one.
+   A balloon is drawn at a third of its box when it is far away, so a 70px
+   lantern lands on the glass as a 24px dot — well under the ~44px a thumb can
+   reliably find, which is why taps on the small ones so often did nothing at
+   all. `--pad` is set per balloon as it launches (scene.js seatTouchPad): the
+   deeper it sits, the wider this reaches, so every balloon in the sky has the
+   same real target size. It is a child rather than a pseudo-element because
+   both of those already draw the gloss and the basket, and a click on a child
+   is a click on the balloon. */
+.lantern-hit {
+  position: absolute;
+  inset: calc(-1 * var(--pad, 0px));
+  border-radius: 50%;
+  background: transparent;
+  pointer-events: auto;
+}
+/* Just written, and rising where the author can see it. A warm ring for one
+   flight only — long enough to follow it up the sky, gone by the time it comes
+   round again as one whisper among the rest. */
+.lantern.spotlight {
+  box-shadow:
+    0 0 34px 12px var(--l-halo),
+    0 0 0 3px rgba(255, 236, 180, 0.75),
+    0 10px 22px rgba(0, 0, 0, 0.34),
+    inset 0 -13px 22px rgba(0, 0, 0, 0.3),
+    inset 0 9px 16px rgba(255, 255, 255, 0.32),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  animation: mine-breathe 2.6s ease-in-out infinite alternate;
+}
+@keyframes mine-breathe {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.22) saturate(1.08); }
+}
 .lantern-text {
   position: relative;
   font-weight: 700;
@@ -538,6 +571,44 @@ body.has-video #mist { display: none; }
   font-style: italic;
   background: rgba(255, 255, 255, 0.03);
   cursor: default;
+}
+/* A foldable list. A name with forty whispers under it used to unroll as one
+   strip and push the rest of the panel off the screen; each list is a heading
+   you tap open now. The rows scroll inside the group rather than growing it, so
+   the panel is the same size whatever a search turns up. */
+.result-group { margin: 2px 0 10px; }
+.result-group > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 7px 2px;
+  user-select: none;
+}
+.result-group > summary::-webkit-details-marker { display: none; }
+.result-group > summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1em;
+  transition: transform 0.15s ease;
+}
+.result-group[open] > summary::before { transform: rotate(90deg); }
+.result-group > div { max-height: 38vh; overflow-y: auto; }
+/* Big, spaced and monospaced: this gets read off one screen and typed into
+   another, which is exactly where 0/O and 1/l go wrong. */
+.recovery-code {
+  display: block;
+  margin: 6px 0 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.02rem;
+  letter-spacing: 0.08em;
+  word-break: break-all;
+  user-select: all;
+}
+.mini-panel .recovery-code {
+  color: #33250a;
+  background: rgba(255, 252, 240, 0.85);
+  border: 1px solid rgba(150, 116, 40, 0.3);
+  border-radius: 10px;
+  padding: 9px 11px;
 }
 .share-qr {
   display: block;
