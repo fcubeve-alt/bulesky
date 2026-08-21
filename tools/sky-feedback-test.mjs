@@ -214,9 +214,13 @@ function reachableBalloon(page) {
     [...document.querySelectorAll('#find-panel > .result-group, #find-panel #mysky > .result-group')]
       .map((g) => ({ id: g.id || 'list', open: g.open }))
   );
+  // Three rows now: what I wrote, what I kept, my recovery code. The fourth
+  // used to be "find by name", and it is gone — everything this device wrote is
+  // in the first row whatever names were used, so the box that let a public
+  // name stand in for proof was answering an answered question.
   check(
-    rows.length === 4 && rows.every((r) => r.open === false),
-    `the panel opens as four folded rows (${rows.map((r) => r.id).join(', ')})`
+    rows.length === 3 && rows.every((r) => r.open === false),
+    `the panel opens as three folded rows (${rows.map((r) => r.id).join(', ')})`
   );
 
   // …so it is short, whatever is in it.

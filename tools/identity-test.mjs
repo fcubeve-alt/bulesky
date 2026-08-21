@@ -63,13 +63,12 @@ async function open(mine, extra = {}) {
 // 2. the delete button follows what the server says, not localStorage
 for (const mine of [true, false]) {
   const { b, page } = await open(mine);
-  await page.click('#find-icon');
-  // Searching by name is a fallback now and lives behind a fold at the bottom
-  // of My Sky — open it before typing into it.
-  await page.click('#find-summary');
-  await page.fill('#find-input', 'tester');
-  await page.click('#find-submit');
-  await page.click('#find-result .find-result-row');
+  // Open the whisper by its link. Searching by the name it was signed with is
+  // gone — My Sky lists everything this device wrote, so the box that let a
+  // public name stand in for proof had nothing left to do.
+  await page.goto(`${BASE}/?w=${W.id}`, { waitUntil: 'domcontentloaded' });
+  const notice = page.locator('#notice-ok');
+  if (await notice.isVisible().catch(() => false)) await notice.click();
   await page.waitForSelector('#read-overlay:not(.hidden)');
   const visible = await page.locator('#read-delete-btn').isVisible();
   console.log(`${visible === mine ? 'PASS' : 'FAIL'}  delete button ${mine ? 'shown' : 'hidden'} when server says mine=${mine}`);
@@ -82,13 +81,12 @@ for (const mine of [true, false]) {
 // 3. Keeping somebody else's story: offered on theirs, never on your own.
 for (const [mine, expected] of [[false, true], [true, false]]) {
   const { b, page } = await open(mine);
-  await page.click('#find-icon');
-  // Searching by name is a fallback now and lives behind a fold at the bottom
-  // of My Sky — open it before typing into it.
-  await page.click('#find-summary');
-  await page.fill('#find-input', 'tester');
-  await page.click('#find-submit');
-  await page.click('#find-result .find-result-row');
+  // Open the whisper by its link. Searching by the name it was signed with is
+  // gone — My Sky lists everything this device wrote, so the box that let a
+  // public name stand in for proof had nothing left to do.
+  await page.goto(`${BASE}/?w=${W.id}`, { waitUntil: 'domcontentloaded' });
+  const notice = page.locator('#notice-ok');
+  if (await notice.isVisible().catch(() => false)) await notice.click();
   await page.waitForSelector('#read-overlay:not(.hidden)');
   const visible = await page.locator('#read-save-btn').isVisible();
   console.log(`${visible === expected ? 'PASS' : 'FAIL'}  keep button ${expected ? 'offered on' : 'hidden on'} ${mine ? 'your own' : "somebody else's"} whisper`);
@@ -108,10 +106,9 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
   // Give the device an identity the way a first whisper would.
   await page.evaluate(() => localStorage.setItem('aya_author_secret', 'ABCDEFGHJKMNPQRSTVWX'));
   await page.click('#find-icon');
-  // Searching by name is a fallback now and lives behind a fold at the bottom
-  // of My Sky — open it before typing into it.
-  await page.click('#find-summary');
   await page.waitForFunction(() => document.querySelector('#mysky').children.length > 0, { timeout: 5000 });
+  // The lists open folded, so the rows are in the DOM but not on screen —
+  // textContent still reads them, which is what this case is checking.
   const shown = await page.locator('#mysky').textContent();
   const note = await page.locator('#mysky-msg').textContent();
   console.log(`${/^[0-9a-f]{64}$/.test(authHeader || '') ? 'PASS' : 'FAIL'}  my sky asks with the hash, never the secret`);
@@ -124,13 +121,12 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
 //    and a long whisper becomes an opening plus a link rather than a wall.
 {
   const { b, page } = await open(true);
-  await page.click('#find-icon');
-  // Searching by name is a fallback now and lives behind a fold at the bottom
-  // of My Sky — open it before typing into it.
-  await page.click('#find-summary');
-  await page.fill('#find-input', 'tester');
-  await page.click('#find-submit');
-  await page.click('#find-result .find-result-row');
+  // Open the whisper by its link. Searching by the name it was signed with is
+  // gone — My Sky lists everything this device wrote, so the box that let a
+  // public name stand in for proof had nothing left to do.
+  await page.goto(`${BASE}/?w=${W.id}`, { waitUntil: 'domcontentloaded' });
+  const notice = page.locator('#notice-ok');
+  if (await notice.isVisible().catch(() => false)) await notice.click();
   await page.waitForSelector('#read-overlay:not(.hidden)');
   const offered = await page.locator('#read-share-btn').isVisible();
   console.log(`${offered ? 'PASS' : 'FAIL'}  share offered on your own whisper`);

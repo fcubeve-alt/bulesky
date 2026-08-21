@@ -28,11 +28,6 @@ const els = {
   bgNote: $('bg-note'),
   findPanel: $('find-panel'),
   findClose: $('find-close'),
-  findSummary: $('find-summary'),
-  findNote: $('find-note'),
-  findInput: $('find-input'),
-  findSubmit: $('find-submit'),
-  findResult: $('find-result'),
   aboutIcon: $('about-icon'),
   aboutPanel: $('about-panel'),
   aboutClose: $('about-close'),
@@ -192,10 +187,6 @@ function applyText() {
   // speech synthesis reads to pick a voice when the server route is down.
   applyStaticI18n();
   els.appTitle.textContent = 'Are you alright?'; // fixed signature brand (CSS uppercases it)
-  els.findSummary.textContent = t('findLabel');
-  els.findNote.textContent = t('findNote');
-  els.findInput.placeholder = t('codePlaceholder');
-  els.findSubmit.textContent = t('findSubmit');
   els.aboutPanelText.textContent = t('aboutPanelIntro');
   els.coffeeText.textContent = t('coffeeText');
   els.coffeeLink.textContent = t('coffeeLink');
@@ -1242,10 +1233,10 @@ async function toggleSave() {
 // opening on a tap. Spilling two full lists the moment the panel appears is
 // what made it look like a mess; the count on the heading already answers
 // "is there anything in there".
-function resultGroup(title, count, open = false) {
+function resultGroup(title, count) {
   const group = document.createElement('details');
   group.className = 'result-group';
-  group.open = open;
+  group.open = false;
   const head = document.createElement('summary');
   head.className = 'find-results-title';
   head.textContent = `${title} · ${count}`;
@@ -1430,63 +1421,6 @@ async function submitReply() {
 
 
 // ---------- Find my light (robust query-param endpoint) ----------
-
-async function submitFind() {
-  const code = els.findInput.value.trim();
-  els.findResult.innerHTML = '';
-  if (!code) return;
-  try {
-    const res = await fetch(apiUrl(`/api/bubbles?code=${encodeURIComponent(code)}`));
-    const data = await res.json();
-    if (res.status === 429) {
-      els.findResult.textContent = t('findTooMany');
-      return;
-    }
-    if (!res.ok || !data.bubbles || data.bubbles.length === 0) {
-      els.findResult.textContent = t('findNotFound');
-      return;
-    }
-    renderFindResults(data.bubbles);
-  } catch {
-    els.findResult.textContent = t('findError');
-  }
-}
-
-// A name can hold many whispers, so show them as a tappable list; tapping one
-// opens its full detail (with replies).
-function renderFindResults(bubbles) {
-  // Looking a name up is not proof of being that person. A name is public —
-  // it is printed under every whisper — so claiming the results as "mine"
-  // meant anyone who read a byline could take the whisper over. Ownership now
-  // comes from the device secret and nothing else.
-  els.findResult.innerHTML = '';
-  // Open: someone typed a name and pressed find, so the answer is what they
-  // asked for. Folding it would be answering a question with a closed box.
-  const group = resultGroup(t('findResultsTitle'), bubbles.length, true);
-  els.findResult.appendChild(group.parentNode);
-  for (const b of bubbles) {
-    const row = document.createElement('button');
-    row.className = 'find-result-row';
-    // A whisper that was hidden for breaking the guidelines stays unreadable
-    // even here, for its own author — but it is listed, so it doesn't look
-    // like the lookup lost it.
-    if (b.removed) {
-      row.classList.add('removed');
-      row.textContent = t('removedNotice');
-      row.disabled = true;
-      group.appendChild(row);
-      continue;
-    }
-    const icon = b.type === 'wish' ? '✦ ' : '❁ ';
-    const text = (b.content || '').trim();
-    row.textContent = icon + text.slice(0, 42) + (text.length > 42 ? '…' : '');
-    row.addEventListener('click', () => {
-      els.findPanel.classList.add('hidden');
-      openDetail(b.id);
-    });
-    group.appendChild(row);
-  }
-}
 
 // ---------- iOS install guide ----------
 
@@ -1714,8 +1648,7 @@ function init() {
   els.aboutClose.addEventListener('click', () => els.aboutPanel.classList.add('hidden'));
 
   els.findIcon.addEventListener('click', () => {
-    els.findResult.innerHTML = '';
-    loadMySky();
+      loadMySky();
     els.findPanel.classList.toggle('hidden');
     els.aboutPanel.classList.add('hidden');
     els.coffeePanel.classList.add('hidden');
@@ -1724,8 +1657,6 @@ function init() {
     els.sharePanel.classList.add('hidden');
   });
   els.findClose.addEventListener('click', () => els.findPanel.classList.add('hidden'));
-  els.findSubmit.addEventListener('click', submitFind);
-  els.findInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitFind(); });
 
   els.coffeeIcon.addEventListener('click', () => {
     els.coffeePanel.classList.toggle('hidden');

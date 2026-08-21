@@ -92,6 +92,18 @@ const AIMED = [
   'اقتل نفسك', 'موت انت', 'تستاهل الموت',
 ];
 
+// A threat needs a target too — "我想杀了我自己" is not a threat, it is the
+// reason this site exists. Same second-person test as the insults.
+const THREATS = [
+  '弄死你', '杀了你', '打死你', '砍死你', '找人收拾你', '我知道你住哪',
+  '我要报复你', '让你好看', '你等着瞧', '别让我碰到你',
+  'i will kill you', 'i will find you', 'i know where you live',
+  "you're dead", 'youre dead', "i'll hurt you", 'watch your back',
+  'te voy a matar', 'sé dónde vives',
+  'je vais te tuer', 'je sais où tu habites',
+  'سأقتلك', 'أعرف أين تسكن',
+];
+
 // Phrases that are an attack ONLY when they are aimed at somebody. The same
 // words are among the most common things a person writes about themselves:
 //
@@ -104,10 +116,30 @@ const AIMED = [
 // whisper has nothing behind it at all.
 const NEEDS_A_TARGET = [
   ...INSULTS,
+  ...THREATS,
   '去死吧', '滚去死', '都去死', '快去死', '死了算了吧',
   'go die', 'end yourself', 'off yourself', 'drop dead',
   'creve', 'crève',
 ];
+
+// "You", plus the words that only ever get said TO someone. An imperative is a
+// second person even when the pronoun is left out — "滚，贱人" names nobody and
+// is aimed at exactly one person.
+// Explicit sex, as description rather than feeling. Kept short and blunt on
+// purpose: this is a list of acts, not of body parts or of longing, because
+// people write about their bodies and their loneliness here constantly and
+// none of that belongs on a blocking list. The model reads the rest.
+const EXPLICIT = [
+  '肉棒', '插进', '内射', '口交', '肛交', '足交', '自慰给', '约炮', '一夜情找',
+  'blowjob', 'blow job', 'creampie', 'anal sex', 'cum on', 'cum in',
+  'fuck me hard', 'suck my', 'jerk off to', 'sexting', 'nudes?',
+  'follar', 'mamada', 'baise-moi', 'sucer ma',
+];
+
+// Anything sexual next to a child. Zero tolerance, and no second-person test:
+// there is no innocent sentence in this product that pairs these.
+const MINOR_WORDS = ['未成年', '小学生', '初中生', '幼女', '萝莉', 'minor', 'underage', 'preteen', 'loli', 'child', '小孩', '孩子'];
+const SEXUAL_WORDS = ['性', 'sex', 'sexual', 'nude', 'naked', '裸', '色情', 'porn', '做爱', 'horny'];
 
 // "You", plus the words that only ever get said TO someone. An imperative is a
 // second person even when the pronoun is left out — "滚，贱人" names nobody and
@@ -157,11 +189,33 @@ function aimedAtSomebody(lower, idx, len) {
   return SECOND_PERSON.some((p) => around.includes(p));
 }
 
+// Sexual writing about a child. Both halves in one text is enough — there is
+// no sentence here that needs them together, and this is the one category the
+// rules put at zero tolerance.
+function sexualisesAMinor(lower) {
+  return (
+    MINOR_WORDS.some((w) => lower.includes(w)) && SEXUAL_WORDS.some((w) => lower.includes(w))
+  );
+}
+
+// Pure noise: the same character or emoji over and over, or one short string
+// repeated to fill the box. Length alone is never spam — a thousand characters
+// of grief is a thousand characters of grief.
+function isSpam(text) {
+  const t = String(text || '').replace(/\s/g, '');
+  if (t.length < 24) return false;
+  const distinct = new Set([...t]).size;
+  return distinct <= 3;
+}
+
 function containsAbusive(text) {
   const lower = String(text || '').toLowerCase();
   if (HATE.some((w) => lower.includes(w.toLowerCase()))) return true;
   if (AT_YOU.some((w) => lower.includes(w.toLowerCase()))) return true;
   if (AIMED.some((w) => lower.includes(w.toLowerCase()))) return true;
+  if (EXPLICIT.some((w) => lower.includes(w.toLowerCase()))) return true;
+  if (sexualisesAMinor(lower)) return true;
+  if (isSpam(text)) return true;
   for (const phrase of NEEDS_A_TARGET) {
     const needle = phrase.toLowerCase();
     const idx = lower.indexOf(needle);

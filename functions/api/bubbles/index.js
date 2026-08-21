@@ -1,11 +1,7 @@
 import { containsAbusive, containsCrisisKeyword, maskContactInfo } from '../../../src/filters.js';
 import { cleanSecret, hashSecret } from '../../../src/identity.js';
 import { blocksPublishing, recordAiConcern, screenOnPublish } from '../../../src/moderation.js';
-import { overLimit } from '../../../src/rate-limit.js';
 import { maybeSweep } from '../../../src/retention.js';
-
-// Kept in step with /api/bubbles/by-code/<name>: same lookup, same limit.
-const MAX_LOOKUPS = 20;
 
 const MAX_CONTENT_LEN = 1000;
 const MAX_CODE_LEN = 30;
@@ -19,39 +15,17 @@ function json(data, status = 200) {
   });
 }
 
-// Hidden content is invisible to EVERYONE, including whoever wrote it: an
-// author who could still read the abuse aimed at them (or screenshot it) is a
-// risk we don't want to carry. The row is still listed, though, marked
-// `removed` and stripped of its text — vanishing silently would just make the
-// author think the lookup is broken and try again.
-function redactIfHidden(b) {
-  if (!b.hidden) return b;
-  return { id: b.id, type: b.type, created_at: b.created_at, removed: 1 };
-}
-
+// Looking whispers up by the name they were signed with is GONE, deliberately.
+//
+// It existed as the way back to your own words, and My Sky replaced it: what
+// this device wrote is listed there whatever names were used, and the recovery
+// code carries that to another phone. What was left was a box that took a
+// public string — the name is printed under every whisper — and returned
+// everything written under it. Read-only, but still the one place where a name
+// stood in for proof, and still a way to sweep the sky for one person's
+// writing. Removing it costs nothing anybody still needs.
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
-
-  // Owner lookup by NAME. A name is a personal handle, not a per-post secret:
-  // one person can post many whispers under the same name, so this returns the
-  // whole list (newest first). Served from the main (non-dynamic) route so it
-  // can never be affected by nested dynamic-route resolution.
-  const codeParam = url.searchParams.get('code');
-  if (codeParam !== null) {
-    const code = codeParam.trim().toLowerCase();
-    if (!code) return json({ error: 'empty_code' }, 400);
-    if (await overLimit(env, 'bycode', request, MAX_LOOKUPS)) {
-      return json({ error: 'too_many_lookups' }, 429);
-    }
-    const { results } = await env.DB.prepare(
-      `SELECT id, type, content, lang, warmth, crisis_flag, hidden, created_at
-         FROM bubbles WHERE code = ? ORDER BY created_at DESC`
-    )
-      .bind(code)
-      .all();
-    if (!results || results.length === 0) return json({ error: 'not_found', bubbles: [] }, 404);
-    return json({ bubbles: results.map(redactIfHidden) });
-  }
 
   const type = url.searchParams.get('type');
   const limitParam = parseInt(url.searchParams.get('limit') || '', 10);

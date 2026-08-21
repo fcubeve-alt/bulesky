@@ -93,7 +93,10 @@ async function openAndPressListen(page, voiceHandler) {
     window.speechSynthesis.getVoices = () => [];
   });
 
-  await page.goto(`${BASE}/?debug=voice`, { waitUntil: 'domcontentloaded' });
+  // One navigation, straight to the whisper. The observer below is installed
+  // with page.evaluate, so a second goto would wipe it — and `?debug=voice`
+  // would be lost with it, which is what puts the reason inside the toast.
+  await page.goto(`${BASE}/?w=${WHISPER.id}&debug=voice`, { waitUntil: 'domcontentloaded' });
   await page.evaluate(() => {
     const seen = new Set();
     new MutationObserver(() => {
@@ -110,13 +113,9 @@ async function openAndPressListen(page, voiceHandler) {
   if (await ok.isVisible().catch(() => false)) await ok.click();
   await page.locator('#notice-overlay').waitFor({ state: 'hidden' }).catch(() => {});
 
-  await page.click('#find-icon');
-  // Searching by name is a fallback now and lives behind a fold at the bottom
-  // of My Sky — open it before typing into it.
-  await page.click('#find-summary');
-  await page.fill('#find-input', WHISPER.code);
-  await page.click('#find-submit');
-  await page.click('#find-result .find-result-row');
+  // The whisper is already open — ?w= put it there. The name lookup that used
+  // to be how this test reached it is gone: My Sky lists everything this device
+  // wrote, so a box keyed on a public name had nothing left to do.
   await page.waitForSelector('#read-listen-btn', { state: 'visible' });
   await page.click('#read-listen-btn');
 }

@@ -73,8 +73,10 @@
 
 <!-- Mini panels -->
 <!-- My Sky. What you wrote and what you kept, found by the secret this device
-     holds rather than by a name anyone could type. The name lookup stays at the
-     bottom for whoever lost their code and still remembers what they signed. -->
+     holds — and by nothing else. There used to be a "search by the name you
+     signed with" box at the bottom; once everything you have written is listed
+     here, it was answering a question the panel above had already answered,
+     and it was the one route that let a name stand in for proof. -->
 <div id="find-panel" class="mini-panel hidden">
   <button class="mini-close" id="find-close" aria-label="Close">×</button>
   <!-- The panel says what it is before it lists anything. Without this it
@@ -110,24 +112,6 @@
     </div>
   </details>
 
-  <!-- Searching by name is a fallback, and it is folded away as one.
-       It used to sit here as a labelled box with its own button, level with
-       "what I wrote" and "what I kept", which made it look like a third thing
-       this panel is for. It is not: this panel is your own sky, and your own
-       sky follows the device. The search still has to exist, because it is the
-       only way back for whispers written before this device had an identity,
-       or from a phone whose recovery code was never saved — but it is read
-       only, it cannot prove anyone is anyone, and it belongs at the bottom
-       behind a fold. -->
-  <details id="find-box" class="result-group">
-    <summary id="find-summary" class="find-results-title"></summary>
-    <p id="find-note" class="hint"></p>
-    <div class="mini-panel-row">
-      <input id="find-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-      <button id="find-submit" class="btn-secondary btn-small"></button>
-    </div>
-    <div id="find-result" class="find-result"></div>
-  </details>
 </div>
 
 <div id="share-panel" class="mini-panel hidden">

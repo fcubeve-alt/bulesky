@@ -38,6 +38,7 @@
     <div class="row" style="margin:0">
       <button id="open-reports" type="button">Reports</button>
       <button id="open-claim" type="button">Claim old whispers</button>
+      <button id="open-screen" type="button">Check the filter</button>
       <button id="open-images" type="button">Images</button>
       <button id="new-post" class="primary" type="button">New post</button>
     </div>
@@ -87,6 +88,41 @@
     </div>
   </article>
   <p id="claim-msg" class="msg hidden"></p>
+</main>
+
+<!-- 4b. Check what the moderation model actually does.
+
+     The prompt is tested against a stubbed model, which proves our handling
+     and proves nothing about the real weights. The one input that matters more
+     than any other here is somebody writing that they do not want to be alive:
+     almost every general safety classifier reads that as self-harm and flags
+     it, and this is the site that exists for that sentence. So it gets checked
+     against the live model — here, in one click, and again whenever the model
+     or the prompt changes. -->
+<main id="view-screen" class="hidden">
+  <div class="admin-bar">
+    <h1>Check the filter</h1>
+    <button id="screen-back" class="link" type="button">← All posts</button>
+  </div>
+  <article class="card">
+    <p class="meta">
+      Runs a standing set of sentences through the live moderation model. Half
+      of them are despair in five languages and <strong>must come back
+      allowed</strong>; half are attacks, threats and soliciting and must not.
+      Nothing is written to the database and nothing is published.
+    </p>
+    <p class="meta">
+      A verdict of <code>unknown</code> is neither right nor wrong — it means
+      the model did not answer, and everything downstream carries on without it.
+    </p>
+    <label for="screen-texts">Your own sentences, one per line (optional)</label>
+    <textarea id="screen-texts" rows="4" placeholder="Leave empty to run the standing set"></textarea>
+    <div class="row">
+      <button id="screen-go" class="primary" type="button">Run the check</button>
+    </div>
+  </article>
+  <div id="screen-out"></div>
+  <p id="screen-msg" class="msg hidden"></p>
 </main>
 
 <!-- 5. Images -->
@@ -153,6 +189,7 @@ const views = {
   list: $('view-list'),
   reports: $('view-reports'),
   claim: $('view-claim'),
+  screen: $('view-screen'),
   images: $('view-images'),
   edit: $('view-edit'),
 };
@@ -562,6 +599,56 @@ async function claim(withSecret) {
   }
 }
 $('claim-count').addEventListener('click', () => claim(false));
+
+// ---- Check the filter ----------------------------------------------------
+$('open-screen').addEventListener('click', () => {
+  show('screen');
+  say($('screen-msg'), '');
+  $('screen-out').innerHTML = '';
+});
+$('screen-back').addEventListener('click', () => loadList().catch(() => {}));
+
+$('screen-go').addEventListener('click', async () => {
+  const typed = $('screen-texts').value.split('\n').map((t) => t.trim()).filter(Boolean);
+  $('screen-out').innerHTML = '';
+  say($('screen-msg'), 'Asking the model…', 'ok');
+  try {
+    const data = await api('/api/admin/screen', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(typed.length ? { texts: typed } : {}),
+    });
+    if (!data.hasAi) {
+      say($('screen-msg'), 'No AI binding on this deploy — everything falls through to the keyword lists and the report path.');
+      return;
+    }
+    // Built as nodes, not as a string of HTML: the text here comes back from
+    // the server and, in the custom case, from whatever was typed in the box.
+    const out = $('screen-out');
+    for (const r of data.results) {
+      const card = document.createElement('article');
+      card.className = 'card';
+      const head = document.createElement('p');
+      head.className = `meta ${r.pass === false ? 'error' : r.pass ? 'ok' : ''}`;
+      const mark = r.pass === null ? '·' : r.pass ? '✓' : '✗';
+      const want = r.expect === 'ok' ? ' — must be allowed' : r.expect === 'not-ok' ? ' — must be stopped' : '';
+      head.textContent = `${mark} ${r.verdict}${want}`;
+      const body = document.createElement('p');
+      body.textContent = r.text;
+      card.append(head, body);
+      out.appendChild(card);
+    }
+    say(
+      $('screen-msg'),
+      data.wrong === 0
+        ? `${data.judged} judged, none wrong${data.unanswered ? `, ${data.unanswered} unanswered` : ''}.`
+        : `${data.wrong} of ${data.judged} came back WRONG — read them before trusting this filter.`,
+      data.wrong === 0 ? 'ok' : 'error'
+    );
+  } catch (e) {
+    say($('screen-msg'), e.message);
+  }
+});
 $('claim-go').addEventListener('click', () => claim(true));
 
 $('open-images').addEventListener('click', () => loadImages().catch(() => {}));

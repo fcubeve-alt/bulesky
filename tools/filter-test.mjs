@@ -78,6 +78,28 @@ check(containsAbusive('你就是个废物玩意'), '…calling someone else it d
 check(containsAbusive('你个死基佬'), 'a slur against a whole group is stopped whatever the sentence');
 check(containsAbusive('操你妈'), 'and so is an insult with the target inside it');
 
+// ---- threats, explicit sex, minors, spam: the rest of the rulebook ----
+check(containsAbusive('我知道你住哪，你等着瞧'), 'a threat with a target is stopped');
+check(!containsAbusive('我想杀了我自己'), '…and wanting to hurt YOURSELF is not a threat');
+check(!containsAbusive('他说他要弄死我，我很害怕'), 'reporting a threat made against you goes through');
+check(containsAbusive('i know where you live'), 'i know where you live → stopped');
+
+check(containsAbusive('想约炮的私我'), 'explicit soliciting is stopped');
+check(!containsAbusive('我们分手了，我很想他的身体也很想他的人'), 'longing for someone goes through');
+check(!containsAbusive('我觉得自己的身体很丑陋'), 'writing about your own body goes through');
+
+check(containsAbusive('有没有未成年的想聊性话题'), 'anything sexual near a child is stopped');
+check(!containsAbusive('我小时候的孩子气还没有褪掉'), 'the word 孩子 on its own goes through');
+
+check(containsAbusive('啊'.repeat(60)), 'a wall of one repeated character is spam');
+check(containsAbusive('😭'.repeat(40)), 'a wall of one repeated emoji is spam');
+check(!containsAbusive('啊啊啊啊啊，我真的受不了了'), 'a cry with real words in it is not spam');
+check(!containsAbusive('好'), 'a one-word reply is not spam');
+check(
+  !containsAbusive('今天下了很大的雨，我一个人走回家，路上一直在想你说过的那句话。'),
+  'an ordinary long whisper is not spam'
+);
+
 // ---- crisis keywords flag, they never block ----
 for (const text of ['我好想去死', 'I want to kill myself', 'quiero acabar con todo', 'أنهي حياتي']) {
   check(containsCrisisKeyword(text), `hotline shown for: ${text.slice(0, 28)}`);
