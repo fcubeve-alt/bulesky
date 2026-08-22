@@ -72,7 +72,6 @@ const els = {
   confirmSheet: $('confirm-sheet'),
   confirmMessage: $('confirm-message'),
   confirmCode: $('confirm-code'),
-  confirmCopy: $('confirm-copy'),
   confirmHint: $('confirm-hint'),
   confirmClose: $('confirm-close'),
   readOverlay: $('read-overlay'),
@@ -95,6 +94,7 @@ const els = {
   reportSheet: $('report-sheet'),
   reportTitle: $('report-title'),
   reportCancel: $('report-cancel'),
+  myskyName: $('mysky-name'),
   mysky: $('mysky'),
   recoveryBox: $('recovery-box'),
   recoverySummary: $('recovery-summary'),
@@ -146,7 +146,6 @@ const ERROR_KEYS = {
   blocked_abusive: 'errorAbusive',
   blocked_guidelines: 'errorGuidelines',
   too_many_replies: 'errorTooManyReplies',
-  code_taken: 'errorCodeTaken',
 };
 
 const state = {
@@ -203,7 +202,6 @@ function applyText() {
   els.replyCodeLabel.textContent = t('replyNameChip');
   els.composeCancel.textContent = t('cancel');
   els.composeSubmit.textContent = t('submit');
-  els.confirmCopy.textContent = t('copyCode');
   els.recoveryCopy.textContent = t('copyRecovery');
   els.confirmHint.textContent = t('confirmHint');
   els.confirmClose.textContent = t('close');
@@ -413,7 +411,10 @@ function openCompose(type) {
   // Enforce the limit at runtime too, so a stale cached index.html (which may
   // still carry the old maxlength) is corrected as soon as the app loads.
   els.composeContent.maxLength = 1000;
-  els.composeCode.value = '';
+  // Filled in already, with the name this device is known by. A name is an
+  // identity here, not a field — typing it again on every whisper is what made
+  // it feel like paperwork, and made people use a different one each time.
+  els.composeCode.value = identity.displayName();
   els.composeCount.textContent = '0 / 1000';
   els.composeError.classList.add('hidden');
   els.composeHp.value = '';
@@ -438,6 +439,8 @@ async function submitCompose() {
     // every whisper after that.
     const firstEver = !identity.hasSecret();
     const secret = identity.secret();
+    identity.rememberName(code); // so the next whisper and every reply is signed the same
+
     const res = await fetch(apiUrl('/api/bubbles'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -553,13 +556,19 @@ async function openDetail(id, rect, known) {
 
 // Transparent, credits-style reading view: the whisper and its replies drift
 // slowly upward over the live scene, then loop.
-// Show a handle with most of it hidden, e.g. "ty***" — enough to give the
-// sky some human presence without exposing anyone's full chosen name.
-function maskName(code) {
-  const s = String(code || '').trim();
-  if (!s) return '';
-  return Array.from(s).slice(0, 2).join('') + '***';
-}
+// The byline, in full.
+//
+// It used to be cut to two characters — "夜里***" — and that was the right call
+// while the name was also a lookup key: anyone who could read a byline could
+// type it into the search box and pull up everything that person had written,
+// so showing less of it raised the cost of sweeping the sky for one person.
+//
+// That search is gone (My Sky replaced it), and with it the reason. What the
+// mask costs is the only job the name has left: "夜里***" reads like redacted
+// evidence, not like somebody. A name here is chosen, not given — the compose
+// box says plainly that everyone sees it — and a whisper signed 夜里的猫,
+// answered by 走夜路的人, is two people. Two characters and three asterisks is
+// not.
 
 function renderRead(bubble, replies, rect) {
   // Only forget "they left something here" when this is a different whisper —
@@ -588,7 +597,7 @@ function renderRead(bubble, replies, rect) {
   setLightButtonState(bubble.id);
   setReportButtonState(bubble.id);
   if (bubble.code) {
-    els.readAuthor.textContent = `${t('byLabel')} ${maskName(bubble.code)}`;
+    els.readAuthor.textContent = `${t('byLabel')} ${bubble.code}`;
     els.readAuthor.classList.remove('hidden');
   } else {
     els.readAuthor.textContent = '';
@@ -599,7 +608,11 @@ function renderRead(bubble, replies, rect) {
   els.replyContent.placeholder = bubble.type === 'pain' ? t('replyPlaceholderPain') : t('replyPlaceholderWish');
   els.replyContent.value = '';
   els.replyCount.textContent = `0 / ${REPLY_MAX}`;
-  els.replyCode.value = '';
+  // Signed by default. An unsigned reply reads as "from 匿名", and a sky where
+  // most answers come from 匿名 is a sky where nobody is answering anybody —
+  // the whole point of a reply is that a person said it to a person. Still
+  // optional: clearing the box and sending is allowed.
+  els.replyCode.value = identity.displayName();
   els.replyError.classList.add('hidden');
 
   els.readReplies.innerHTML = '';
@@ -615,7 +628,7 @@ function renderRead(bubble, replies, rect) {
       body.textContent = r.content;
       const who = document.createElement('div');
       who.className = 'read-reply-author';
-      who.textContent = `${t('byLabel')} ${r.code ? maskName(r.code) : t('anonymous')}`;
+      who.textContent = `${t('byLabel')} ${r.code || t('anonymous')}`;
       // Every reply carries its own report button, counted separately from the
       // whisper it sits under.
       const flag = document.createElement('button');
@@ -1258,6 +1271,9 @@ async function loadMySky() {
   // for one would mint an identity nobody asked for (identity.js). The section
   // itself stays — the box for pasting a code IN lives here too, and the person
   // who most needs it is exactly the one with nothing of their own yet.
+  const name = identity.displayName();
+  els.myskyName.textContent = name ? t('mySkyName').replace('{name}', name) : '';
+  els.myskyName.classList.toggle('hidden', !name);
   const code = identity.hasSecret() ? identity.recoveryCode() : null;
   els.recoveryBox.open = false;
   els.recoveryNote.classList.toggle('hidden', !code);
@@ -1394,6 +1410,7 @@ async function submitReply() {
   els.replyError.classList.add('hidden');
   if (!content) return showError(els.replyError, t('errorEmptyContent'));
   els.replySubmit.disabled = true;
+  identity.rememberName(els.replyCode.value.trim());
   try {
     const res = await fetch(apiUrl(`/api/bubbles/${state.detailBubbleId}/replies`), {
       method: 'POST',
@@ -1571,12 +1588,6 @@ function init() {
   wireOverlayClose(els.composeOverlay, els.composeSheet);
 
   els.confirmClose.addEventListener('click', releaseMyWhisper);
-  els.confirmCopy.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(els.confirmCode.textContent);
-      showToast(t('copied'));
-    } catch { /* ignore */ }
-  });
   els.myRecoveryCopy.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(els.myRecovery.textContent);

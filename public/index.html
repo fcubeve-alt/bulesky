@@ -84,6 +84,9 @@
        thing people need to know — that this follows the phone, not the name
        you signed with — is the thing nothing was saying. -->
   <p id="mysky-title" class="music-now"></p>
+  <!-- The name has one job now — being read under your words — so this is
+       where it lives when you are not writing: the thing you are called here. -->
+  <p id="mysky-name" class="hint mysky-name hidden"></p>
   <p id="mysky-intro" class="hint"></p>
   <div id="mysky"></div>
   <p id="mysky-msg" class="hint"></p>
@@ -204,9 +207,11 @@
 <div id="confirm-overlay" class="overlay hidden"></div>
 <section id="confirm-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-message">
   <p id="confirm-message"></p>
+  <!-- What you signed it as. No copy button any more: the name is kept on the
+       device and filled in for you from here on, so there is nothing to write
+       down and carry — which is exactly what changed about it. -->
   <div class="code-display">
     <span id="confirm-code"></span>
-    <button id="confirm-copy" class="btn-small btn-secondary"></button>
   </div>
   <p id="confirm-hint" class="hint"></p>
   <!-- Shown once, on the first whisper this device ever sends. There is no

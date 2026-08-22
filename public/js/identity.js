@@ -74,6 +74,39 @@ export async function hash() {
   return cachedHash;
 }
 
+// The name you are known by here.
+//
+// This is NOT the secret above and does not protect anything — it is a byline,
+// the thing printed under your words so a stranger reading them at two in the
+// morning is reading a person rather than a row in a table. It used to double
+// as the way back to your own whispers, which is why the interface called it a
+// 暗号 (a passphrase) and told you to remember it. My Sky answers that now, and
+// looking anyone up by name is gone, so the name has exactly one job left.
+//
+// Kept on the device so it is filled in for you every time: one name you are
+// known by, not a box you fill in again on every whisper and leave empty on
+// every reply. That is the difference between having a name here and typing a
+// word into a field.
+const NAME_KEY = 'aya_author_name';
+
+export function displayName() {
+  try {
+    return localStorage.getItem(NAME_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function rememberName(value) {
+  const s = String(value || '').trim().slice(0, 25);
+  if (!s) return;
+  try {
+    localStorage.setItem(NAME_KEY, s);
+  } catch {
+    /* private mode: the name simply is not remembered next time */
+  }
+}
+
 // Grouped for reading off a screen and typing into another device.
 export function recoveryCode() {
   const s = load();

@@ -117,6 +117,57 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
   await b.close();
 }
 
+// 4b. The name is an identity you keep, not a field you fill in again.
+//
+// It stopped being a lookup key when My Sky replaced searching by name, so the
+// one job it has left is being read under your words. That only works if it is
+// actually there — and it was blank on every reply box, so the commonest
+// answer in the sky was signed "Anonymous".
+{
+  const { b, page, sent } = await open(false);
+  await page.click('#entry-pain');
+  await page.fill('#compose-content', '第一次写点什么');
+  await page.fill('#compose-code', '夜里的猫');
+  await page.waitForTimeout(900);
+  await page.click('#compose-submit');
+  await page.waitForSelector('#confirm-sheet:not(.hidden)');
+  const kept = await page.evaluate(() => localStorage.getItem('aya_author_name'));
+  console.log(`${kept === '夜里的猫' ? 'PASS' : 'FAIL'}  the name is kept on the device (${kept})`);
+  console.log(`${sent[0] && sent[0].code === '夜里的猫' ? 'PASS' : 'FAIL'}  and published with the whisper`);
+
+  // Next whisper: already signed, nothing to retype.
+  await page.click('#confirm-close');
+  await page.click('#entry-wish');
+  const prefilled = await page.inputValue('#compose-code');
+  console.log(`${prefilled === '夜里的猫' ? 'PASS' : 'FAIL'}  the next whisper opens already signed (${prefilled})`);
+  await page.click('#compose-cancel');
+
+  // And so is a reply — an unsigned reply is what makes a sky of 匿名.
+  await page.goto(`${BASE}/?w=${W.id}`, { waitUntil: 'domcontentloaded' });
+  const n2 = page.locator('#notice-ok');
+  if (await n2.isVisible().catch(() => false)) await n2.click();
+  await page.waitForSelector('#read-overlay:not(.hidden)');
+  await page.click('#read-reply-btn');
+  await page.waitForSelector('#reply-sheet:not(.hidden)');
+  const replyName = await page.inputValue('#reply-code');
+  console.log(`${replyName === '夜里的猫' ? 'PASS' : 'FAIL'}  a reply is signed by default (${replyName})`);
+  await b.close();
+}
+
+// 4c. The byline is shown in full. It used to be cut to two characters, which
+// was right while a name could be typed into a search box to pull up
+// everything that person wrote — and pointless once that box was removed.
+{
+  const { b, page } = await open(false, { code: '走夜路的人' });
+  await page.goto(`${BASE}/?w=${W.id}`, { waitUntil: 'domcontentloaded' });
+  const n3 = page.locator('#notice-ok');
+  if (await n3.isVisible().catch(() => false)) await n3.click();
+  await page.waitForSelector('#read-overlay:not(.hidden)');
+  const by = (await page.locator('#read-author').textContent()) || '';
+  console.log(`${by.includes('走夜路的人') && !by.includes('***') ? 'PASS' : 'FAIL'}  the byline is the whole name (${by.trim()})`);
+  await b.close();
+}
+
 // 5. The share card: drawn on the device, offered only on your own whisper,
 //    and a long whisper becomes an opening plus a link rather than a wall.
 {

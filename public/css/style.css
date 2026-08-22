@@ -581,6 +581,9 @@ body.has-video #mist { display: none; }
    strip and push the rest of the panel off the screen; each list is a heading
    you tap open now. The rows scroll inside the group rather than growing it, so
    the panel is the same size whatever a search turns up. */
+/* The name you go by, at the top of your own sky. */
+.mysky-name { margin: 0 0 6px; font-weight: 600; }
+.mini-panel .mysky-name { color: #3a2a08; opacity: 1; }
 .result-group { margin: 2px 0 10px; }
 .result-group > summary {
   cursor: pointer;
