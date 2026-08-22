@@ -867,6 +867,9 @@ button { font-family: inherit; }
 #compose-sheet .name-field input::placeholder, #reply-sheet .name-field input::placeholder { color: rgba(40, 44, 56, 0.3); }
 #compose-sheet .cx-cancel { color: #8a8f9b; }
 #compose-sheet .cx-hint { color: #b07a3c; }
+/* The way back for someone who has written here in another browser. A quiet
+   line under the name box, on the paper-coloured sheet — an offer, not a step. */
+#compose-sheet .link-btn { color: #8a6a3f; text-align: left; line-height: 1.4; }
 #compose-sheet .crisis-banner {
   background: rgba(255, 157, 92, 0.1);
   border-color: rgba(255, 157, 92, 0.32);

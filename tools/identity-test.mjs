@@ -179,7 +179,21 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
   console.log(`${!boxGone ? 'PASS' : 'FAIL'}  the name is not asked for a second time`);
   console.log(`${asLine.includes('夜里的猫') ? 'PASS' : 'FAIL'}  the sheet says who it goes out as (${asLine.trim().slice(0, 30)})`);
   console.log(`${(await page.inputValue('#compose-code')) === '夜里的猫' ? 'PASS' : 'FAIL'}  …and that is what gets sent`);
-  await page.click('#compose-cancel');
+
+  // And sending it does not stop to tell you your own name again. The
+  // confirmation sheet is for the things you hear once — the name you now go
+  // by, the recovery code. On the second whisper it has nothing left to say:
+  // "第二次你发送的时候这些就没必要出现了…太啰唆了". Straight to the sky.
+  await page.fill('#compose-content', '第二次写点什么');
+  await page.waitForTimeout(900);
+  await page.click('#compose-submit');
+  await page.waitForSelector('#read-overlay:not(.hidden)', { timeout: 3000 });
+  const secondSheet = await page.locator('#confirm-sheet').isVisible();
+  const secondText = (await page.locator('#read-content').textContent()) || '';
+  console.log(`${!secondSheet ? 'PASS' : 'FAIL'}  the second whisper does not stop at a confirmation`);
+  console.log(`${secondText.includes('第二次写点什么') ? 'PASS' : 'FAIL'}  it goes straight to the words (${secondText.trim().slice(0, 20)})`);
+  await page.click('#read-close');
+  await page.waitForSelector('#read-overlay', { state: 'hidden', timeout: 3000 });
 
   // Same on a reply — an unsigned reply is what makes a sky of 匿名.
   await page.goto(`${BASE}/?w=${W.id}`, { waitUntil: 'domcontentloaded' });
@@ -204,6 +218,40 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
   await page.waitForTimeout(300);
   const renamed = await page.evaluate(() => localStorage.getItem('aya_author_name'));
   console.log(`${renamed === '走夜路的人' ? 'PASS' : 'FAIL'}  and My Sky is where it changes (${renamed})`);
+  await b.close();
+}
+
+// 4b2. A new browser is offered the way back before it becomes a new person.
+//
+// "一台手机我们就对应一个用户名" is true of the App and not of the web: Safari,
+// Chrome, a private window and a home-screen web app on the same phone are four
+// empty stores, and each one asks for a name. Nothing on the page can join them
+// up — the techniques that could are fingerprinting ones this site will not use
+// — so the one honest move is to ask at the moment the second identity would be
+// minted, and to make saying yes a single tap.
+{
+  const { b, page } = await open(false);
+  await page.click('#entry-pain');
+  await page.waitForSelector('#compose-sheet:not(.hidden)');
+  const offered = await page.locator('#compose-restore').isVisible();
+  console.log(`${offered ? 'PASS' : 'FAIL'}  a browser with no name is offered the way back`);
+
+  // One tap: the compose sheet closes and My Sky opens with the recovery box
+  // already unfolded, rather than leaving someone to find it.
+  await page.click('#compose-restore');
+  await page.waitForSelector('#find-panel:not(.hidden)', { timeout: 3000 });
+  const boxOpen = await page.evaluate(() => document.getElementById('recovery-box').open);
+  const pasteReady = await page.locator('#restore-input').isVisible();
+  console.log(`${boxOpen && pasteReady ? 'PASS' : 'FAIL'}  and one tap lands on the box to paste it into`);
+
+  // Once this browser has a name of its own the offer goes away — it is for the
+  // empty store, not a standing invitation to become somebody else.
+  await page.evaluate(() => localStorage.setItem('aya_author_name', '夜里的猫'));
+  await page.click('#find-close');
+  await page.click('#entry-pain');
+  await page.waitForSelector('#compose-sheet:not(.hidden)');
+  const stillOffered = await page.locator('#compose-restore').isVisible();
+  console.log(`${!stillOffered ? 'PASS' : 'FAIL'}  and it is gone once this browser has a name`);
   await b.close();
 }
 

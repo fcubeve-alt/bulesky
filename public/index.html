@@ -198,9 +198,15 @@
     <span id="compose-code-label" class="chip"></span>
     <input id="compose-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
   </div>
-  <!-- Shown INSTEAD of the box above, once this phone has a name. One phone,
-       one name: it is asked for on the first whisper and never again, so what
-       is left to say is which name this is going out under. -->
+  <!-- Shown with the box above, only while this browser has no name yet. A
+       different browser, a private window or a home-screen web app on the same
+       phone all arrive here with empty storage, and typing a new name is how
+       one person quietly becomes five. This is the moment to offer the other
+       door — before the new identity exists. -->
+  <button id="compose-restore" type="button" class="link-btn hidden"></button>
+  <!-- Shown INSTEAD of the box above, once this browser has a name. It is asked
+       for on the first whisper and never again, so what is left to say is which
+       name this is going out under. -->
   <p id="compose-as" class="cx-hint hidden"></p>
   <input id="compose-hp" type="text" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
   <p id="compose-public-hint" class="cx-hint"></p>

@@ -65,6 +65,7 @@ const els = {
   composeCodeLabel: $('compose-code-label'),
   composeCode: $('compose-code'),
   composeAs: $('compose-as'),
+  composeRestore: $('compose-restore'),
   composeHp: $('compose-hp'),
   composeError: $('compose-error'),
   composeCancel: $('compose-cancel'),
@@ -204,6 +205,7 @@ function applyText() {
   els.composeSub.textContent = t('composeSub');
   els.composeCodeLabel.textContent = t('composeNameChip');
   els.composeCode.placeholder = t('codePlaceholder');
+  els.composeRestore.textContent = t('composeRestore');
   els.replyCodeLabel.textContent = t('replyNameChip');
   els.composeCancel.textContent = t('cancel');
   els.composeSubmit.textContent = t('submit');
@@ -421,7 +423,7 @@ function openCompose(type) {
   // going out as. Handing someone an editable name field on every whisper is
   // what produced a person with forty names and a sky that could not be
   // counted.
-  showNameField(els.composeCode.parentElement, els.composeAs, els.composeCode);
+  showNameField(els.composeCode.parentElement, els.composeAs, els.composeCode, els.composeRestore);
   els.composeCount.textContent = '0 / 1000';
   els.composeError.classList.add('hidden');
   els.composeHp.value = '';
@@ -465,7 +467,21 @@ async function submitCompose() {
     // and it vanished". It is held instead, then launched into a readable tier
     // in the middle of the screen with a ring around it.
     state.pendingMine = { id: data.id, type: data.type, content: data.content, code: data.code, warmth: 0, lights: 0 };
-    showConfirm(data, firstEver && Boolean(secret));
+    // The confirmation sheet exists for the things you only need told once: the
+    // name you now go by, and the recovery code that is the only way back to
+    // your own words. On the second whisper it has nothing left to say — the
+    // compose sheet already showed the name on the way in — and repeating it
+    // turns sending into a form with an OK button on the end.
+    //
+    // "第二次你发送的时候这些就没必要出现了…后面就不要再有又跳出一个,太啰唆了."
+    // So from the second whisper on it is skipped entirely and the words go
+    // straight up: the balloon into the sky, the reading view onto the text.
+    //
+    // The one exception is a whisper the crisis check flagged. That sheet is
+    // carrying a phone number to somebody who may need it tonight, and being
+    // brief is not worth more than that.
+    if (firstEver || data.crisisFlag) showConfirm(data, firstEver && Boolean(secret));
+    else releaseMyWhisper();
     loadWhispers();
   } catch {
     showError(els.composeError, t('errorGeneric'));
@@ -481,7 +497,7 @@ async function submitCompose() {
 // no way to change it here — changing it is a deliberate act done from My Sky,
 // not something that happens because an editable field was sitting on the
 // screen at two in the morning.
-function showNameField(row, line, input) {
+function showNameField(row, line, input, restore) {
   const name = identity.displayName();
   row.classList.toggle('hidden', Boolean(name));
   line.classList.toggle('hidden', !name);
@@ -491,6 +507,16 @@ function showNameField(row, line, input) {
   } else {
     input.value = '';
   }
+  // "One phone, one name" is true of the App, where there is one WebView and
+  // one store. On the web it is true of one BROWSER PROFILE: Safari, Chrome, a
+  // private window and a home-screen web app on the same phone are four empty
+  // stores, and each one asks for a name as though it had met a new person.
+  //
+  // Nothing can join them up from here — the only techniques that could are
+  // fingerprinting ones, and this site does not do that. What can be done is
+  // ask, at the one moment it is still cheap: before the new identity exists,
+  // offer to bring the old one across instead.
+  if (restore) restore.classList.toggle('hidden', Boolean(name));
 }
 
 function showError(el, msg) {
@@ -511,8 +537,10 @@ function showError(el, msg) {
 // the reading view leaves the balloon still rising underneath, so nothing is
 // lost by opening it: you read it once, then let it go.
 //
-// Both ways out of the sheet come here, so there is no way to dismiss it and
-// not see the words.
+// Both ways out of the sheet come here — and from the second whisper on there
+// is no sheet at all and submitCompose calls this directly, so this is the one
+// place a published whisper reaches the sky. The closeSheet below is a no-op
+// when the sheet was never opened.
 function releaseMyWhisper() {
   closeSheet(els.confirmOverlay, els.confirmSheet);
   const mine = state.pendingMine;
@@ -1760,6 +1788,18 @@ function init() {
     els.sharePanel.classList.add('hidden');
   });
   els.aboutClose.addEventListener('click', () => els.aboutPanel.classList.add('hidden'));
+
+  // "Written here before, on another browser?" — the way back, offered at the
+  // only moment it costs nothing: before this browser has minted an identity of
+  // its own. Closes the compose sheet, opens My Sky with the recovery box
+  // already unfolded, so it is one tap rather than a hunt.
+  els.composeRestore.addEventListener('click', () => {
+    closeSheet(els.composeOverlay, els.composeSheet);
+    loadMySky();
+    els.findPanel.classList.remove('hidden');
+    els.recoveryBox.open = true;
+    els.restoreInput.focus();
+  });
 
   els.findIcon.addEventListener('click', () => {
       loadMySky();
