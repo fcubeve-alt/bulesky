@@ -26,11 +26,26 @@ async function open(mine, extra = {}) {
   const b = await chromium.launch({ executablePath: browserPath() });
   const page = await b.newPage();
   const sent = [];
+  let published = null;
   await page.route('**/api/**', (r) => r.fulfill({ json: {} }));
   await page.route('**/api/bubbles**', (r) => {
     const req = r.request();
-    if (req.method() === 'POST') { sent.push(JSON.parse(req.postData() || '{}')); return r.fulfill({ status: 201, json: { id: 9, code: 'tester', type: 'pain', content: 'x', createdAt: Date.now() } }); }
-    if (/\/api\/bubbles\/\d+$/.test(req.url())) return r.fulfill({ json: { bubble: { ...W, mine, ...extra }, replies: [] } });
+    if (req.method() === 'POST') {
+      const body = JSON.parse(req.postData() || '{}');
+      sent.push(body);
+      // Echo what was written, the way the real endpoint does — the author is
+      // shown their own words the moment the confirmation closes, so a stub
+      // that answers 'x' would make that check meaningless.
+      published = { id: 9, code: body.code, type: body.type, content: body.content, lights: 0, created_at: Date.now() };
+      return r.fulfill({ status: 201, json: { ...published, createdAt: published.created_at } });
+    }
+    const byId = /\/api\/bubbles\/(\d+)$/.exec(req.url());
+    if (byId) {
+      const bubble = published && String(published.id) === byId[1]
+        ? { ...published, mine: true, saved: false }
+        : { ...W, mine, ...extra };
+      return r.fulfill({ json: { bubble, replies: [] } });
+    }
     return r.fulfill({ json: { bubbles: [W] } });
   });
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -135,10 +150,29 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
   console.log(`${kept === '夜里的猫' ? 'PASS' : 'FAIL'}  the name is kept on the device (${kept})`);
   console.log(`${sent[0] && sent[0].code === '夜里的猫' ? 'PASS' : 'FAIL'}  and published with the whisper`);
 
+  // Closing the confirmation shows what was just written, in the reading view,
+  // drifting upward — the same thing a tap on a balloon gives.
+  //
+  // A ringed balloon was not enough: "发完之后马上就变成气球了，有时候还要找一下
+  // 才找得到". You press send at two in the morning and the thing you wrote turns
+  // into a dot you have to hunt for. The words come up first; the balloon is
+  // still there underneath when the reading view is closed.
+  await page.click('#confirm-close');
+  await page.waitForSelector('#read-overlay:not(.hidden)', { timeout: 3000 });
+  const justWritten = (await page.locator('#read-content').textContent()) || '';
+  console.log(`${justWritten.includes('第一次写点什么') ? 'PASS' : 'FAIL'}  the whisper is shown back to its author after sending (${justWritten.trim().slice(0, 20)})`);
+  const signed = (await page.locator('#read-author').textContent()) || '';
+  console.log(`${signed.includes('夜里的猫') ? 'PASS' : 'FAIL'}  signed with the name it went out under (${signed.trim()})`);
+
+  // Closed, and the balloon is still in the sky.
+  await page.click('#read-close');
+  await page.waitForSelector('#read-overlay', { state: 'hidden', timeout: 3000 });
+  const stillFlying = await page.evaluate(() => document.querySelectorAll('.lantern').length);
+  console.log(`${stillFlying > 0 ? 'PASS' : 'FAIL'}  and it is still flying once the reading view is closed (${stillFlying} in the sky)`);
+
   // Next whisper: the box is GONE. One phone, one name — it is asked for once
   // and after that the sheet says who this is going out as. An editable name
   // field on every whisper is what produced one person with forty names.
-  await page.click('#confirm-close');
   await page.click('#entry-wish');
   const boxGone = await page.locator('#compose-code').isVisible();
   const asLine = (await page.locator('#compose-as').textContent()) || '';

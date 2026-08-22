@@ -65,7 +65,13 @@ async function open({ detailDelayMs = 0, mine = false, mySky = null, locale = 'e
     if (/\/api\/bubbles\/\d+$/.test(req.url())) {
       if (detailDelayMs) await new Promise((res) => setTimeout(res, detailDelayMs));
       const id = Number(req.url().match(/(\d+)$/)[1]);
-      return r.fulfill({ json: { bubble: { ...W(id), mine, saved: false }, replies: [] } });
+      // 99 is what POST hands back, and the reading view opens on it the moment
+      // the confirmation closes. It has to answer with the words that were
+      // actually written, or the check below reads the stub's filler instead.
+      const bubble = id === 99
+        ? { ...W(99), content: '刚刚写的这一条', code: 'tester', mine: true, saved: false }
+        : { ...W(id), mine, saved: false };
+      return r.fulfill({ json: { bubble, replies: [] } });
     }
     return r.fulfill({ json: { bubbles: Array.from({ length: 12 }, (_, i) => W(i + 1)) } });
   });
@@ -108,6 +114,19 @@ function reachableBalloon(page) {
   check(early === 0, `nothing is launched behind the confirmation (${early} in the air)`);
 
   await page.click('#confirm-close');
+
+  // First the words, then the balloon. The author reads what they just wrote in
+  // the reading view — the same view a tap on a balloon opens — because a ring
+  // around a dot in a sky of dots is not "I can see what I wrote": "发完之后马上
+  // 就变成气球了，有时候还要找一下才找得到".
+  await page.waitForSelector('#read-overlay:not(.hidden)', { timeout: 3000 });
+  const shownBack = (await page.locator('#read-content').textContent()) || '';
+  check(shownBack.includes('刚刚写的这一条'), `the words are on the screen straight away (${shownBack.trim().slice(0, 14)})`);
+
+  // And letting go of them leaves the balloon rising, so nothing is spent by
+  // reading it once.
+  await page.click('#read-close');
+  await page.waitForSelector('#read-overlay', { state: 'hidden', timeout: 3000 });
   await page.waitForSelector('.lantern.spotlight', { timeout: 3000 });
   const mine = page.locator('.lantern.spotlight').first();
   check(

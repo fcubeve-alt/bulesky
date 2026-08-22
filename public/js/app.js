@@ -464,7 +464,7 @@ async function submitCompose() {
     // already near the top or gone, and the whole thing read as "I posted it
     // and it vanished". It is held instead, then launched into a readable tier
     // in the middle of the screen with a ring around it.
-    state.pendingMine = { id: data.id, type: data.type, content: data.content, warmth: 0, lights: 0 };
+    state.pendingMine = { id: data.id, type: data.type, content: data.content, code: data.code, warmth: 0, lights: 0 };
     showConfirm(data, firstEver && Boolean(secret));
     loadWhispers();
   } catch {
@@ -498,16 +498,31 @@ function showError(el, msg) {
   el.classList.remove('hidden');
 }
 
-// Close the confirmation and send the author's own whisper up, ringed, into a
-// readable tier in the part of the sky they are looking at. Both ways out of
-// the sheet come here, so there is no way to dismiss it and not see the
-// balloon.
+// Close the confirmation and show the author what they just wrote.
+//
+// Two things happen, and the order is the point. The whisper is put into the
+// sky as a ringed balloon in a readable tier — and then the reading view opens
+// on it, the same view a tap on any balloon gives, so the words are on the
+// screen and drifting upward the moment the confirmation is out of the way.
+//
+// A ringed balloon on its own was not enough. "发完之后马上就变成气球了，有时候
+// 还要找一下才找得到" — you write something at two in the morning, press send,
+// and the thing you wrote turns into a dot you have to go looking for. Closing
+// the reading view leaves the balloon still rising underneath, so nothing is
+// lost by opening it: you read it once, then let it go.
+//
+// Both ways out of the sheet come here, so there is no way to dismiss it and
+// not see the words.
 function releaseMyWhisper() {
   closeSheet(els.confirmOverlay, els.confirmSheet);
   const mine = state.pendingMine;
   if (!mine) return;
   state.pendingMine = null;
   whisperWorld.pin(mine, { spotlight: true });
+  // No rect: this is not zooming out of a balloon the eye was already on, it
+  // opens on the words themselves. `mine` is passed as the known whisper so
+  // nothing waits on the network — same rule as tapping a balloon.
+  openDetail(mine.id, null, mine);
 }
 
 function showConfirm(data, showRecovery = false) {
@@ -1289,6 +1304,45 @@ function resultGroup(title, count) {
 // Found by the secret this device holds — not by typing a name into a box, the
 // way it used to work. A name is printed under every whisper; a secret is not
 // written down anywhere a reader can see it.
+function showMyName() {
+  const name = identity.displayName();
+  els.myskyName.textContent = name ? t('mySkyName').replace('{name}', name) : '';
+  els.myskyName.classList.toggle('hidden', !name);
+  els.myskyRename.classList.toggle('hidden', !name);
+  els.myskyNameInput.value = name;
+  els.myskyNameInput.placeholder = t('codePlaceholder');
+  els.myskyNameSave.textContent = t('renameSave');
+}
+
+// Get the name back from the server when this browser has lost it.
+//
+// The identity and the name are stored in the same place but do not travel
+// together: a recovery code carries the secret onto a new phone and nothing
+// else, and clearing site data takes the name while the person is still the
+// same author. Either way the device ends up recognised — its whispers are
+// listed, the delete button appears — and yet asked "你的名字" as if it had
+// never written anything.
+//
+// So ask the server, which has known all along. Only when there is no local
+// name: a name typed here is the one that counts, and this must never quietly
+// overwrite a rename that has not reached a whisper yet.
+async function syncName() {
+  if (!identity.hasSecret() || identity.hasName()) return;
+  try {
+    const hash = await identity.hash();
+    if (!hash) return;
+    const res = await fetch(apiUrl('/api/me'), { headers: { 'x-author': hash } });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.name || identity.hasName()) return;
+    identity.rememberName(data.name);
+    showMyName();
+  } catch {
+    // Offline, or the request failed. The name box comes back, which is the
+    // old behaviour — nothing is broken by not knowing.
+  }
+}
+
 async function loadMySky() {
   const box = els.mysky;
   box.textContent = '';
@@ -1299,13 +1353,7 @@ async function loadMySky() {
   // The name lives here when you are not writing — and this is the ONLY place
   // it can be changed, which is what makes "one phone, one name" true rather
   // than merely default.
-  const name = identity.displayName();
-  els.myskyName.textContent = name ? t('mySkyName').replace('{name}', name) : '';
-  els.myskyName.classList.toggle('hidden', !name);
-  els.myskyRename.classList.toggle('hidden', !name);
-  els.myskyNameInput.value = name;
-  els.myskyNameInput.placeholder = t('codePlaceholder');
-  els.myskyNameSave.textContent = t('renameSave');
+  showMyName();
   const code = identity.hasSecret() ? identity.recoveryCode() : null;
   els.recoveryBox.open = false;
   els.recoveryNote.classList.toggle('hidden', !code);
@@ -1347,6 +1395,13 @@ async function loadMySky() {
     const data = await res.json();
     if (!res.ok) throw new Error('failed');
 
+    // The same answer already carries the name, so a device that arrived here
+    // without one gets it back without a second request.
+    if (data.name && !identity.hasName()) {
+      identity.rememberName(data.name);
+      showMyName();
+    }
+
     const mine = data.mine || [];
     const saved = data.saved || [];
     const any = mine.length > 0 || saved.length > 0;
@@ -1374,6 +1429,8 @@ function restoreIdentity() {
   }
   els.restoreInput.value = '';
   els.myskyMsg.textContent = t('restoreOk');
+  // The code carries the secret and nothing else, so the name on the new phone
+  // is still empty. loadMySky asks the server for both.
   loadMySky();
 }
 
@@ -1811,6 +1868,10 @@ function init() {
   maybeShowNotice();
   maybeShowIosGuide();
   maybeShowFirstHint();
+
+  // Before the compose sheet can ask for a name, find out whether this device
+  // already has one. Returns immediately for everyone who does.
+  syncName();
 
   // ?w=<id> opens one whisper straight away. This is what the link on a share
   // card points at, and without it the card would be a picture with a URL that
