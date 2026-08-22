@@ -24,6 +24,19 @@ const WWW = new URL('./www/', import.meta.url);
 
 const SKIP = new Set(['video', 'music', 'admin.html', 'sw.js']);
 
+// Store and native artwork, by exact path. These live in public/icons because
+// that is where the icon is drawn and generated (tools/make-icons.mjs), but the
+// App has no use for them: the 1024 goes to App Store Connect, the splash and
+// the adaptive foreground are copied into the native projects themselves. A
+// megabyte of pictures the app never loads would triple a bundle that is
+// deliberately about a third of a megabyte.
+const SKIP_FILES = new Set([
+  'icons/icon-1024.png',
+  'icons/splash.png',
+  'icons/adaptive-foreground.png',
+  'icons/adaptive-background.txt',
+]);
+
 if (existsSync(WWW)) await rm(WWW, { recursive: true });
 await mkdir(WWW, { recursive: true });
 
@@ -31,8 +44,8 @@ await cp(SITE, WWW, {
   recursive: true,
   filter: (src) => {
     const rel = src.replace(SITE.pathname, '');
-    return !SKIP.has(rel.split('/')[0]);
+    return !SKIP.has(rel.split('/')[0]) && !SKIP_FILES.has(rel);
   },
 });
 
-console.log('www/ rebuilt from public/, without', [...SKIP].join(', '));
+console.log('www/ rebuilt from public/, without', [...SKIP, ...SKIP_FILES].join(', '));

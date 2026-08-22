@@ -1,0 +1,110 @@
+# Build the Android app. No Mac needed for this one — it runs on Linux, which
+# is why it is cheap enough to run on demand without thinking about minutes.
+#
+# Two outputs, and the difference matters:
+#
+#   APK    installs directly on a phone. This is how the app gets tested before
+#          any store is involved: download it, tap it, it runs. Unsigned builds
+#          are fine for that.
+#   AAB    what Google Play accepts. Signed with the upload key, which is a file
+#          you generate once and must not lose — losing it means the app can
+#          never be updated under the same listing again.
+#
+# Google Play costs $25, once, ever. It is the cheaper store to be in and the
+# faster one to get into, so it is a reasonable place to be first while the
+# Apple enrolment is still in review.
+#
+# Secrets needed only for the signed AAB (the APK builds without any):
+#   ANDROID_KEYSTORE_BASE64   base64 of the .jks upload key
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+name: App — build Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Also build a signed AAB for Google Play'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build the web bundle
+        working-directory: app
+        run: |
+          npm ci
+          node sync-www.mjs
+          du -sh www
+
+      # sync, not add — see app/.gitignore.
+      - name: Copy the bundle and plugins into the Android project
+        working-directory: app
+        run: npx cap sync android
+
+      - name: Build the test APK
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          ls -lh app/build/outputs/apk/debug/
+
+      - name: Keep the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: are-you-alright-debug-apk
+          path: app/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      - name: Build the signed AAB
+        if: inputs.release
+        working-directory: app/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "No upload key configured — add the ANDROID_* secrets first." >&2
+            exit 1
+          fi
+          echo -n "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+          ./gradlew bundleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/upload.jks" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+          ls -lh app/build/outputs/bundle/release/
+
+      - name: Keep the AAB
+        if: inputs.release
+        uses: actions/upload-artifact@v4
+        with:
+          name: are-you-alright-release-aab
+          path: app/android/app/build/outputs/bundle/release/*.aab
+          retention-days: 30
+
+      - name: Remove the upload key from the runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks" || true

@@ -53,3 +53,45 @@ node tools/cors-test.mjs        # App 能过、后台不能过
 ```
 
 `app-shell-test.mjs` 盯的是**打开网站根本看不出来的那个错**:App 里 `/api/...` 指向的是手机上的安装包,不是服务器。base URL 一错,整个 App 是死的,而网站一切正常。
+
+---
+
+## 原生工程、图标、打包流水线(2026-08)
+
+### 原生工程已经生成,而且**提交进了 git**
+
+`app/ios/` 和 `app/android/` 在仓库里。`npx cap add` 能重新生成它们,所以看起来该 gitignore 掉 —— **但"属于我们"的东西全在里面**:图标、隐私清单、Bundle ID、构建设置、签名配置。每次构建重新生成一遍,等于把这些全丢掉,得到一个恰好加载我们页面的默认 Capacitor 应用。
+
+所以 CI 里跑的是 **`cap sync` 而不是 `cap add`** —— sync 只把网页产物和插件拷进去,别的一律不碰。`app/.gitignore` 里剩下的都是构建产物。
+
+**Linux 上能生成 iOS 工程**(`cap add ios` 只是复制模板,不需要 Xcode),所以这一步不卡在没有 Mac 上。
+
+### 图标:一张图,生成全部
+
+`public/icons/icon.svg` 是母版 —— 一只暖色气球升在夜空里,底下是湖。**没有第二张手绘的图**,改图标就是改这一个文件。
+
+`node tools/make-icons.mjs` 用已经装着的 Chromium 渲染出所有尺寸;`node tools/install-app-icons.mjs` 把它们放到 Xcode 资源目录和 Android 的 `mipmap-*` 里。
+
+三条商店规矩写进了工具里,因为它们都是"不照做就被拒"而不是"不照做不好看":
+- **App Store 的 1024 不能有 alpha 通道,也不能自带圆角** —— iOS 自己加遮罩,圆角烤进去会在桌面上显示成一圈黑边,alpha 通道则直接在上传时被拒。所以只有这一张被压平到不透明底色上。
+- **Android 自适应图标只保证内侧约 66% 可见**(遮罩形状每个厂商都不一样),所以前景是同一张图缩到三分之二,放在透明底上 —— 圆形、squircle、水滴形遮罩都能活下来。
+- **启动图不是白的。** Capacitor 默认给一张白图,而这个产品的第一帧是夜空 —— 每次冷启动闪一下白,是整个 App 里最显眼的东西。
+
+图标缩到 40px 还认得出(实测过),这是它唯一必须通过的考试。
+
+### ⚠️ 隐私清单必须进 Xcode 的 Resources,光放在目录里没用
+
+`app/ios/App/App/PrivacyInfo.xcprivacy` 写好了(不收集任何数据,只声明 UserDefaults 的 CA92.1,因为 Capacitor Preferences 用它存作者密钥和昵称)。
+
+**但 Xcode 只打包工程里登记过的资源。** 文件躺在目录里没被引用 → 构建通过、上传通过、**审核以"缺少隐私清单"拒掉** —— 一个离原因很远的、很慢的失败。所以 `tools/patch-ios-project.mjs` 把它写进 `project.pbxproj` 的三处(FileReference / BuildFile / Resources phase),幂等,id 是固定的(随机 id 跑两次会加出重复条目,而 Xcode 不会警告)。流水线里还有一步 `grep` 复查,构建之前就断言它在。
+
+### 两条流水线
+
+- **`.github/workflows/app-ios.yml`** —— GitHub 的 **macOS runner** 上编译、签名、传 TestFlight。**这就是"不用买 Mac"的答案**:唯一真的只能在 macOS 上做的事(编译签名 iOS 应用)在这里做,租云 Mac 每月几百块,这个只花 runner 分钟数。**手动触发,不跟着 push 跑** —— 每次都会消耗一个 TestFlight 构建号,而且 macOS 分钟数按 Linux 的十倍计费,构建是一个决定,不该是打字的副作用。文件开头列了 7 个 Secret 和拿到它们的完整步骤。
+- **`.github/workflows/app-android.yml`** —— Linux,便宜。出两样东西:**APK**(直接装到手机上就能跑,截图和自测用,不需要任何 Secret)和 **AAB**(Google Play 要的,需要上传密钥)。
+
+**Google Play 是 25 美元一次性,Apple 是 99 美元一年** —— 想先上线的话,安卓那条路短得多。
+
+### 还卡着的只有账号
+
+上架资料(名称、描述、关键词、隐私问卷逐项答案、年龄分级、给审核员的备注)全部写在 `docs/APP_STORE.md`,是可以直接往表单里粘的成品。**图标做好了,隐私清单在构建里,流水线就位了 —— 剩下的是去注册 Apple 开发者账号,审核 1–3 天,其他所有事都能和它并行。**

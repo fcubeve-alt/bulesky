@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Are you alright?</string>
+    <string name="title_activity_main">Are you alright?</string>
+    <string name="package_name">com.cubewithin.areyoualright</string>
+    <string name="custom_url_scheme">com.cubewithin.areyoualright</string>
+</resources>

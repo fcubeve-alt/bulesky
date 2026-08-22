@@ -1,0 +1,179 @@
+# Build the iPhone app and send it to TestFlight, without owning a Mac.
+#
+# GitHub's macOS runners have Xcode on them, so the one step that genuinely
+# cannot happen anywhere else — compiling and signing an iOS app — happens here.
+# Renting a cloud Mac costs a few hundred a month; this costs runner minutes,
+# and a build is a handful of them.
+#
+# Run by hand (Actions → this workflow → Run workflow). NOT on every push:
+# every run burns a TestFlight build number and macOS minutes are billed at ten
+# times the Linux rate, so a build is a decision, not a side effect of typing.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# WHAT HAS TO EXIST BEFORE THIS CAN RUN — all of it from a browser, no Mac:
+#
+#   1. An Apple Developer account ($99/year). This is the long pole: enrolment
+#      review takes 1–3 days and nothing else here can be done without it.
+#
+#   2. In App Store Connect → Users and Access → Integrations → App Store
+#      Connect API: create a key with the "App Manager" role. You get an issuer
+#      id, a key id, and a .p8 file that downloads exactly once.
+#
+#   3. In the Developer portal: register the bundle id com.cubewithin.areyoualright,
+#      create an App Store distribution certificate and a matching provisioning
+#      profile. A certificate needs a signing request, which is normally made on
+#      a Mac — `fastlane match` or Apple's web flow will produce one without.
+#
+#   4. Repository → Settings → Secrets and variables → Actions, add:
+#
+#      APPSTORE_ISSUER_ID        from step 2
+#      APPSTORE_KEY_ID           from step 2
+#      APPSTORE_PRIVATE_KEY      contents of the .p8, whole file including the
+#                                BEGIN/END lines
+#      BUILD_CERTIFICATE_BASE64  base64 of the .p12 export of the certificate
+#      P12_PASSWORD              the password used when exporting it
+#      PROVISIONING_PROFILE_BASE64  base64 of the .mobileprovision
+#      KEYCHAIN_PASSWORD         any string; it is a throwaway keychain that
+#                                exists for the length of one build
+#
+# Until those secrets exist this workflow fails at the signing step, which is
+# the correct behaviour — it is not something to work around.
+# ─────────────────────────────────────────────────────────────────────────────
+name: App — build iOS and upload to TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: 'What testers should know about this build'
+        required: false
+        default: 'Internal build'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # The bundle is generated from public/ every time. It is gitignored on
+      # purpose: one copy of the front end, never two (docs/APP_SHELL.md).
+      - name: Build the web bundle
+        working-directory: app
+        run: |
+          npm ci
+          node sync-www.mjs
+          du -sh www
+
+      # `sync`, never `add`. Adding regenerates the native project from a
+      # template and throws away the icon set, the privacy manifest and the
+      # build settings — see app/.gitignore for why those are committed.
+      - name: Copy the bundle and plugins into the iOS project
+        working-directory: app
+        run: npx cap sync ios
+
+      - name: Check the privacy manifest is in the build
+        run: |
+          test -f app/ios/App/App/PrivacyInfo.xcprivacy
+          grep -q 'PrivacyInfo.xcprivacy in Resources' app/ios/App/App.xcodeproj/project.pbxproj
+          echo "privacy manifest is referenced by the Resources phase"
+
+      # A keychain that exists only for this run. The certificate never touches
+      # the default login keychain, and the runner is destroyed afterwards.
+      - name: Install the signing certificate and profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT=$RUNNER_TEMP/cert.p12
+          PROFILE=$RUNNER_TEMP/profile.mobileprovision
+          KEYCHAIN=$RUNNER_TEMP/build.keychain-db
+
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT"
+          echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PROFILE"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN"
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$PROFILE" ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      # The build number has to rise on every upload or App Store Connect
+      # refuses it. The run number does that on its own and never repeats.
+      - name: Set the build number
+        working-directory: app/ios/App
+        run: |
+          agvtool new-version -all ${{ github.run_number }}
+          echo "build number ${{ github.run_number }}"
+
+      - name: Archive
+        working-directory: app/ios/App
+        run: |
+          set -euo pipefail
+          xcodebuild -workspace App.xcworkspace \
+                     -scheme App \
+                     -configuration Release \
+                     -destination 'generic/platform=iOS' \
+                     -archivePath "$RUNNER_TEMP/App.xcarchive" \
+                     archive
+
+      - name: Export the .ipa
+        working-directory: app/ios/App
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/export.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store</string>
+            <key>destination</key><string>export</string>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+                     -archivePath "$RUNNER_TEMP/App.xcarchive" \
+                     -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
+                     -exportPath "$RUNNER_TEMP/export"
+          ls -lh "$RUNNER_TEMP/export"
+
+      - name: Upload to TestFlight
+        env:
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo -n "$APPSTORE_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_$APPSTORE_KEY_ID.p8
+          xcrun altool --upload-app \
+                       --type ios \
+                       --file "$RUNNER_TEMP/export/App.ipa" \
+                       --apiKey "$APPSTORE_KEY_ID" \
+                       --apiIssuer "$APPSTORE_ISSUER_ID"
+
+      # Whatever happened, take the credentials off the machine. The runner is
+      # thrown away anyway; this is so a failure halfway through cannot leave a
+      # signing certificate sitting in a cached keychain.
+      - name: Clean up the signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
+          rm -f ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision || true
+          rm -rf ~/.appstoreconnect/private_keys || true

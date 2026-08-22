@@ -1,4 +1,39 @@
+# The native projects ARE committed. That is deliberate.
+#
+# `npx cap add ios` regenerates them from a template, so it is tempting to keep
+# them out and let CI run it — but everything that makes them OURS lives inside
+# them: the icon set, the privacy manifest, the bundle id, the build settings,
+# the signing configuration. Regenerating on every build throws all of that away
+# and produces a default Capacitor app that happens to load our pages.
+#
+# So the projects are in git and `cap sync` (not `cap add`) is what runs in CI:
+# sync copies the web build and the plugins in without touching anything else.
+#
+# What is ignored below is only ever produced by a build.
 node_modules/
+
+# Generated from public/ by sync-www.mjs on every build.
 www/
-ios/
-android/
+
+# ---- iOS ----
+ios/App/Pods/
+ios/App/Podfile.lock
+ios/App/build/
+ios/App/output/
+ios/App/App/public/
+*.xcuserdatad
+xcuserdata/
+DerivedData/
+*.mobileprovision
+*.p12
+*.p8
+
+# ---- Android ----
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/assets/public/
+android/capacitor-cordova-android-plugins/build/
+*.keystore
+*.jks

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Apple's privacy manifest. Required at upload, and for this app it is short
+  for a real reason rather than because corners were cut.
+
+  NSPrivacyTracking = false and no tracking domains: nothing here follows anyone
+  across apps or sites. There is no analytics SDK, no advertising identifier and
+  no third-party network call from the app at all — every request goes to
+  cubewithin.com, which is our own server.
+
+  NSPrivacyCollectedDataTypes is EMPTY, and that is the honest answer, not a
+  convenient one. What a person writes is published by them, to a public sky,
+  under a name they invent; it is not collected about them. There is no account,
+  no email address, no phone number, no contacts, no location, no photos, no
+  device identifier sent anywhere. What identifies an author is a random string
+  the phone generates for itself, which the server only ever sees as a SHA-256
+  hash — it maps to no person, and nobody, including us, can look a person up
+  by it.
+
+  The one API below needs declaring because iOS counts it as "required reason":
+
+    UserDefaults (CA92.1) — Capacitor Preferences keeps the author secret and
+    the display name here, and both are read only by this app. CA92.1 is the
+    reason code for exactly that: data accessible only to the app itself.
+
+  If anything is ever added that measures people — a crash reporter, an
+  analytics SDK, anything with an SDK key — this file has to change in the same
+  commit. A manifest that quietly stops being true is worse than none.
+-->
+<plist version="1.0">
+<dict>
+  <key>NSPrivacyTracking</key>
+  <false/>
+
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array/>
+
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array>
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array>
+        <string>CA92.1</string>
+      </array>
+    </dict>
+  </array>
+</dict>
+</plist>
