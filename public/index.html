@@ -22,8 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-<link rel="icon" href="/icons/icon.svg" />
-<link rel="icon" sizes="192x192" href="/icons/icon-192.png" />
+<link rel="icon" href="/icons/icon-192.png" />
 <link rel="stylesheet" href="/css/style.css?v=read34" />
 </head>
 <body>
@@ -88,6 +87,10 @@
   <!-- The name has one job now — being read under your words — so this is
        where it lives when you are not writing: the thing you are called here. -->
   <p id="mysky-name" class="hint mysky-name hidden"></p>
+  <div id="mysky-rename" class="mini-panel-row hidden">
+    <input id="mysky-name-input" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+    <button id="mysky-name-save" class="btn-secondary btn-small"></button>
+  </div>
   <p id="mysky-intro" class="hint"></p>
   <div id="mysky"></div>
   <p id="mysky-msg" class="hint"></p>
@@ -195,6 +198,10 @@
     <span id="compose-code-label" class="chip"></span>
     <input id="compose-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
   </div>
+  <!-- Shown INSTEAD of the box above, once this phone has a name. One phone,
+       one name: it is asked for on the first whisper and never again, so what
+       is left to say is which name this is going out under. -->
+  <p id="compose-as" class="cx-hint hidden"></p>
   <input id="compose-hp" type="text" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
   <p id="compose-public-hint" class="cx-hint"></p>
   <div id="compose-error" class="form-error hidden"></div>
@@ -310,6 +317,7 @@
     <span id="reply-code-label" class="chip"></span>
     <input id="reply-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
   </div>
+  <p id="reply-as" class="cx-hint hidden"></p>
   <div id="reply-error" class="form-error hidden"></div>
   <button id="reply-submit" class="cx-send"></button>
 </section>

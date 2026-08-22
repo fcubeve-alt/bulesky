@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#ffffff" />
 <meta name="robots" content="noindex,nofollow" />
 <title>Write — Are you all right?</title>
-<link rel="icon" href="/icons/icon.svg" />
+<link rel="icon" href="/icons/icon-192.png" />
 <link rel="stylesheet" href="/css/pages.css?v=3" />
 <link rel="stylesheet" href="/css/admin.css?v=3" />
 </head>
@@ -39,6 +39,7 @@
       <button id="open-reports" type="button">Reports</button>
       <button id="open-claim" type="button">Claim old whispers</button>
       <button id="open-screen" type="button">Check the filter</button>
+      <button id="open-stats" type="button">Numbers</button>
       <button id="open-images" type="button">Images</button>
       <button id="new-post" class="primary" type="button">New post</button>
     </div>
@@ -88,6 +89,22 @@
     </div>
   </article>
   <p id="claim-msg" class="msg hidden"></p>
+</main>
+
+<!-- 4a. How many people are here.
+
+     A name cannot answer this — names are free text and anyone can type a new
+     one. author_hash can: one hash is one device that has written something,
+     which is the closest thing to "a user" that exists without accounts. It is
+     honest about its limits, and they are printed on the page rather than
+     buried, because this is the number decisions get made on. -->
+<main id="view-stats" class="hidden">
+  <div class="admin-bar">
+    <h1>Numbers</h1>
+    <button id="stats-back" class="link" type="button">← All posts</button>
+  </div>
+  <div id="stats-out"></div>
+  <p id="stats-msg" class="msg hidden"></p>
 </main>
 
 <!-- 4b. Check what the moderation model actually does.
@@ -190,6 +207,7 @@ const views = {
   reports: $('view-reports'),
   claim: $('view-claim'),
   screen: $('view-screen'),
+  stats: $('view-stats'),
   images: $('view-images'),
   edit: $('view-edit'),
 };
@@ -599,6 +617,52 @@ async function claim(withSecret) {
   }
 }
 $('claim-count').addEventListener('click', () => claim(false));
+
+// ---- Numbers -------------------------------------------------------------
+$('open-stats').addEventListener('click', async () => {
+  show('stats');
+  say($('stats-msg'), '');
+  $('stats-out').innerHTML = '';
+  try {
+    const d = await api('/api/admin/stats');
+    const rows = [
+      ['People who have written something', d.writers, 'distinct devices — one hash, one device. A phone and a laptop are two; a phone restored from a recovery code is still one.'],
+      ['…in the last 7 days', d.writersWeek, ''],
+      ['…in the last 30 days', d.writersMonth, ''],
+      ['Whispers in the sky', d.whispers, ''],
+      ['…written in the last 7 days', d.whispersWeek, ''],
+      ['Replies', d.replies, ''],
+      ['Lights left', d.lights, ''],
+      ['Whispers with no owner', d.ownerless, 'written before authorship existed — nobody can prove they wrote them, so they are not counted as people'],
+      ['Hidden by moderation', d.hidden, ''],
+      ['Reports waiting', d.openReports, ''],
+      ['Oldest whisper', `${d.oldestDays} days`, 'everything is deleted at 365'],
+    ];
+    const out = $('stats-out');
+    for (const [label, value, note] of rows) {
+      const card = document.createElement('article');
+      card.className = 'card';
+      const h = document.createElement('p');
+      h.style.cssText = 'margin:0;font-size:1.4rem;font-weight:700';
+      h.textContent = value === null || value === undefined ? '—' : String(value);
+      const l = document.createElement('p');
+      l.className = 'meta';
+      l.textContent = label;
+      card.append(h, l);
+      if (note) {
+        const n = document.createElement('p');
+        n.className = 'meta';
+        n.style.opacity = '0.7';
+        n.textContent = note;
+        card.appendChild(n);
+      }
+      out.appendChild(card);
+    }
+  } catch (e) {
+    say($('stats-msg'), e.message);
+  }
+});
+$('stats-back').addEventListener('click', () => loadList().catch(() => {}));
 
 // ---- Check the filter ----------------------------------------------------
 $('open-screen').addEventListener('click', () => {

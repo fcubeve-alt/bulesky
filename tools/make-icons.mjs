@@ -1,12 +1,20 @@
-// One drawing in, every icon the stores want out.
+// One picture in, every icon the stores want out.
 //
-// public/icons/icon.svg is the master. Nothing else is hand-drawn, so changing
-// the icon is changing one file — the alternative is five PNGs that drift apart
-// and a home screen that does not match the App Store listing.
+// public/icons/icon-source.png is the master — the owner's artwork. Nothing
+// else is edited by hand, so changing the icon is replacing one file.
 //
-// Rendered with the Chromium that is already here rather than an image library,
-// because the master uses gradients and strokes that a rasteriser has to get
-// exactly right, and this is the same engine that draws the site.
+// THE MASTER IS A CIRCLE ON A SQUARE, and an app icon may not be. Apple wants
+// a full-bleed opaque square with no transparency and no baked-in corner
+// radius (it applies its own mask, so a radius shows up as a dark ring on the
+// home screen). Leaving the corners as they came would put four pale wedges
+// around a night sky. So the artwork is scaled past the edges until it fills
+// the frame itself: the corners are filled with more sky rather than with a
+// guessed colour, and nothing that matters is cropped because the balloon sits
+// in the middle.
+//
+// Rendered with the Chromium that is already here rather than an image library
+// — same engine that draws the site, and no new dependency for a job it can
+// already do.
 //
 // WHAT THE STORES ACTUALLY REQUIRE, and why each rule is here:
 //
@@ -16,10 +24,10 @@
 //                   opaque black below for exactly this reason.
 //   Android 512×512 The Play listing icon, 32-bit PNG, alpha allowed.
 //   Android adaptive The foreground is masked to shapes that vary by device,
-//                   and only the inner ~66% is guaranteed visible. So the
-//                   adaptive foreground is the SAME drawing scaled to two
-//                   thirds on a transparent field — the balloon survives a
-//                   circle mask, a squircle and a teardrop alike.
+//                   and only the inner ~66% is guaranteed visible. So it does
+//                   NOT bleed: the circle stays at its natural inscribed size,
+//                   where every mask shape can only trim sky, and the balloon
+//                   sits well inside the safe zone.
 //   Web manifest    192 and 512, plus 180 for apple-touch-icon.
 //
 //   npm i -D playwright && node tools/make-icons.mjs
@@ -27,7 +35,7 @@ import { chromium } from 'playwright';
 import { existsSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-const SRC = 'public/icons/icon.svg';
+const SRC = 'public/icons/icon-source.png';
 const OUT = 'public/icons';
 
 function browserPath() {
@@ -38,20 +46,25 @@ function browserPath() {
   return dir ? `${root}/${dir}/chrome-linux/chrome` : undefined;
 }
 
-const svg = readFileSync(SRC, 'utf8');
+const master = readFileSync(SRC).toString('base64');
 
-// `scale` shrinks the drawing inside its square, for the Android adaptive
-// foreground; `opaque` flattens onto black, for the App Store icon.
-function page(size, { scale = 1, opaque = false } = {}) {
-  const inset = ((1 - scale) / 2) * 100;
+// How far past the square the circle has to reach before its corners are gone.
+// A circle inscribed in a square needs √2 to cover it; a little more than that
+// hides the soft edge of the drawing too.
+const BLEED = 1.46;
+
+// `zoom` is literal: BLEED fills the square with artwork, 1 leaves the circle
+// at its natural inscribed size. `opaque` puts a floor under it for the formats
+// that forbid alpha.
+function page(size, { zoom = BLEED, opaque = false } = {}) {
   return `<!doctype html><meta charset="utf-8">
 <style>
   html,body{margin:0;padding:0;width:${size}px;height:${size}px;overflow:hidden;
-    background:${opaque ? '#05060f' : 'transparent'};}
-  .wrap{position:absolute;inset:${inset}%;}
-  svg{display:block;width:100%;height:100%;}
+    background:${opaque ? '#0b1030' : 'transparent'};}
+  img{position:absolute;left:50%;top:50%;width:${size}px;height:${size}px;
+    transform:translate(-50%,-50%) scale(${zoom.toFixed(3)});}
 </style>
-<div class="wrap">${svg}</div>`;
+<img src="data:image/png;base64,${master}">`;
 }
 
 const TARGETS = [
@@ -60,11 +73,14 @@ const TARGETS = [
   ['icon-512.png', 512, {}, 'Play listing / web manifest'],
   ['icon-192.png', 192, {}, 'web manifest'],
   ['apple-touch-icon.png', 180, { opaque: true }, 'Add to Home Screen on iOS'],
-  ['adaptive-foreground.png', 432, { scale: 0.66 }, 'Android adaptive — inner two thirds'],
+  // NOT bleeding: the adaptive mask crops the outer third and its shape differs
+  // per device, so the circle stays at its natural size where the mask can only
+  // ever trim sky. The balloon sits well inside the safe zone.
+  ['adaptive-foreground.png', 432, { zoom: 1 }, 'Android adaptive — inside the safe zone'],
   // The launch screen. Capacitor ships a white placeholder, and on a product
   // whose first frame is a night sky a white flash is the most visible thing
   // in the app. Square 2732 because it is centre-cropped to every device.
-  ['splash.png', 2732, { scale: 0.34, opaque: true }, 'launch screen'],
+  ['splash.png', 2732, { zoom: 0.62, opaque: true }, 'launch screen'],
 ];
 
 mkdirSync(OUT, { recursive: true });

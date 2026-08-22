@@ -64,6 +64,7 @@ const els = {
   composeCount: $('compose-count'),
   composeCodeLabel: $('compose-code-label'),
   composeCode: $('compose-code'),
+  composeAs: $('compose-as'),
   composeHp: $('compose-hp'),
   composeError: $('compose-error'),
   composeCancel: $('compose-cancel'),
@@ -95,6 +96,9 @@ const els = {
   reportTitle: $('report-title'),
   reportCancel: $('report-cancel'),
   myskyName: $('mysky-name'),
+  myskyRename: $('mysky-rename'),
+  myskyNameInput: $('mysky-name-input'),
+  myskyNameSave: $('mysky-name-save'),
   mysky: $('mysky'),
   recoveryBox: $('recovery-box'),
   recoverySummary: $('recovery-summary'),
@@ -121,6 +125,7 @@ const els = {
   replyContent: $('reply-content'),
   replyCount: $('reply-count'),
   replyCode: $('reply-code'),
+  replyAs: $('reply-as'),
   replyCodeLabel: $('reply-code-label'),
   replyError: $('reply-error'),
   replySubmit: $('reply-submit'),
@@ -411,10 +416,12 @@ function openCompose(type) {
   // Enforce the limit at runtime too, so a stale cached index.html (which may
   // still carry the old maxlength) is corrected as soon as the app loads.
   els.composeContent.maxLength = 1000;
-  // Filled in already, with the name this device is known by. A name is an
-  // identity here, not a field — typing it again on every whisper is what made
-  // it feel like paperwork, and made people use a different one each time.
-  els.composeCode.value = identity.displayName();
+  // Asked once, then never again. One phone, one name: with a name already
+  // settled the box goes away entirely and the sheet just says who this is
+  // going out as. Handing someone an editable name field on every whisper is
+  // what produced a person with forty names and a sky that could not be
+  // counted.
+  showNameField(els.composeCode.parentElement, els.composeAs, els.composeCode);
   els.composeCount.textContent = '0 / 1000';
   els.composeError.classList.add('hidden');
   els.composeHp.value = '';
@@ -464,6 +471,25 @@ async function submitCompose() {
     showError(els.composeError, t('errorGeneric'));
   } finally {
     els.composeSubmit.disabled = false;
+  }
+}
+
+// A name field that disappears once there is a name.
+//
+// Before the first whisper: the box, because the name has to come from
+// somewhere. After it: a line saying which name this is going out under, and
+// no way to change it here — changing it is a deliberate act done from My Sky,
+// not something that happens because an editable field was sitting on the
+// screen at two in the morning.
+function showNameField(row, line, input) {
+  const name = identity.displayName();
+  row.classList.toggle('hidden', Boolean(name));
+  line.classList.toggle('hidden', !name);
+  if (name) {
+    line.textContent = t('postingAs').replace('{name}', name);
+    input.value = name;
+  } else {
+    input.value = '';
   }
 }
 
@@ -608,11 +634,10 @@ function renderRead(bubble, replies, rect) {
   els.replyContent.placeholder = bubble.type === 'pain' ? t('replyPlaceholderPain') : t('replyPlaceholderWish');
   els.replyContent.value = '';
   els.replyCount.textContent = `0 / ${REPLY_MAX}`;
-  // Signed by default. An unsigned reply reads as "from 匿名", and a sky where
-  // most answers come from 匿名 is a sky where nobody is answering anybody —
-  // the whole point of a reply is that a person said it to a person. Still
-  // optional: clearing the box and sending is allowed.
-  els.replyCode.value = identity.displayName();
+  // The same name, the same rule. An unsigned reply reads as "from 匿名", and a
+  // sky where most answers come from 匿名 is a sky where nobody is answering
+  // anybody — the point of a reply is that a person said it to a person.
+  showNameField(els.replyCode.parentElement, els.replyAs, els.replyCode);
   els.replyError.classList.add('hidden');
 
   els.readReplies.innerHTML = '';
@@ -1271,9 +1296,16 @@ async function loadMySky() {
   // for one would mint an identity nobody asked for (identity.js). The section
   // itself stays — the box for pasting a code IN lives here too, and the person
   // who most needs it is exactly the one with nothing of their own yet.
+  // The name lives here when you are not writing — and this is the ONLY place
+  // it can be changed, which is what makes "one phone, one name" true rather
+  // than merely default.
   const name = identity.displayName();
   els.myskyName.textContent = name ? t('mySkyName').replace('{name}', name) : '';
   els.myskyName.classList.toggle('hidden', !name);
+  els.myskyRename.classList.toggle('hidden', !name);
+  els.myskyNameInput.value = name;
+  els.myskyNameInput.placeholder = t('codePlaceholder');
+  els.myskyNameSave.textContent = t('renameSave');
   const code = identity.hasSecret() ? identity.recoveryCode() : null;
   els.recoveryBox.open = false;
   els.recoveryNote.classList.toggle('hidden', !code);
@@ -1588,6 +1620,20 @@ function init() {
   wireOverlayClose(els.composeOverlay, els.composeSheet);
 
   els.confirmClose.addEventListener('click', releaseMyWhisper);
+  const renameMe = () => {
+    const next = els.myskyNameInput.value.trim();
+    if (!next || next === identity.displayName()) return;
+    identity.rememberName(next);
+    // Only what is written from now on carries it. Whispers already in the sky
+    // keep the name they went up under — rewriting a byline after the fact
+    // would change what a stranger already read, and there is no server call
+    // here that could do it anyway.
+    showToast(t('renameDone').replace('{name}', identity.displayName()));
+    loadMySky();
+  };
+  els.myskyNameSave.addEventListener('click', renameMe);
+  els.myskyNameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') renameMe(); });
+
   els.myRecoveryCopy.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(els.myRecovery.textContent);

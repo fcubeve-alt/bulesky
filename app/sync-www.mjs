@@ -31,6 +31,7 @@ const SKIP = new Set(['video', 'music', 'admin.html', 'sw.js']);
 // megabyte of pictures the app never loads would triple a bundle that is
 // deliberately about a third of a megabyte.
 const SKIP_FILES = new Set([
+  'icons/icon-source.png',
   'icons/icon-1024.png',
   'icons/splash.png',
   'icons/adaptive-foreground.png',

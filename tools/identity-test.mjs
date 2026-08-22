@@ -135,22 +135,41 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
   console.log(`${kept === '夜里的猫' ? 'PASS' : 'FAIL'}  the name is kept on the device (${kept})`);
   console.log(`${sent[0] && sent[0].code === '夜里的猫' ? 'PASS' : 'FAIL'}  and published with the whisper`);
 
-  // Next whisper: already signed, nothing to retype.
+  // Next whisper: the box is GONE. One phone, one name — it is asked for once
+  // and after that the sheet says who this is going out as. An editable name
+  // field on every whisper is what produced one person with forty names.
   await page.click('#confirm-close');
   await page.click('#entry-wish');
-  const prefilled = await page.inputValue('#compose-code');
-  console.log(`${prefilled === '夜里的猫' ? 'PASS' : 'FAIL'}  the next whisper opens already signed (${prefilled})`);
+  const boxGone = await page.locator('#compose-code').isVisible();
+  const asLine = (await page.locator('#compose-as').textContent()) || '';
+  console.log(`${!boxGone ? 'PASS' : 'FAIL'}  the name is not asked for a second time`);
+  console.log(`${asLine.includes('夜里的猫') ? 'PASS' : 'FAIL'}  the sheet says who it goes out as (${asLine.trim().slice(0, 30)})`);
+  console.log(`${(await page.inputValue('#compose-code')) === '夜里的猫' ? 'PASS' : 'FAIL'}  …and that is what gets sent`);
   await page.click('#compose-cancel');
 
-  // And so is a reply — an unsigned reply is what makes a sky of 匿名.
+  // Same on a reply — an unsigned reply is what makes a sky of 匿名.
   await page.goto(`${BASE}/?w=${W.id}`, { waitUntil: 'domcontentloaded' });
   const n2 = page.locator('#notice-ok');
   if (await n2.isVisible().catch(() => false)) await n2.click();
   await page.waitForSelector('#read-overlay:not(.hidden)');
   await page.click('#read-reply-btn');
   await page.waitForSelector('#reply-sheet:not(.hidden)');
+  const replyBox = await page.locator('#reply-code').isVisible();
   const replyName = await page.inputValue('#reply-code');
-  console.log(`${replyName === '夜里的猫' ? 'PASS' : 'FAIL'}  a reply is signed by default (${replyName})`);
+  console.log(`${!replyBox && replyName === '夜里的猫' ? 'PASS' : 'FAIL'}  a reply goes out under the same name, unasked (${replyName})`);
+
+  // Changing it is possible, but only from My Sky — a deliberate act, not a
+  // field sitting on the screen at two in the morning.
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  const n4 = page.locator('#notice-ok');
+  if (await n4.isVisible().catch(() => false)) await n4.click();
+  await page.click('#find-icon');
+  await page.waitForSelector('#mysky-rename:not(.hidden)', { timeout: 3000 });
+  await page.fill('#mysky-name-input', '走夜路的人');
+  await page.click('#mysky-name-save');
+  await page.waitForTimeout(300);
+  const renamed = await page.evaluate(() => localStorage.getItem('aya_author_name'));
+  console.log(`${renamed === '走夜路的人' ? 'PASS' : 'FAIL'}  and My Sky is where it changes (${renamed})`);
   await b.close();
 }
 

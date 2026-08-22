@@ -83,11 +83,24 @@ export async function hash() {
 // 暗号 (a passphrase) and told you to remember it. My Sky answers that now, and
 // looking anyone up by name is gone, so the name has exactly one job left.
 //
-// Kept on the device so it is filled in for you every time: one name you are
-// known by, not a box you fill in again on every whisper and leave empty on
-// every reply. That is the difference between having a name here and typing a
-// word into a field.
+// ONE PHONE, ONE NAME. Asked for once, on the first thing you write, and from
+// then on shown rather than asked — the compose sheet says "as 夜里的猫" instead
+// of holding out an empty box. Changing it is possible, but from My Sky, which
+// is a deliberate act rather than something that happens because a field was
+// sitting there at two in the morning.
+//
+// It also makes a person countable. With a fresh name on every whisper there is
+// no way to tell forty whispers by one person from forty people — though note
+// the count itself has always come from the device secret's hash, not from the
+// name. What one name per phone fixes is that the sky now READS as it counts.
 const NAME_KEY = 'aya_author_name';
+
+// Whether this device has settled on a name yet. One phone, one name: it is
+// asked for once, on the first thing you write, and after that the interface
+// shows it rather than asking again.
+export function hasName() {
+  return Boolean(displayName());
+}
 
 export function displayName() {
   try {
