@@ -317,5 +317,49 @@ function reachableBalloon(page) {
   await b.close();
 }
 
+// 9. Nothing white anywhere behind the sky.
+//
+// Reported from an iPhone home-screen install: a white bar across the bottom,
+// under the entry buttons. Two separate causes, and both have to stay fixed.
+//
+// The canvas — the surface behind everything, and the only one that reaches
+// into the notch and the home-indicator strip — takes its colour from <html>.
+// Unset, it is white, and no `position: fixed` layer can cover it because fixed
+// layers stop at the viewport. That is the white bar.
+//
+// The full-bleed layers then have to reach the screen edges themselves, or the
+// scenery ends in a line above the home indicator with flat dark below it.
+// `inset: 0` is the layout viewport (safe areas excluded); vh/vw are the large
+// viewport (the whole screen). A browser with no insets cannot tell them apart,
+// so what is pinned here is that they cover the viewport and that the canvas is
+// dark — the case the phone actually failed.
+{
+  const { b, page } = await open();
+  await page.waitForTimeout(600);
+
+  const canvas = await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+  const rgb = (canvas.match(/\d+/g) || []).map(Number);
+  const opaque = rgb.length === 3 || (rgb.length === 4 && rgb[3] !== 0);
+  const dark = rgb.length >= 3 && rgb[0] + rgb[1] + rgb[2] < 120;
+  check(opaque && dark, `the canvas behind everything is painted dark (${canvas})`);
+
+  const gaps = await page.evaluate(() => {
+    const out = [];
+    for (const sel of ['#sky-bg', '#bg-scrim', '#lanterns', '.bg-video']) {
+      const el = document.querySelector(sel);
+      // #sky-bg is display:none while a video is playing — that is the design
+      // (body.has-video), not a gap.
+      if (!el || getComputedStyle(el).display === 'none') continue;
+      const r = el.getBoundingClientRect();
+      if (r.top > 0 || r.left > 0 || r.bottom < innerHeight || r.right < innerWidth) {
+        out.push(`${sel} ${Math.round(r.width)}x${Math.round(r.height)}`);
+      }
+    }
+    return out;
+  });
+  check(gaps.length === 0, `every full-bleed layer reaches all four edges (${gaps.join(', ') || 'no gaps'})`);
+  await b.close();
+}
+
 console.log(failures ? `\n${failures} failed` : '\nall passed');
 process.exit(failures ? 1 : 0);

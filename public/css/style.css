@@ -22,21 +22,50 @@ html, body {
   overflow: hidden;
   overscroll-behavior: none;
 }
+/* The one background that is allowed to be wrong, and therefore must not be.
+ *
+ * A colour set on <html> is propagated to the CANVAS — the surface behind
+ * everything, which extends past the layout viewport into the notch and the
+ * home-indicator strip. Nothing else can paint there. Left unset it is white,
+ * and on an iPhone home-screen install that is exactly what showed: a white bar
+ * under the sky. Every other layer here is `position: fixed`, which cannot
+ * reach outside the viewport no matter how it is sized.
+ *
+ * ⚠️ Do not remove this because "something else covers it". Nothing else can. */
+html { background-color: #05060f; }
 body { position: fixed; inset: 0; }
 
 .hidden { display: none !important; }
 
-/* ---- Background: plain dark fallback shown behind/without a video ---- */
+/* ---- Background: plain dark fallback shown behind/without a video ----
+ *
+ * `100vw/100vh`, not `inset: 0`, on every full-bleed layer below.
+ *
+ * With `viewport-fit=cover` the two are not the same thing on a phone: `inset:0`
+ * sizes an element to the layout viewport, which STOPS at the safe areas, while
+ * vh/vw are the large viewport — the whole screen, notch and home indicator
+ * included. Sized the first way the scenery ends in a straight line above the
+ * home indicator and the canvas shows through below it. Sized this way the grass
+ * runs off the bottom of the screen, which is the point of a full-bleed video.
+ *
+ * Safe to use here because these layers carry no controls — everything you can
+ * touch is positioned with `--safe-top` / `--safe-bottom` and stays clear. */
 #sky-bg {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 0;
   background:
     radial-gradient(120% 90% at 50% 18%, #131a38 0%, #0a0e22 45%, #05060f 100%);
 }
 #scene {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 1;
   pointer-events: none;
 }
@@ -75,9 +104,10 @@ body { position: fixed; inset: 0; }
    and 1; the active one fades to opacity 1 (.bg-show), the other to 0. */
 .bg-video {
   position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   object-fit: cover;
   z-index: 0;
   pointer-events: none;
@@ -91,7 +121,10 @@ body { position: fixed; inset: 0; }
 }
 #bg-scrim {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 2;
   pointer-events: none;
   background: linear-gradient(180deg, rgba(4, 6, 16, 0.32) 0%, rgba(4, 6, 16, 0.42) 55%, rgba(3, 5, 12, 0.6) 100%);
@@ -105,7 +138,10 @@ body.has-video #mist { display: none; }
 /* ---- Whispers (pannable world of lanterns) ---- */
 #lanterns {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 5;
   overflow: hidden;
   touch-action: none;
@@ -659,7 +695,10 @@ body.has-video #mist { display: none; }
 /* ---- Sheets ---- */
 .overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   background: rgba(3, 5, 14, 0.6);
   backdrop-filter: blur(3px);
   z-index: 40;
@@ -897,7 +936,10 @@ button { font-family: inherit; }
 /* ---- Whisper read view: transparent, credits-style upward scroll ---- */
 .read-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 40;
   pointer-events: auto; /* taps on empty space close the view */
 }
