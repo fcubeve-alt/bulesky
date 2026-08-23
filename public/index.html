@@ -19,6 +19,15 @@
 <meta name="twitter:image" content="https://cubewithin.com/icons/icon-512.png" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
+<!-- The label under the icon on an iPhone home screen. Without it iOS falls
+     back to the manifest's short_name, which read "Starry Mind" — a name from
+     an early draft that appears nowhere else in the product. It is the site's
+     own name here, the same words the top bar shows. iOS truncates a long label
+     to about twelve characters with an ellipsis, which is why it is not
+     "Are you all right?".
+     ⚠️ Read only when the icon is added. Changing it does nothing to an icon
+     already on someone's home screen — that one has to be removed and re-added. -->
+<meta name="apple-mobile-web-app-title" content="Are you alright?" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />

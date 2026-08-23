@@ -9,6 +9,8 @@
   --radius-md: 15px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 * { box-sizing: border-box; }
@@ -37,35 +39,50 @@ body { position: fixed; inset: 0; }
 
 .hidden { display: none !important; }
 
-/* ---- Background: plain dark fallback shown behind/without a video ----
+/* ---- One box, and everything that has to fill the glass uses it ----
  *
- * `100vw/100vh`, not `inset: 0`, on every full-bleed layer below.
+ * EDGE TO EDGE MEANS ALL FOUR EDGES. There must be no band at the top and none
+ * at the bottom: the sky runs under the notch and under the home indicator, and
+ * the only thing between the scenery and the edge of the phone is the phone.
  *
- * With `viewport-fit=cover` the two are not the same thing on a phone: `inset:0`
- * sizes an element to the layout viewport, which STOPS at the safe areas, while
- * vh/vw are the large viewport — the whole screen, notch and home indicator
- * included. Sized the first way the scenery ends in a straight line above the
- * home indicator and the canvas shows through below it. Sized this way the grass
- * runs off the bottom of the screen, which is the point of a full-bleed video.
+ * Getting there needs BOTH halves of the box, and the first attempt only had
+ * the second — which is why the bottom came right and a black bar stayed at the
+ * top:
  *
- * Safe to use here because these layers carry no controls — everything you can
- * touch is positioned with `--safe-top` / `--safe-bottom` and stays clear. */
-#sky-bg {
+ *   SIZE. `inset: 0` is the layout viewport, which stops at the safe areas.
+ *   `100vh/100vw` is the large viewport — the whole screen. So the size has to
+ *   come from vh/vw, never from inset or percentages.
+ *
+ *   ORIGIN. `top: 0` on a fixed element is the top of the LAYOUT viewport, i.e.
+ *   BELOW the status bar. Full-screen height measured from an origin pushed
+ *   down by the notch overflows past the bottom (which looks fixed) and leaves
+ *   the notch uncovered (which does not). So the origin has to be pulled back
+ *   up by the inset, and the size grown by it at both ends.
+ *
+ * Safe for every layer listed because none of them carries a control:
+ * everything touchable is positioned with --safe-top / --safe-bottom and stays
+ * well clear of both bars. Do not add a button-bearing element to this list. */
+#sky-bg,
+#scene,
+.bg-video,
+#bg-scrim,
+#lanterns,
+.overlay,
+.read-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  top: calc(0px - var(--safe-top));
+  left: calc(0px - var(--safe-left));
+  width: calc(100vw + var(--safe-left) + var(--safe-right));
+  height: calc(100vh + var(--safe-top) + var(--safe-bottom));
+}
+
+/* ---- Background: plain dark fallback shown behind/without a video ---- */
+#sky-bg {
   z-index: 0;
   background:
     radial-gradient(120% 90% at 50% 18%, #131a38 0%, #0a0e22 45%, #05060f 100%);
 }
 #scene {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
   z-index: 1;
   pointer-events: none;
 }
@@ -103,11 +120,6 @@ body { position: fixed; inset: 0; }
 /* Two stacked layers crossfade between playlist clips. Both sit at z-index 0
    and 1; the active one fades to opacity 1 (.bg-show), the other to 0. */
 .bg-video {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
   object-fit: cover;
   z-index: 0;
   pointer-events: none;
@@ -120,11 +132,6 @@ body { position: fixed; inset: 0; }
   z-index: 1;
 }
 #bg-scrim {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
   z-index: 2;
   pointer-events: none;
   background: linear-gradient(180deg, rgba(4, 6, 16, 0.32) 0%, rgba(4, 6, 16, 0.42) 55%, rgba(3, 5, 12, 0.6) 100%);
@@ -137,11 +144,6 @@ body.has-video #mist { display: none; }
 
 /* ---- Whispers (pannable world of lanterns) ---- */
 #lanterns {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
   z-index: 5;
   overflow: hidden;
   touch-action: none;
@@ -694,11 +696,6 @@ body.has-video #mist { display: none; }
 
 /* ---- Sheets ---- */
 .overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
   background: rgba(3, 5, 14, 0.6);
   backdrop-filter: blur(3px);
   z-index: 40;
@@ -935,11 +932,6 @@ button { font-family: inherit; }
 
 /* ---- Whisper read view: transparent, credits-style upward scroll ---- */
 .read-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
   z-index: 40;
   pointer-events: auto; /* taps on empty space close the view */
 }

@@ -30,12 +30,16 @@ export function initScene(canvas) {
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    w = window.innerWidth;
-    h = window.innerHeight;
+    // The canvas's own box, not the window's. They are the same on a desktop
+    // and they are NOT the same on a phone: this layer is stretched into the
+    // notch and the home-indicator strip so the lake reaches the edge of the
+    // glass (style.css, the shared full-bleed rule). Measuring the window here
+    // and then writing that back as an inline height would undo the CSS and
+    // leave the waterline short of the bottom edge.
+    w = canvas.clientWidth || window.innerWidth;
+    h = canvas.clientHeight || window.innerHeight;
     canvas.width = w * dpr;
     canvas.height = h * dpr;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     horizonY = h * HORIZON;
 
@@ -307,6 +311,19 @@ function poolCap() {
 // element; `world` is the inner layer that holds the balloons. Tap vs. drag is
 // distinguished by movement distance.
 export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
+  // Every vertical measurement here is the VIEWPORT ELEMENT's, never the
+  // window's.
+  //
+  // On a phone they differ. `#lanterns` is stretched into the notch and the
+  // home-indicator strip so balloons drift off the real edges of the glass
+  // rather than stopping at a line inside them (style.css, the shared
+  // full-bleed rule). A balloon's `y` is measured inside that element, so
+  // spawning it at `window.innerHeight + 8` would put it about 60px ABOVE the
+  // bottom of the screen — it would pop into existence in plain sight instead
+  // of rising in from below.
+  const skyH = () => viewport.clientHeight || window.innerHeight;
+  const skyW = () => viewport.clientWidth || window.innerWidth;
+
   let items = [];
   let raf = null;
   let lastT = 0;
@@ -562,7 +579,7 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
     }
     it.el.style.display = '';
     applyWhisper(it, wsp);
-    it.y = window.innerHeight + 8 + rand(0, 10); // seatDepth reads this
+    it.y = skyH() + 8 + rand(0, 10); // seatDepth reads this
     seatDepth(it, wsp.spotlight);
     // The author's own, just written. It is marked for one flight only: the
     // flag is cleared here so that when this balloon recycles onto it again
@@ -583,8 +600,8 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
   // Balloons actually in front of the viewer right now (not the ones still
   // below the bottom edge or already past the top).
   function onScreenCount() {
-    const H = window.innerHeight;
-    const W = window.innerWidth;
+    const H = skyH();
+    const W = skyW();
     let n = 0;
     for (const it of items) {
       if (!it.wsp || it.y >= H || it.y <= -it.h) continue;
@@ -613,7 +630,7 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
     // journey happens below the bottom edge and above the top one, and those
     // balloons are not on screen keeping anyone company. Using the full travel
     // here is what left the sky about 20% emptier than asked for.
-    const visibleSpan = window.innerHeight;
+    const visibleSpan = skyH();
     // Rate is set for the whole world; the on-screen share of it then lands
     // near visibleTarget().
     const target = Math.max(
@@ -687,7 +704,7 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
     // would still leave the top on a clumped schedule and the stream would
     // stutter for the first minute. Spacing the exits by exactly one beat means
     // the cadence is right from the first second.
-    const H = window.innerHeight;
+    const H = skyH();
     items.forEach((it, i) => {
       if (!launch(it)) return;
       // Stagger them along their own flight path, one slot each, so the first

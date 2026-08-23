@@ -358,6 +358,34 @@ function reachableBalloon(page) {
     return out;
   });
   check(gaps.length === 0, `every full-bleed layer reaches all four edges (${gaps.join(', ') || 'no gaps'})`);
+
+  // And they reach them by ORIGIN as well as by size, which is the half that
+  // was missed the first time. A desktop browser has no insets, so `top: 0`
+  // and `top: -59px` look identical here; feeding the safe-area variables real
+  // phone numbers makes the difference measurable. A layer that starts at 0
+  // with a 59px status bar above it is the black band that was reported.
+  const origined = await page.evaluate(() => {
+    const st = document.createElement('style');
+    st.textContent = ':root{--safe-top:59px;--safe-bottom:34px;--safe-left:0px;--safe-right:0px}';
+    document.head.appendChild(st);
+    const out = [];
+    for (const sel of ['#sky-bg', '#bg-scrim', '#lanterns', '.bg-video', '.read-overlay']) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const cs = getComputedStyle(el);
+      const top = parseFloat(cs.top);
+      const height = parseFloat(cs.height);
+      if (Math.abs(top + 59) > 1 || Math.abs(height - (innerHeight + 93)) > 1) {
+        out.push(`${sel} top=${Math.round(top)} h=${Math.round(height)}`);
+      }
+    }
+    st.remove();
+    return out;
+  });
+  check(
+    origined.length === 0,
+    `and start above the status bar, not below it (${origined.join(', ') || 'all pulled up by the inset'})`
+  );
   await b.close();
 }
 
