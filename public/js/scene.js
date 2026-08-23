@@ -311,18 +311,26 @@ function poolCap() {
 // element; `world` is the inner layer that holds the balloons. Tap vs. drag is
 // distinguished by movement distance.
 export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
-  // Every vertical measurement here is the VIEWPORT ELEMENT's, never the
-  // window's.
+  // Two boxes, and mixing them up breaks something either way.
   //
-  // On a phone they differ. `#lanterns` is stretched into the notch and the
-  // home-indicator strip so balloons drift off the real edges of the glass
-  // rather than stopping at a line inside them (style.css, the shared
-  // full-bleed rule). A balloon's `y` is measured inside that element, so
-  // spawning it at `window.innerHeight + 8` would put it about 60px ABOVE the
-  // bottom of the screen — it would pop into existence in plain sight instead
-  // of rising in from below.
+  // The lantern field deliberately overshoots the screen top and bottom
+  // (style.css, --bleed) so balloons drift off the real edges of the glass
+  // instead of appearing and vanishing at a line inside them. A balloon's `y`
+  // is measured inside that field, so:
+  //
+  //   skyH()      the FIELD. Where a balloon is born (below it) and where it
+  //               dies (above it). Using the window here would spawn balloons
+  //               a hundred-odd pixels above the bottom of the screen — they
+  //               would pop into existence in plain sight.
+  //   seenTop()   where the visible screen begins in the field's own
+  //               coordinates: the field's top edge sits above it by the bleed.
+  //   seenH()     how much of it a person can see. This is what density is
+  //               measured against — counting the bleed as "on screen" would
+  //               ask for a quarter more balloons than SKY_FEED §9 tuned for.
   const skyH = () => viewport.clientHeight || window.innerHeight;
   const skyW = () => viewport.clientWidth || window.innerWidth;
+  const seenTop = () => Math.max(0, -viewport.getBoundingClientRect().top);
+  const seenH = () => window.innerHeight;
 
   let items = [];
   let raf = null;
@@ -600,11 +608,12 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
   // Balloons actually in front of the viewer right now (not the ones still
   // below the bottom edge or already past the top).
   function onScreenCount() {
-    const H = skyH();
+    const top = seenTop();
+    const H = top + seenH();
     const W = skyW();
     let n = 0;
     for (const it of items) {
-      if (!it.wsp || it.y >= H || it.y <= -it.h) continue;
+      if (!it.wsp || it.y >= H || it.y <= top - it.h) continue;
       // Count only what is in front of the viewer right now: the rest of the
       // world is off to the side until they drag to it.
       const cx = it.baseX + it.w / 2 + panX * (0.24 + it.z0 * 0.76);
@@ -630,7 +639,7 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
     // journey happens below the bottom edge and above the top one, and those
     // balloons are not on screen keeping anyone company. Using the full travel
     // here is what left the sky about 20% emptier than asked for.
-    const visibleSpan = skyH();
+    const visibleSpan = seenH();
     // Rate is set for the whole world; the on-screen share of it then lands
     // near visibleTarget().
     const target = Math.max(

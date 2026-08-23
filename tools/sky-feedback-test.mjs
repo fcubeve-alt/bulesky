@@ -317,22 +317,23 @@ function reachableBalloon(page) {
   await b.close();
 }
 
-// 9. Nothing white anywhere behind the sky.
+// 9. Nothing but sky, all the way to the edge of the glass.
 //
-// Reported from an iPhone home-screen install: a white bar across the bottom,
-// under the entry buttons. Two separate causes, and both have to stay fixed.
+// Reported twice from an iPhone home-screen install: a band across the bottom,
+// then a band across the top, then a band across the bottom again. Two separate
+// things have to hold.
 //
 // The canvas — the surface behind everything, and the only one that reaches
 // into the notch and the home-indicator strip — takes its colour from <html>.
-// Unset, it is white, and no `position: fixed` layer can cover it because fixed
-// layers stop at the viewport. That is the white bar.
+// Unset it is white, and no `position: fixed` layer can cover it. That was the
+// white bar.
 //
-// The full-bleed layers then have to reach the screen edges themselves, or the
-// scenery ends in a line above the home indicator with flat dark below it.
-// `inset: 0` is the layout viewport (safe areas excluded); vh/vw are the large
-// viewport (the whole screen). A browser with no insets cannot tell them apart,
-// so what is pinned here is that they cover the viewport and that the canvas is
-// dark — the case the phone actually failed.
+// The full-bleed layers then have to reach past both screen edges themselves.
+// They cannot compute where those edges are: `top: 0` and `100vh` were measured
+// meaning different things in two different installs of the same code, so the
+// rule overshoots instead. What is pinned here is the overshoot — a browser
+// with no insets cannot see a band, but it can see whether the layers are built
+// to clear one.
 {
   const { b, page } = await open();
   await page.waitForTimeout(600);
@@ -343,48 +344,56 @@ function reachableBalloon(page) {
   const dark = rgb.length >= 3 && rgb[0] + rgb[1] + rgb[2] < 120;
   check(opaque && dark, `the canvas behind everything is painted dark (${canvas})`);
 
-  const gaps = await page.evaluate(() => {
+  // 100px is the test's floor, not the design's: the biggest safe-area inset on
+  // a phone today is 62pt, and the rule uses 120px. Anything that stops short of
+  // clearing 100px cannot clear a notch.
+  const MARGIN = 100;
+  const short = await page.evaluate((margin) => {
     const out = [];
-    for (const sel of ['#sky-bg', '#bg-scrim', '#lanterns', '.bg-video']) {
-      const el = document.querySelector(sel);
-      // #sky-bg is display:none while a video is playing — that is the design
-      // (body.has-video), not a gap.
-      if (!el || getComputedStyle(el).display === 'none') continue;
-      const r = el.getBoundingClientRect();
-      if (r.top > 0 || r.left > 0 || r.bottom < innerHeight || r.right < innerWidth) {
-        out.push(`${sel} ${Math.round(r.width)}x${Math.round(r.height)}`);
-      }
-    }
-    return out;
-  });
-  check(gaps.length === 0, `every full-bleed layer reaches all four edges (${gaps.join(', ') || 'no gaps'})`);
-
-  // And they reach them by ORIGIN as well as by size, which is the half that
-  // was missed the first time. A desktop browser has no insets, so `top: 0`
-  // and `top: -59px` look identical here; feeding the safe-area variables real
-  // phone numbers makes the difference measurable. A layer that starts at 0
-  // with a 59px status bar above it is the black band that was reported.
-  const origined = await page.evaluate(() => {
-    const st = document.createElement('style');
-    st.textContent = ':root{--safe-top:59px;--safe-bottom:34px;--safe-left:0px;--safe-right:0px}';
-    document.head.appendChild(st);
-    const out = [];
-    for (const sel of ['#sky-bg', '#bg-scrim', '#lanterns', '.bg-video', '.read-overlay']) {
+    for (const sel of ['#sky-bg', '#bg-scrim', '#lanterns', '.bg-video', '.overlay']) {
       const el = document.querySelector(sel);
       if (!el) continue;
       const cs = getComputedStyle(el);
       const top = parseFloat(cs.top);
-      const height = parseFloat(cs.height);
-      if (Math.abs(top + 59) > 1 || Math.abs(height - (innerHeight + 93)) > 1) {
-        out.push(`${sel} top=${Math.round(top)} h=${Math.round(height)}`);
+      const bottom = top + parseFloat(cs.height);
+      if (!(top <= -margin) || !(bottom >= innerHeight + margin)) {
+        out.push(`${sel} ${Math.round(top)}..${Math.round(bottom)}`);
       }
     }
-    st.remove();
+    return out;
+  }, MARGIN);
+  check(
+    short.length === 0,
+    `every full-bleed layer overshoots both screen edges (${short.join(', ') || `all clear by ${MARGIN}px+`})`
+  );
+
+  // The two that deliberately do NOT bleed still have to cover the viewport
+  // exactly — a taller #scene would move the waterline, a shifted .read-overlay
+  // would move the words.
+  const exact = await page.evaluate(() => {
+    const out = [];
+    for (const sel of ['#scene', '.read-overlay']) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const cs = getComputedStyle(el);
+      const top = parseFloat(cs.top);
+      const h = parseFloat(cs.height);
+      if (Math.abs(top) > 1 || Math.abs(h - innerHeight) > 1) out.push(`${sel} top=${Math.round(top)} h=${Math.round(h)}`);
+    }
     return out;
   });
+  check(exact.length === 0, `the lake and the reading view stay exactly on the viewport (${exact.join(', ') || 'both exact'})`);
+
+  // And the bleed must not leak sideways: the balloon world is positioned
+  // inside #lanterns, so a horizontal offset would shift every balloon in the
+  // sky by that much.
+  const sideways = await page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector('#lanterns'));
+    return { left: parseFloat(cs.left), width: parseFloat(cs.width) };
+  });
   check(
-    origined.length === 0,
-    `and start above the status bar, not below it (${origined.join(', ') || 'all pulled up by the inset'})`
+    Math.abs(sideways.left) < 1 && Math.abs(sideways.width - 390) < 2,
+    `and never sideways, which would move every balloon (left=${sideways.left}, w=${sideways.width})`
   );
   await b.close();
 }

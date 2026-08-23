@@ -11,6 +11,9 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  /* How far the full-bleed layers overshoot the viewport, top and bottom. Must
+     stay larger than the biggest safe-area inset on any phone (62pt today). */
+  --bleed: 120px;
 }
 
 * { box-sizing: border-box; }
@@ -39,41 +42,54 @@ body { position: fixed; inset: 0; }
 
 .hidden { display: none !important; }
 
-/* ---- One box, and everything that has to fill the glass uses it ----
+/* ---- One box, for everything that has to fill the glass ----
  *
- * EDGE TO EDGE MEANS ALL FOUR EDGES. There must be no band at the top and none
- * at the bottom: the sky runs under the notch and under the home indicator, and
- * the only thing between the scenery and the edge of the phone is the phone.
+ * EDGE TO EDGE MEANS ALL FOUR EDGES: the sky runs under the notch and under the
+ * home indicator, and the only thing between the scenery and the edge of the
+ * phone is the phone.
  *
- * Getting there needs BOTH halves of the box, and the first attempt only had
- * the second — which is why the bottom came right and a black bar stayed at the
- * top:
+ * ⚠️ THE ARITHMETIC HERE CANNOT BE DERIVED — IT MUST NOT BE "TIDIED UP".
  *
- *   SIZE. `inset: 0` is the layout viewport, which stops at the safe areas.
- *   `100vh/100vw` is the large viewport — the whole screen. So the size has to
- *   come from vh/vw, never from inset or percentages.
+ * Two attempts failed because both assumed they knew what `top: 0` and `100vh`
+ * mean inside a home-screen web app. Measured off the reported screenshots,
+ * they do not agree between installs: one left a 62pt band at the TOP (origin
+ * below the status bar, `100vh` the whole screen), the next left a 62pt band at
+ * the BOTTOM (origin at the true top, `100vh` the screen MINUS both insets).
+ * Same code, same phone, different answer — so any rule that computes the exact
+ * box from `100vh` and the insets is right in one case and wrong in the other.
  *
- *   ORIGIN. `top: 0` on a fixed element is the top of the LAYOUT viewport, i.e.
- *   BELOW the status bar. Full-screen height measured from an origin pushed
- *   down by the notch overflows past the bottom (which looks fixed) and leaves
- *   the notch uncovered (which does not). So the origin has to be pulled back
- *   up by the inset, and the size grown by it at both ends.
+ * So this does not compute it. It OVERSHOOTS: 120px past every vertical edge,
+ * which is more than the largest inset any phone has (62pt), so every reading
+ * of the two viewports is covered with room to spare.
  *
- * Safe for every layer listed because none of them carries a control:
- * everything touchable is positioned with --safe-top / --safe-bottom and stays
- * well clear of both bars. Do not add a button-bearing element to this list. */
+ * Vertically only. A horizontal bleed would move #lanterns' left edge, and the
+ * balloon world is positioned inside it — every balloon in the sky would shift
+ * sideways by the bleed.
+ *
+ * What is NOT in this list, and why:
+ *   #scene         the procedural lake. HORIZON is a fraction of its height, so
+ *                  a taller box moves the waterline. It keeps the exact box and
+ *                  #sky-bg, which bleeds, covers the strips behind it.
+ *   .read-overlay  transparent, and it holds the scrolling text. Nothing shows
+ *                  through it and moving it would move the words.
+ *   anything with a button on it. Everything touchable is positioned with
+ *                  --safe-top / --safe-bottom and must stay clear of both bars.
+ */
 #sky-bg,
-#scene,
 .bg-video,
 #bg-scrim,
 #lanterns,
-.overlay,
+.overlay {
+  position: fixed;
+  top: calc(0px - var(--bleed));
+  left: 0;
+  width: 100vw;
+  height: calc(100vh + var(--bleed) * 2);
+}
+#scene,
 .read-overlay {
   position: fixed;
-  top: calc(0px - var(--safe-top));
-  left: calc(0px - var(--safe-left));
-  width: calc(100vw + var(--safe-left) + var(--safe-right));
-  height: calc(100vh + var(--safe-top) + var(--safe-bottom));
+  inset: 0;
 }
 
 /* ---- Background: plain dark fallback shown behind/without a video ---- */
