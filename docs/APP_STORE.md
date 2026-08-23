@@ -172,12 +172,41 @@ the equivalent controls.
 
 ---
 
+## 7b. 现在就能测(不用任何开发者账号)
+
+账号在审核期间不用干等,两台手机都能装上真东西试。
+
+### 安卓:装一个真的 APK,今天就能装
+
+**Actions → `App — build Android` → Run workflow**,跑完在页面底下 Artifacts 里下 `are-you-alright-debug-apk`(zip,解开是 .apk,约 9 MB,产物存 30 天)。传到安卓手机上点开,系统会问"允许从此来源安装",允许就装上了。
+
+- 这是 **debug 签名**,只能自己装,**不能上架**;上架要的是签过名的 AAB(同一条流水线勾 `release`,并先配好 `ANDROID_*` 四个 Secret)。
+- 装上之后要验的是"网页里看不出来的那几样":图标和名字对不对、开屏、返回键(应该先关阅读页、再关发布框、再退出)、震动、状态栏颜色、有没有地址栏。
+- ⚠️ **它连的是线上的 cubewithin.com**,不是本地——所以你在 App 里发的悄悄话是真的会飘到天上去的。
+
+### iPhone:没有 Mac 就装不了原生包,但有一条几乎一样的路
+
+先把事实说清楚:**iOS 上装 App 必须签名**,签名必须有 Mac 上的 Xcode(或 GitHub 的 macOS runner)+ 一个 Apple ID。所以:
+
+- **有 Mac**:免费 Apple ID 就够。Xcode 打开 `app/ios/App/App.xcworkspace` → Signing & Capabilities 选 Personal Team → 插线选自己的 iPhone → Run。**限制:证书 7 天过期**,过期后重新 Run 一次即可;一个免费账号最多 3 个 App。**不需要 $99。**
+- **没有 Mac**:`app-ios.yml` 那条路(GitHub 的 macOS runner)**绕不开 $99 账号**——它需要 App Store 分发证书和描述文件,那两样只有付费账号能生成。租云 Mac 也一样卡在证书上,不是卡在机器上。
+- **所以没有 Mac 的时候,iPhone 上的测试办法是「添加到主屏幕」**:Safari 打开 cubewithin.com → 分享 → 添加到主屏幕。**全屏、没有地址栏、有图标、刘海和底部安全区都已经适配**(`--safe-top` / `--safe-bottom`),视觉上和 App 基本一致。
+  - 差别只在原生那几样:震动走的是网页 API、没有原生返回手势、分享用的是系统分享面板而不是 Capacitor 插件。
+  - ⚠️ **主屏幕那个图标有它自己独立的一份存储**,和 Safari 里不是同一个身份——这正是 `identity.js` 里写的那条(一份存储 = 一个名字)。测的时候别把这当成 bug。
+
+### Google Play 走在前面之前,先知道这一条
+
+个人开发者账号(2023 年 11 月之后新注册的)在能提交正式版之前,要先做 **封闭测试:至少 12 个测试者、连续 14 天**。所以"安卓更快"是相对 Apple 的 1–3 天审核而言的**账号更便宜**($25 一次性 vs $99/年),**不代表能立刻上架**。公司/组织账号不受这条限制。规则会变,提交前去 Play Console 现看一眼。
+
+---
+
 ## 8. 顺序(哪些能并行,哪些卡着别人)
 
+0. **不用等账号的**:跑 `App — build Android` 拿 APK 装安卓手机;iPhone 用「添加到主屏幕」。见 §7b
 1. **马上去注册 Apple Developer($99/年)** —— 审核 1–3 天,**其他所有事都能和它并行,只有它不能被并行**
-2. Google Play 开发者账号($25 一次性)—— 想更快上线的话,这条路短得多
+2. Google Play 开发者账号($25 一次性)—— 账号便宜得多,但个人号要先做满 12 人 × 14 天的封闭测试(§7b),别以为是"马上能上"
 3. 拿到 Apple 账号 → 建 App Store Connect API key、注册 Bundle ID、生成证书和描述文件 → 填 `app-ios.yml` 里列的 7 个 Secret
-4. 跑一次 `App — build Android`,拿 APK 装到手机上截图
+4. 生成上传密钥(`.jks`),配好 `ANDROID_*` 四个 Secret → 跑 `App — build Android` 勾 `release` 拿签名 AAB。**这个 .jks 丢了就永远不能再更新同一个 Play 上架条目,备份好**
 5. 跑一次 `App — build iOS`,进 TestFlight
 6. 填上面的资料,提交
 
