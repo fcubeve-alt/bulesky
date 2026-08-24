@@ -121,6 +121,24 @@
       "bytes": 17903168
     },
     {
+      "id": "jamendo-1313636",
+      "title": "Venus and Vindaloo",
+      "artist": "MrFunandMusic",
+      "src": "/music/jamendo-1313636.mp3",
+      "source": "https://www.jamendo.com/track/1313636",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 3165184
+    },
+    {
+      "id": "jamendo-678355",
+      "title": "Silent Night",
+      "artist": "Emorej",
+      "src": "/music/jamendo-678355.mp3",
+      "source": "https://www.jamendo.com/track/678355",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 2251264
+    },
+    {
       "id": "jamendo-334001",
       "title": "The Garden Of Love",
       "artist": "Lip Service",
