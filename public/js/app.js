@@ -524,6 +524,31 @@ function showError(el, msg) {
   el.classList.remove('hidden');
 }
 
+// Tell the stylesheet how tall the actual screen is.
+//
+// The sky has to run under the notch and under the home indicator, and CSS on
+// its own cannot reliably say where those are: inside a home-screen web app,
+// `100vh` has been measured meaning the whole screen in one install and the
+// screen minus both safe areas in another. A band survived a 120px overshoot,
+// which no reading of `100vh` explains — so the stylesheet stops guessing and
+// takes the one number that is not open to interpretation.
+//
+// `screen.height` is the physical screen in CSS pixels, unaffected by browser
+// chrome, safe areas or which viewport a value happens to refer to. The
+// stylesheet uses it inside max(), so a wrong or missing value can only ever
+// make a background layer taller than it needs to be — never shorter.
+function publishScreenHeight() {
+  const set = () => {
+    const h = (window.screen && window.screen.height) || 0;
+    if (h > 0) document.documentElement.style.setProperty('--screen-h', `${h}px`);
+  };
+  set();
+  // Rotating swaps the screen's dimensions, and iOS reports the new ones a beat
+  // after the event.
+  window.addEventListener('orientationchange', () => setTimeout(set, 250));
+  window.addEventListener('resize', set);
+}
+
 // Close the confirmation and show the author what they just wrote.
 //
 // Two things happen, and the order is the point. The whisper is put into the
@@ -1904,6 +1929,8 @@ function init() {
     localStorage.setItem('bulesky_notice_ack', '1');
     closeSheet(els.noticeOverlay, els.noticeModal);
   });
+
+  publishScreenHeight();
 
   maybeShowNotice();
   maybeShowIosGuide();

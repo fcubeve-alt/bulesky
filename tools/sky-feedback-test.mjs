@@ -395,6 +395,31 @@ function reachableBalloon(page) {
     Math.abs(sideways.left) < 1 && Math.abs(sideways.width - 390) < 2,
     `and never sideways, which would move every balloon (left=${sideways.left}, w=${sideways.width})`
   );
+
+  // The height must not come from 100vh alone. A band survived a 120px
+  // overshoot on a real phone, which no reading of 100vh explains, so the rule
+  // takes screen.height — the one number that is not open to interpretation —
+  // and app.js has to publish it.
+  const published = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--screen-h').trim()
+  );
+  check(
+    /^\d+(\.\d+)?px$/.test(published) && parseFloat(published) > 0,
+    `the real screen height is published to the stylesheet (--screen-h: ${published || 'unset'})`
+  );
+
+  // And the layers must actually follow it when it is larger than the viewport
+  // — which is exactly the phone's case and never the desktop's, so it has to
+  // be forced here to be seen at all.
+  const followed = await page.evaluate(() => {
+    const root = document.documentElement;
+    const was = root.style.getPropertyValue('--screen-h');
+    root.style.setProperty('--screen-h', '2000px');
+    const h = parseFloat(getComputedStyle(document.querySelector('#sky-bg')).height);
+    root.style.setProperty('--screen-h', was);
+    return h;
+  });
+  check(followed >= 2200, `and the layers grow to cover it (${Math.round(followed)}px for a 2000px screen)`);
   await b.close();
 }
 

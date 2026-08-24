@@ -84,7 +84,18 @@ body { position: fixed; inset: 0; }
   top: calc(0px - var(--bleed));
   left: 0;
   width: 100vw;
-  height: calc(100vh + var(--bleed) * 2);
+  /* Whichever is TALLER — and --screen-h is the whole point.
+   *
+   * `100vh` was still being trusted to mean the screen, and the band survived a
+   * bleed of 120px, which it could not have done if `100vh` were merely short
+   * by an inset. The one number CSS cannot get wrong here is the size of the
+   * physical screen, and only JavaScript can read it (`window.screen.height`).
+   * app.js publishes it as --screen-h on every load and rotation; this falls
+   * back to `100vh` alone if it is ever missing, which is no worse than before. */
+  height: max(
+    calc(100vh + var(--bleed) * 2),
+    calc(var(--screen-h, 0px) + var(--bleed) * 2)
+  );
 }
 #scene,
 .read-overlay {

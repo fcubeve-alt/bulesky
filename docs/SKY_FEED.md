@@ -81,6 +81,8 @@
   - `skyH()` = `#lanterns` 自己的高度 → **出生和死亡**用它（`it.y = skyH() + 8`）。用 `window.innerHeight` 的话，新气球会在**离屏幕底部 120px 的地方凭空出现**。
   - `seenH()` / `seenTop()` = 看得见的那一块 → **密度**用它（`computeCadence` 的 `visibleSpan`、`onScreenCount`）。把溢出那 240px 也当成"屏上"，会比 §9 调好的密度多要约四分之一的气球。
   - `initScene` 的 `resize()` 量 `canvas.clientWidth/Height`，**不能**量 window 再写回行内高度——那会把 CSS 覆盖掉。
+- **⚠️ 高度不能只信 `100vh`,要用 `--screen-h`。** 加了 120px 溢出之后底边**依然在**——这是任何一种对 `100vh` 的解释都解释不了的。所以现在 `height: max(100vh + 2*bleed, var(--screen-h) + 2*bleed)`,`--screen-h` 由 app.js 的 `publishScreenHeight()` 把 `window.screen.height`(物理屏幕,CSS 像素,不受安全区和浏览器界面影响)写进来,旋转时重写。放在 `max()` 里,所以这个值就算错了或者没有,也只会让背景层**偏高**,不会偏矮。
+- **⚠️ 改了 `style.css` 就必须同时改 `index.html` 里的 `?v=`。** 这个坑吃过一次:CSS 连改三次、部署三次都成功,手机上**一个像素都没变**,因为 URL 没变。Service Worker 是 network-first 也救不了 iOS 主屏幕 App 那一层缓存。同时把 `sw.js` 的 `CACHE_NAME` 也 +1。
 - 改完实测（忽略开头 30s 播种，只数视口内）：手机 9–14，桌面 16–21，与 §9 记录的区间一致。
 
 ## 8. 待办 / 以后可做（别忘）
