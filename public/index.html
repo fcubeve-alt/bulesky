@@ -32,7 +32,61 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 <link rel="icon" href="/icons/icon-192.png" />
-<link rel="stylesheet" href="/css/style.css?v=bleed2" />
+<link rel="stylesheet" href="/css/style.css?v=bleed3" />
+
+<!-- ══ The sky has to reach the edge of the screen. This is the whole rule. ══
+     Kept HERE, inline, rather than in style.css — on purpose, and not because
+     it belongs here.
+
+     Three correct fixes in a row reached the server and never reached the
+     phone. Measured off the last screenshot: 100vh resolved to 810pt on an
+     874pt screen with the layers at top:0 — the geometry of a stylesheet two
+     versions old. An installed home-screen web app kept serving /css/style.css
+     from its own cache, and neither the network-first service worker nor a new
+     ?v= could reliably shift it. index.html is the one file that is always
+     re-fetched, so the rule that decides this now travels with it and cannot
+     arrive stale on its own.
+
+     WHY IT OVERSHOOTS INSTEAD OF COMPUTING. `top: 0` and `100vh` have been
+     measured meaning different things in different installs of the same code:
+     once the origin sat below the status bar with 100vh the whole screen (band
+     at the TOP), once the origin sat at the true top with 100vh short by an
+     inset (band at the BOTTOM). There is no correction that is right in both.
+     So this does not compute the box — it overshoots it by 120px past both
+     vertical edges, which is more than the largest inset any phone has (62pt),
+     and takes its height from --sky-h: the physical screen, measured in JS
+     below, which is the one number no viewport definition can distort.
+
+     VERTICALLY ONLY. A horizontal bleed would move #lanterns' left edge, and
+     the balloon world is positioned inside it — every balloon in the sky would
+     shift sideways with it.
+
+     NOT IN THIS LIST, deliberately: #scene (the lake — HORIZON is a fraction of
+     its height, so a taller box moves the waterline; #sky-bg bleeds behind it),
+     .read-overlay (transparent, and it holds the scrolling text), and anything
+     carrying a button — every touchable thing is placed with --safe-top /
+     --safe-bottom and must stay clear of both bars. -->
+<script>
+  // Before first paint, and inline for the same reason as the rule below: the
+  // one measurement CSS cannot make is how tall the screen actually is.
+  // app.js re-publishes this on resize and rotation.
+  (function () {
+    try {
+      var el = document.documentElement;
+      var h = Math.max(window.screen && window.screen.height || 0, window.innerHeight || 0);
+      if (h > 0) el.style.setProperty('--sky-h', h + 'px');
+    } catch (e) { /* falls back to 100vh below */ }
+  })();
+</script>
+<style>
+  #sky-bg, .bg-video, #bg-scrim, #lanterns, .overlay {
+    position: fixed;
+    top: calc(0px - var(--bleed, 120px));
+    left: 0;
+    width: 100vw;
+    height: calc(var(--sky-h, 100vh) + var(--bleed, 120px) * 2);
+  }
+</style>
 </head>
 <body>
 

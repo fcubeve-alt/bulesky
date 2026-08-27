@@ -401,11 +401,11 @@ function reachableBalloon(page) {
   // takes screen.height — the one number that is not open to interpretation —
   // and app.js has to publish it.
   const published = await page.evaluate(() =>
-    getComputedStyle(document.documentElement).getPropertyValue('--screen-h').trim()
+    getComputedStyle(document.documentElement).getPropertyValue('--sky-h').trim()
   );
   check(
     /^\d+(\.\d+)?px$/.test(published) && parseFloat(published) > 0,
-    `the real screen height is published to the stylesheet (--screen-h: ${published || 'unset'})`
+    `the real screen height is published to the rule (--sky-h: ${published || 'unset'})`
   );
 
   // And the layers must actually follow it when it is larger than the viewport
@@ -413,13 +413,27 @@ function reachableBalloon(page) {
   // be forced here to be seen at all.
   const followed = await page.evaluate(() => {
     const root = document.documentElement;
-    const was = root.style.getPropertyValue('--screen-h');
-    root.style.setProperty('--screen-h', '2000px');
+    const was = root.style.getPropertyValue('--sky-h');
+    root.style.setProperty('--sky-h', '2000px');
     const h = parseFloat(getComputedStyle(document.querySelector('#sky-bg')).height);
-    root.style.setProperty('--screen-h', was);
+    root.style.setProperty('--sky-h', was);
     return h;
   });
   check(followed >= 2200, `and the layers grow to cover it (${Math.round(followed)}px for a 2000px screen)`);
+
+  // And the rule has to be IN index.html, not in the stylesheet.
+  //
+  // Not a style preference — the reason is the bug. Three correct fixes reached
+  // the server and never reached the phone, because an installed home-screen web
+  // app went on serving /css/style.css from its own cache while re-fetching the
+  // page itself. A rule that decides whether the sky reaches the edge of the
+  // screen must not be able to arrive stale on its own.
+  const inline = await page.evaluate(async () => {
+    const html = await (await fetch('/index.html', { cache: 'no-store' })).text();
+    const blocks = html.match(/<style[^>]*>[\s\S]*?<\/style>/gi) || [];
+    return blocks.some((b) => b.includes('--sky-h') && b.includes('#bg-scrim'));
+  });
+  check(inline, 'and the rule ships inside index.html, where it cannot go stale on its own');
   await b.close();
 }
 

@@ -524,27 +524,24 @@ function showError(el, msg) {
   el.classList.remove('hidden');
 }
 
-// Tell the stylesheet how tall the actual screen is.
+// Keep --sky-h honest after the page has loaded.
 //
-// The sky has to run under the notch and under the home indicator, and CSS on
-// its own cannot reliably say where those are: inside a home-screen web app,
-// `100vh` has been measured meaning the whole screen in one install and the
-// screen minus both safe areas in another. A band survived a 120px overshoot,
-// which no reading of `100vh` explains — so the stylesheet stops guessing and
-// takes the one number that is not open to interpretation.
+// It is first set by an inline script in index.html, before anything paints —
+// read the comment there for why the whole full-bleed rule lives in the HTML.
+// This half exists because rotating a phone swaps the screen's dimensions, and
+// a value that was right in portrait is wrong in landscape.
 //
-// `screen.height` is the physical screen in CSS pixels, unaffected by browser
-// chrome, safe areas or which viewport a value happens to refer to. The
-// stylesheet uses it inside max(), so a wrong or missing value can only ever
-// make a background layer taller than it needs to be — never shorter.
+// Always the LARGER of the physical screen and the viewport: the rule adds the
+// bleed on top, so an over-large value can only make a background layer taller
+// than it needs to be, never shorter. That asymmetry is the point — this must
+// not become a new way for the band to come back.
 function publishScreenHeight() {
   const set = () => {
-    const h = (window.screen && window.screen.height) || 0;
-    if (h > 0) document.documentElement.style.setProperty('--screen-h', `${h}px`);
+    const h = Math.max((window.screen && window.screen.height) || 0, window.innerHeight || 0);
+    if (h > 0) document.documentElement.style.setProperty('--sky-h', `${h}px`);
   };
   set();
-  // Rotating swaps the screen's dimensions, and iOS reports the new ones a beat
-  // after the event.
+  // iOS reports the new dimensions a beat after the event.
   window.addEventListener('orientationchange', () => setTimeout(set, 250));
   window.addEventListener('resize', set);
 }

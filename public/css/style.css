@@ -44,59 +44,17 @@ body { position: fixed; inset: 0; }
 
 /* ---- One box, for everything that has to fill the glass ----
  *
- * EDGE TO EDGE MEANS ALL FOUR EDGES: the sky runs under the notch and under the
- * home indicator, and the only thing between the scenery and the edge of the
- * phone is the phone.
+ * ⚠️ THE RULE ITSELF IS NOT HERE. It is an inline <style> in index.html, and
+ * that is deliberate — see the comment there before moving it back.
  *
- * ⚠️ THE ARITHMETIC HERE CANNOT BE DERIVED — IT MUST NOT BE "TIDIED UP".
+ * The short version: this file is fetched by its own URL, and three correct
+ * fixes in a row reached the server and never reached the phone, because an
+ * installed home-screen web app kept serving the stylesheet it already had.
+ * index.html is the one file that is always re-fetched, so the one rule that
+ * decides whether the sky reaches the edge of the screen now travels with it.
  *
- * Two attempts failed because both assumed they knew what `top: 0` and `100vh`
- * mean inside a home-screen web app. Measured off the reported screenshots,
- * they do not agree between installs: one left a 62pt band at the TOP (origin
- * below the status bar, `100vh` the whole screen), the next left a 62pt band at
- * the BOTTOM (origin at the true top, `100vh` the screen MINUS both insets).
- * Same code, same phone, different answer — so any rule that computes the exact
- * box from `100vh` and the insets is right in one case and wrong in the other.
- *
- * So this does not compute it. It OVERSHOOTS: 120px past every vertical edge,
- * which is more than the largest inset any phone has (62pt), so every reading
- * of the two viewports is covered with room to spare.
- *
- * Vertically only. A horizontal bleed would move #lanterns' left edge, and the
- * balloon world is positioned inside it — every balloon in the sky would shift
- * sideways by the bleed.
- *
- * What is NOT in this list, and why:
- *   #scene         the procedural lake. HORIZON is a fraction of its height, so
- *                  a taller box moves the waterline. It keeps the exact box and
- *                  #sky-bg, which bleeds, covers the strips behind it.
- *   .read-overlay  transparent, and it holds the scrolling text. Nothing shows
- *                  through it and moving it would move the words.
- *   anything with a button on it. Everything touchable is positioned with
- *                  --safe-top / --safe-bottom and must stay clear of both bars.
- */
-#sky-bg,
-.bg-video,
-#bg-scrim,
-#lanterns,
-.overlay {
-  position: fixed;
-  top: calc(0px - var(--bleed));
-  left: 0;
-  width: 100vw;
-  /* Whichever is TALLER — and --screen-h is the whole point.
-   *
-   * `100vh` was still being trusted to mean the screen, and the band survived a
-   * bleed of 120px, which it could not have done if `100vh` were merely short
-   * by an inset. The one number CSS cannot get wrong here is the size of the
-   * physical screen, and only JavaScript can read it (`window.screen.height`).
-   * app.js publishes it as --screen-h on every load and rotation; this falls
-   * back to `100vh` alone if it is ever missing, which is no worse than before. */
-  height: max(
-    calc(100vh + var(--bleed) * 2),
-    calc(var(--screen-h, 0px) + var(--bleed) * 2)
-  );
-}
+ * What stays here is everything that only PAINTS these layers — colour, z-index,
+ * pointer-events — and the two layers that must NOT bleed. */
 #scene,
 .read-overlay {
   position: fixed;
