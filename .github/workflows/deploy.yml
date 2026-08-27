@@ -92,6 +92,42 @@ jobs:
           check "SELECT item_type, item_id, status, auto FROM reports LIMIT 1" "reports"
           check "SELECT bucket, window_start, count FROM rate_limits LIMIT 1" "rate_limits"
 
+      # The bucket that holds the Listen audio. It is created by hand — in the
+      # dashboard is fine, no CLI needed — and wrangler.toml binds it by NAME,
+      # so a name that does not match is the one way this goes wrong.
+      #
+      # Pages fails the whole deploy on a binding it cannot resolve, and
+      # wrangler's own error does not say what the bucket is actually called.
+      # This does: it prints every bucket on the account, so one look at the log
+      # is enough to fix the name. Deliberately not fatal when the listing
+      # itself fails — an API token without R2 read permission is not a reason
+      # to block a deploy that would otherwise work; the real bind will speak up.
+      - name: Check the voice bucket exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          WANT=$(grep -A2 '^\[\[r2_buckets\]\]' wrangler.toml | sed -n 's/^bucket_name *= *"\(.*\)"/\1/p' | head -1)
+          if [ -z "$WANT" ]; then
+            echo "::notice::No R2 bucket configured — audio stays in D1."
+            exit 0
+          fi
+          echo "wrangler.toml wants the bucket: $WANT"
+          if ! out=$(npx wrangler r2 bucket list 2>&1); then
+            echo "$out"
+            echo "::warning::Could not list R2 buckets (token may lack R2 read). Continuing — the bind itself will fail loudly if the name is wrong."
+            exit 0
+          fi
+          echo "--- buckets on this account ---"
+          echo "$out"
+          echo "-------------------------------"
+          if echo "$out" | grep -qw -- "$WANT"; then
+            echo "  ok: $WANT exists"
+          else
+            echo "::error::wrangler.toml binds VOICE_BUCKET to \"$WANT\", which is not in the list above. Fix bucket_name in wrangler.toml to match one of them (or create that bucket), then deploy again. Nothing was published."
+            exit 1
+          fi
+
       - name: Ensure Pages project exists
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
