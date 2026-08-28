@@ -345,13 +345,14 @@ function reachableBalloon(page) {
   check(opaque && dark, `the canvas behind everything is painted dark (${canvas})`);
 
   // 100px is the test's floor, not the design's: the biggest safe-area inset on
-  // a phone today is 62pt, and the rule uses 120px. Anything that stops short of
-  // clearing 100px cannot clear a notch.
+  // a phone today is 62pt and the rule uses 120px, and the real gap measured on
+  // the reported phone was 190px between the fixed-positioning box and the
+  // glass. Anything that stops short of clearing 100px cannot clear a notch.
   //
-  // Read from computed top/bottom rather than from a rect: several of these are
-  // display:none at any given moment (#sky-bg while a video plays, .overlay
-  // until a sheet opens) and a hidden element has no box to measure — but it
-  // still has the offsets the rule gave it.
+  // Read from computed values rather than from a rect: several of these are
+  // display:none at any given moment (.overlay until a sheet opens, .bg-video
+  // before a clip loads) and a hidden element has no box — but it still has the
+  // offsets and the height the rule gave it.
   const MARGIN = 100;
   const short = await page.evaluate((margin) => {
     const out = [];
@@ -360,9 +361,9 @@ function reachableBalloon(page) {
       if (!el) continue;
       const cs = getComputedStyle(el);
       const top = parseFloat(cs.top);
-      const bottom = parseFloat(cs.bottom);
-      if (!(top <= -margin) || !(bottom <= -margin)) {
-        out.push(`${sel} top=${cs.top} bottom=${cs.bottom}`);
+      const bottom = top + parseFloat(cs.height);
+      if (!(top <= -margin) || !(bottom >= innerHeight + margin)) {
+        out.push(`${sel} ${Math.round(top)}..${Math.round(bottom)}`);
       }
     }
     return out;
@@ -401,30 +402,46 @@ function reachableBalloon(page) {
     `and never sideways, which would move every balloon (left=${sideways.left}, w=${sideways.width})`
   );
 
-  // The box must be built from top AND bottom, never from a height.
+  // Every layer must FOLLOW --sky-h, and the <video> most of all.
   //
-  // A height has to be told how tall the screen is, and every source for that
-  // has been wrong here at least once: 100vh resolved to 805pt on an 874pt
-  // screen. top/bottom need no such number — the browser resolves both against
-  // the same box — so this checks that neither a height nor a viewport unit has
-  // crept back in.
-  const box = await page.evaluate(() => {
+  // This is the check that would have caught the worst regression in this whole
+  // saga. The rule was briefly written as top+bottom with height:auto, which
+  // stretches a <div> correctly and does NOT stretch a <video>: for replaced
+  // elements `height: auto` resolves to the intrinsic height and `bottom` is
+  // ignored. Every div in the rule looked right while the scenery stopped at
+  // 600pt on an 874pt screen. So .bg-video is checked by the same measure as
+  // the rest, deliberately, and 2000px is forced because no desktop viewport
+  // would ever exercise it.
+  const followed = await page.evaluate(() => {
+    const root = document.documentElement;
+    const was = root.style.getPropertyValue('--sky-h');
+    root.style.setProperty('--sky-h', '2000px');
     const out = [];
     for (const sel of ['#sky-bg', '#bg-scrim', '#lanterns', '.bg-video', '.overlay']) {
       const el = document.querySelector(sel);
       if (!el) continue;
       const cs = getComputedStyle(el);
-      // `bottom` must be a real negative offset, not `auto` — `auto` is what it
-      // becomes the moment someone sets a height again.
-      const bottom = parseFloat(cs.bottom);
-      if (!Number.isFinite(bottom) || bottom > -100) out.push(`${sel} bottom=${cs.bottom}`);
+      const h = parseFloat(cs.height);
+      const top = parseFloat(cs.top);
+      if (!(h >= 2200) || !(top <= -100)) out.push(`${sel} top=${cs.top} h=${cs.height}`);
     }
+    root.style.setProperty('--sky-h', was);
     return out;
   });
   check(
-    box.length === 0,
-    `every full-bleed layer is pinned past the bottom edge, not sized (${box.join(', ') || 'all pinned'})`
+    followed.length === 0,
+    `every layer grows with the real screen height, video included (${followed.join(', ') || 'all 2240px'})`
   );
+
+  // And the sky gradient stays behind the video as a backstop, so a gap can
+  // never again be flat black.
+  const backstop = await page.evaluate(() => {
+    document.body.classList.add('has-video');
+    const d = getComputedStyle(document.querySelector('#sky-bg')).display;
+    document.body.classList.remove('has-video');
+    return d;
+  });
+  check(backstop !== 'none', `the sky gradient stays behind the video as a backstop (display: ${backstop})`);
 
   // And the rule has to be IN index.html, not in the stylesheet.
   //
@@ -436,7 +453,7 @@ function reachableBalloon(page) {
   const inline = await page.evaluate(async () => {
     const html = await (await fetch('/index.html', { cache: 'no-store' })).text();
     const blocks = html.match(/<style[^>]*>[\s\S]*?<\/style>/gi) || [];
-    return blocks.some((b) => b.includes('#bg-scrim') && /bottom:\s*calc/.test(b));
+    return blocks.some((b) => b.includes('#bg-scrim') && b.includes('--sky-h'));
   });
   check(inline, 'and the rule ships inside index.html, where it cannot go stale on its own');
   await b.close();

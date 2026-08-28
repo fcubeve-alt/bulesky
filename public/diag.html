@@ -93,27 +93,58 @@
   probe.remove();
 
   // ---- what a full-bleed layer actually resolves to on THIS phone ----
-  // The same box the sky uses, measured rather than assumed.
-  var t = document.createElement('div');
-  t.style.cssText = 'position:fixed;top:-120px;bottom:-120px;left:0;right:0;visibility:hidden;';
-  document.body.appendChild(t);
-  var r = t.getBoundingClientRect();
+  // The same box the sky uses, measured rather than assumed — and measured for
+  // BOTH kinds of element, because they do not behave the same. <video> is a
+  // replaced element, and a rule that stretches a <div> can leave a <video> at
+  // its intrinsic size. That exact difference left the scenery stopping at 600pt
+  // on an 874pt screen while every other layer was fine.
+  var standalone = (window.navigator.standalone === true) ||
+    matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
   var sh = S.height || 0;
-  row($('geom'), 'top:-120 bottom:-120 → top', Math.round(r.top) + 'px');
-  row($('geom'), '…→ bottom', Math.round(r.bottom) + 'px');
-  row($('geom'), '…→ height', Math.round(r.height) + 'px');
-  var coversTop = r.top <= 0;
-  var coversBottom = sh ? r.bottom >= sh : r.bottom >= innerHeight;
-  row($('geom'), 'reaches the top edge', coversTop ? 'YES' : 'NO', coversTop ? 'ok' : 'bad');
-  row($('geom'), 'reaches the bottom edge', coversBottom ? 'YES' : 'NO', coversBottom ? 'ok' : 'bad');
-  t.remove();
+  var BLEED = 120;
 
-  var vh = document.createElement('div');
-  vh.style.cssText = 'position:fixed;top:0;height:100vh;visibility:hidden;';
-  document.body.appendChild(vh);
-  row($('geom'), '100vh resolves to', Math.round(vh.getBoundingClientRect().height) + 'px');
-  vh.remove();
-  row($('geom'), 'screen.height (for comparison)', sh ? sh + 'px' : 'unknown');
+  var probeBox = document.createElement('div');
+  probeBox.style.cssText = 'position:fixed;top:0;bottom:0;left:0;right:0;visibility:hidden;';
+  document.body.appendChild(probeBox);
+  var icb = probeBox.getBoundingClientRect().height;
+  probeBox.remove();
+  row($('geom'), 'the box fixed layers live in', Math.round(icb) + 'px');
+
+  var vhEl = document.createElement('div');
+  vhEl.style.cssText = 'position:fixed;top:0;height:100vh;visibility:hidden;';
+  document.body.appendChild(vhEl);
+  var vh = vhEl.getBoundingClientRect().height;
+  vhEl.remove();
+  row($('geom'), '100vh resolves to', Math.round(vh) + 'px');
+  row($('geom'), 'screen.height', sh ? sh + 'px' : 'unknown');
+
+  // The live rule, applied here to BOTH element types. The site's own layers do
+  // not exist on this page, so they are recreated: one <div> and one <video>,
+  // given exactly what index.html gives them. If the two disagree, that is the
+  // replaced-element trap and the video is the one to look at.
+  var skyH = Math.max(sh, innerHeight || 0, document.documentElement.clientHeight || 0);
+  row($('geom'), '--sky-h would be', skyH + 'px');
+
+  [['<div>', 'div'], ['<video>', 'video']].forEach(function (pair) {
+    var el = document.createElement(pair[1]);
+    el.style.cssText = 'position:fixed;left:0;width:100vw;visibility:hidden;' +
+      'top:' + (-BLEED) + 'px;height:' + (skyH + BLEED * 2) + 'px;bottom:auto;';
+    document.body.appendChild(el);
+    var c = getComputedStyle(el);
+    var top = parseFloat(c.top), h = parseFloat(c.height);
+    var bottom = top + h;
+    var reaches = sh ? bottom >= sh : bottom >= icb;
+    row($('geom'), pair[0] + ' top..bottom',
+      Math.round(top) + ' .. ' + Math.round(bottom) + '  (h ' + (isNaN(h) ? c.height : Math.round(h)) + ')',
+      reaches && top <= 0 ? 'ok' : 'bad');
+    el.remove();
+  });
+
+  // Only meaningful in the installed app. In Safari the URL bar and toolbar sit
+  // between the page and the bottom of the screen, so falling short of
+  // screen.height there is correct, not a fault.
+  row($('geom'), 'running as installed app', standalone ? 'YES — the numbers above must reach screen.height'
+    : 'no (Safari — browser chrome makes the box shorter on purpose)');
 
   // ---- which build ----
   // Fetched with cache:no-store so this line is the SERVER's answer, then
@@ -140,7 +171,7 @@
       var v = $('verdict');
       if (live && cached && live === cached) {
         v.className = 'verdict ok';
-        v.textContent = 'UP TO DATE — this phone is on the current build (' + live + '). If a black bar is still showing, it is a real layout bug and the numbers above will say why.';
+        v.textContent = 'UP TO DATE — this phone is on the current build (' + live + '). If a black bar is still showing, it is a real layout bug: the sky layer rows above will say which one falls short.';
       } else {
         v.className = 'verdict bad';
         v.textContent = 'STALE — this phone is serving an OLD copy of the page. Nothing deployed since then has reached it. Press the button below.';

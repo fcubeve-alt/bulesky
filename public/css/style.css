@@ -121,8 +121,13 @@ body { position: fixed; inset: 0; }
   pointer-events: none;
   background: linear-gradient(180deg, rgba(4, 6, 16, 0.32) 0%, rgba(4, 6, 16, 0.42) 55%, rgba(3, 5, 12, 0.6) 100%);
 }
-/* When a video background is active, hide the procedural lake layers. */
-body.has-video #sky-bg,
+/* When a video background is active, hide the procedural lake layers.
+ *
+ * #sky-bg is NOT hidden with them any more, and that is the point: it is the
+ * backstop. It sits at z-index 0, the video covers it completely at z-index 1,
+ * and it costs one gradient — but if the video ever fails to reach an edge
+ * again, what shows there is night sky rather than the flat black that has been
+ * reported four times. Insurance, not decoration. */
 body.has-video #scene,
 body.has-video #mountains,
 body.has-video #mist { display: none; }

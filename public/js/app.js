@@ -524,6 +524,30 @@ function showError(el, msg) {
   el.classList.remove('hidden');
 }
 
+// Keep --sky-h right after a rotation.
+//
+// It is first set by an inline script in index.html, before anything paints —
+// read the comment there for why. This half exists only because turning a phone
+// swaps the screen's dimensions.
+//
+// Always the LARGEST of the three, because the rule adds the bleed on top: an
+// over-large value can only make a background layer taller than it needs to be,
+// never shorter. That asymmetry is deliberate — this must not become a new way
+// for the black band to come back.
+function keepSkyHeight() {
+  const set = () => {
+    const h = Math.max(
+      (window.screen && window.screen.height) || 0,
+      window.innerHeight || 0,
+      document.documentElement.clientHeight || 0
+    );
+    if (h > 0) document.documentElement.style.setProperty('--sky-h', `${h}px`);
+  };
+  // iOS reports the new dimensions a beat after the event.
+  window.addEventListener('orientationchange', () => setTimeout(set, 250));
+  window.addEventListener('resize', set);
+}
+
 // Notice when this phone is running an old copy of the site, and fix it.
 //
 // This is the bug that cost four rounds. Three correct fixes were deployed, went
@@ -1958,6 +1982,10 @@ function init() {
     localStorage.setItem('bulesky_notice_ack', '1');
     closeSheet(els.noticeOverlay, els.noticeModal);
   });
+
+  // Rotating swaps the screen's dimensions, so the height the inline script in
+  // index.html measured before first paint stops being right. Republish it.
+  keepSkyHeight();
 
   // Last, and never awaited: the sky is already up by here, and a phone that
   // turns out to be stale reloads itself into the current one.

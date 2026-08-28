@@ -60,23 +60,42 @@
      .read-overlay (transparent, and it holds the scrolling text), and anything
      carrying a button — every touchable thing is placed with --safe-top /
      --safe-bottom and must stay clear of both bars. -->
+<script>
+  // How tall the screen actually is. Set before anything paints.
+  //
+  // The diagnostics page finally measured what CSS believes on a real phone:
+  // the box a `position: fixed` element is laid out in was 684px tall on an
+  // 874px screen, and `100vh` said 792. Both are short, by different amounts,
+  // so neither can size a layer that has to reach the glass. `screen.height` is
+  // the physical screen and is none of their business.
+  (function () {
+    try {
+      var el = document.documentElement;
+      var h = Math.max(
+        (window.screen && window.screen.height) || 0,
+        window.innerHeight || 0,
+        el.clientHeight || 0
+      );
+      if (h > 0) el.style.setProperty('--sky-h', h + 'px');
+    } catch (e) { /* the 200vh fallback below is deliberately oversized */ }
+  })();
+</script>
 <style>
-  /* top AND bottom, never height.
+  /* An explicit HEIGHT. Never `bottom`, never `auto`.
    *
-   * `height` has to be told how tall the screen is, and every source for that
-   * has now been wrong at least once here: `100vh` resolved to 805pt on an
-   * 874pt screen, and `screen.height` needs JavaScript that may not have run.
-   * `top` and `bottom` need to know nothing — the browser resolves both against
-   * the same box, so -120px on each side is 120px past whatever that box turns
-   * out to be. There is no number left to get wrong. */
+   * ⚠️ `bottom` was tried and broke the background worse than the bug it was
+   * fixing. <video> is a REPLACED element, and for those `height: auto` resolves
+   * to the intrinsic height and `bottom` is simply ignored — so the scenery
+   * stopped less than three quarters of the way down the screen while every
+   * plain <div> in the same rule stretched correctly. If it is ever tempting
+   * again: a rule that works for #sky-bg and not for .bg-video is this one. */
   #sky-bg, .bg-video, #bg-scrim, #lanterns, .overlay {
     position: fixed;
     top: calc(0px - var(--bleed, 120px));
-    bottom: calc(0px - var(--bleed, 120px));
     left: 0;
-    right: 0;
-    width: auto;
-    height: auto;
+    width: 100vw;
+    height: calc(var(--sky-h, 200vh) + var(--bleed, 120px) * 2);
+    bottom: auto;
   }
 </style>
 </head>
