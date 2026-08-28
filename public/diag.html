@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Diagnostics — Are you all right?</title>
+<!-- A page with no stylesheet, no module, no service worker and no cache
+     history. It exists because four rounds were spent guessing at a phone none
+     of us could measure, and every guess was wrong in the same way: the fix was
+     correct and was not on the device.
+
+     Everything here is inline on purpose. A separate .css or .js could be
+     served from the same stale cache as the page it is meant to diagnose. -->
+<style>
+  :root { color-scheme: dark; }
+  html { background: #05060f; }
+  body {
+    margin: 0; padding: 16px 14px 40px;
+    background: #05060f; color: #eaf0ff;
+    font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    -webkit-text-size-adjust: 100%;
+  }
+  h1 { font-size: 17px; margin: 0 0 4px; color: #ffcf8a; letter-spacing: .04em; }
+  p.sub { margin: 0 0 18px; color: rgba(234,240,255,.6); font-size: 13px; }
+  h2 { font-size: 13px; margin: 22px 0 6px; color: #8fb6ff; text-transform: uppercase; letter-spacing: .08em; }
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: 3px 0; vertical-align: top; word-break: break-all; }
+  td.k { color: rgba(234,240,255,.55); width: 46%; padding-right: 10px; }
+  td.v { color: #eaf0ff; font-weight: 600; }
+  .ok { color: #7fe0a8; }
+  .bad { color: #ff9d5c; }
+  .verdict { margin: 18px 0; padding: 12px 14px; border-radius: 12px; font-weight: 700; line-height: 1.45; }
+  .verdict.ok { background: rgba(127,224,168,.12); border: 1px solid rgba(127,224,168,.4); }
+  .verdict.bad { background: rgba(255,157,92,.12); border: 1px solid rgba(255,157,92,.45); }
+  button {
+    width: 100%; margin-top: 20px; padding: 16px; border: none; border-radius: 999px;
+    background: linear-gradient(180deg,#ffcf8a,#ff9d5c); color: #2a1c08;
+    font: 700 16px/1 ui-monospace, monospace; cursor: pointer;
+  }
+  #done { margin-top: 10px; color: #7fe0a8; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>ARE YOU ALRIGHT — DIAGNOSTICS</h1>
+<p class="sub">Screenshot this whole page and send it. Scroll down for the button.</p>
+
+<div id="verdict" class="verdict bad">reading…</div>
+
+<h2>Which build this phone is running</h2>
+<table id="build"></table>
+
+<h2>Screen</h2>
+<table id="screen"></table>
+
+<h2>The sky layer, as this phone computes it</h2>
+<table id="geom"></table>
+
+<h2>Caches</h2>
+<table id="cache"></table>
+
+<button id="fix">FORCE UPDATE AND RELOAD</button>
+<p id="done"></p>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function row(tbl, k, v, cls) {
+    var tr = document.createElement('tr');
+    var a = document.createElement('td'); a.className = 'k'; a.textContent = k;
+    var b = document.createElement('td'); b.className = 'v' + (cls ? ' ' + cls : ''); b.textContent = String(v);
+    tr.appendChild(a); tr.appendChild(b); tbl.appendChild(tr);
+  }
+
+  // ---- screen ----
+  var S = window.screen || {};
+  row($('screen'), 'screen.width x height', (S.width || '?') + ' x ' + (S.height || '?'));
+  row($('screen'), 'innerWidth x innerHeight', innerWidth + ' x ' + innerHeight);
+  row($('screen'), 'devicePixelRatio', window.devicePixelRatio || '?');
+  row($('screen'), 'standalone (home screen)', (window.navigator.standalone === true) ||
+    matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches);
+
+  // The insets, read the only way CSS will give them up.
+  var probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;top:0;left:0;visibility:hidden;' +
+    'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);' +
+    'padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);';
+  document.body.appendChild(probe);
+  var cs = getComputedStyle(probe);
+  row($('screen'), 'safe-area top / bottom', cs.paddingTop + ' / ' + cs.paddingBottom);
+  row($('screen'), 'safe-area left / right', cs.paddingLeft + ' / ' + cs.paddingRight);
+  probe.remove();
+
+  // ---- what a full-bleed layer actually resolves to on THIS phone ----
+  // The same box the sky uses, measured rather than assumed.
+  var t = document.createElement('div');
+  t.style.cssText = 'position:fixed;top:-120px;bottom:-120px;left:0;right:0;visibility:hidden;';
+  document.body.appendChild(t);
+  var r = t.getBoundingClientRect();
+  var sh = S.height || 0;
+  row($('geom'), 'top:-120 bottom:-120 → top', Math.round(r.top) + 'px');
+  row($('geom'), '…→ bottom', Math.round(r.bottom) + 'px');
+  row($('geom'), '…→ height', Math.round(r.height) + 'px');
+  var coversTop = r.top <= 0;
+  var coversBottom = sh ? r.bottom >= sh : r.bottom >= innerHeight;
+  row($('geom'), 'reaches the top edge', coversTop ? 'YES' : 'NO', coversTop ? 'ok' : 'bad');
+  row($('geom'), 'reaches the bottom edge', coversBottom ? 'YES' : 'NO', coversBottom ? 'ok' : 'bad');
+  t.remove();
+
+  var vh = document.createElement('div');
+  vh.style.cssText = 'position:fixed;top:0;height:100vh;visibility:hidden;';
+  document.body.appendChild(vh);
+  row($('geom'), '100vh resolves to', Math.round(vh.getBoundingClientRect().height) + 'px');
+  vh.remove();
+  row($('geom'), 'screen.height (for comparison)', sh ? sh + 'px' : 'unknown');
+
+  // ---- which build ----
+  // Fetched with cache:no-store so this line is the SERVER's answer, then
+  // compared with whatever the phone has for the real page.
+  row($('build'), 'this page loaded at', new Date().toISOString().replace('T', ' ').slice(0, 19) + 'Z');
+
+  function stampOf(html) {
+    var m = html.match(/name="build-stamp"\s+content="([^"]+)"/);
+    return m ? m[1] : null;
+  }
+
+  var live = null, cached = null;
+  fetch('/index.html', { cache: 'no-store' })
+    .then(function (r) { return r.text(); })
+    .then(function (html) {
+      live = stampOf(html);
+      row($('build'), 'server has', live || 'no stamp (build older than the stamp)');
+      return fetch('/index.html');
+    })
+    .then(function (r) { return r.text(); })
+    .then(function (html) {
+      cached = stampOf(html);
+      row($('build'), 'this phone gets', cached || 'no stamp (STALE — older than the stamp)');
+      var v = $('verdict');
+      if (live && cached && live === cached) {
+        v.className = 'verdict ok';
+        v.textContent = 'UP TO DATE — this phone is on the current build (' + live + '). If a black bar is still showing, it is a real layout bug and the numbers above will say why.';
+      } else {
+        v.className = 'verdict bad';
+        v.textContent = 'STALE — this phone is serving an OLD copy of the page. Nothing deployed since then has reached it. Press the button below.';
+      }
+    })
+    .catch(function (e) {
+      row($('build'), 'could not check', String(e));
+    });
+
+  // ---- caches / service worker ----
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function (rs) {
+      row($('cache'), 'service workers registered', rs.length);
+      rs.forEach(function (reg, i) {
+        row($('cache'), 'sw[' + i + '] scope', reg.scope);
+        row($('cache'), 'sw[' + i + '] active', reg.active ? reg.active.scriptURL : 'none');
+      });
+    });
+  } else {
+    row($('cache'), 'service worker support', 'no');
+  }
+  if (window.caches && caches.keys) {
+    caches.keys().then(function (keys) {
+      row($('cache'), 'cache buckets', keys.length ? keys.join(', ') : 'none');
+    });
+  }
+
+  // ---- the escape hatch ----
+  // Everything a stale home-screen web app can be holding: the service worker,
+  // its caches, and the page itself. This is the thing that means nobody has to
+  // delete the icon and add it again.
+  $('fix').addEventListener('click', function () {
+    $('done').textContent = 'clearing…';
+    var jobs = [];
+    if ('serviceWorker' in navigator) {
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+        return Promise.all(rs.map(function (r) { return r.unregister(); }));
+      }).catch(function () {}));
+    }
+    if (window.caches && caches.keys) {
+      jobs.push(caches.keys().then(function (keys) {
+        return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+      }).catch(function () {}));
+    }
+    Promise.all(jobs).then(function () {
+      $('done').textContent = 'cleared — reloading the sky…';
+      // A URL the cache has never seen, so nothing can answer it from a shelf.
+      setTimeout(function () { location.replace('/?fresh=' + Date.now()); }, 400);
+    });
+  });
+})();
+</script>
+</body>
+</html>

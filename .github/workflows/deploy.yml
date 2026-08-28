@@ -233,6 +233,12 @@ jobs:
             printf '%s' "$GEMINI_TTS_MODEL" | npx wrangler pages secret put GEMINI_TTS_MODEL --project-name=bulesky
           fi
 
+      # The stamp a phone compares itself against. Has to change every deploy —
+      # a fixed one makes every stale install look current, which is the exact
+      # failure the stamp exists to catch.
+      - name: Stamp the build
+        run: node tools/stamp-build.mjs
+
       - name: Deploy Pages project (frontend + API)
         id: pages
         env:

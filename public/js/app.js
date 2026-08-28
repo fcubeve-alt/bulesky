@@ -524,26 +524,58 @@ function showError(el, msg) {
   el.classList.remove('hidden');
 }
 
-// Keep --sky-h honest after the page has loaded.
+// Notice when this phone is running an old copy of the site, and fix it.
 //
-// It is first set by an inline script in index.html, before anything paints —
-// read the comment there for why the whole full-bleed rule lives in the HTML.
-// This half exists because rotating a phone swaps the screen's dimensions, and
-// a value that was right in portrait is wrong in landscape.
+// This is the bug that cost four rounds. Three correct fixes were deployed, went
+// green, and were not on the phone: an installed home-screen web app went on
+// serving its own cached page, and from the outside that is indistinguishable
+// from a fix that did not work. Every ?v= bump and the network-first service
+// worker both failed to shift it.
 //
-// Always the LARGER of the physical screen and the viewport: the rule adds the
-// bleed on top, so an over-large value can only make a background layer taller
-// than it needs to be, never shorter. That asymmetry is the point — this must
-// not become a new way for the band to come back.
-function publishScreenHeight() {
-  const set = () => {
-    const h = Math.max((window.screen && window.screen.height) || 0, window.innerHeight || 0);
-    if (h > 0) document.documentElement.style.setProperty('--sky-h', `${h}px`);
-  };
-  set();
-  // iOS reports the new dimensions a beat after the event.
-  window.addEventListener('orientationchange', () => setTimeout(set, 250));
-  window.addEventListener('resize', set);
+// So the page now carries a build stamp and asks the server what the current one
+// is. If they differ, everything a stale install can be holding is thrown away —
+// the service worker, its caches — and the page is reloaded once on a URL the
+// cache has never seen.
+//
+// Rules that keep this from becoming its own bug:
+//   · ONCE per load, guarded in sessionStorage, so a stamp that somehow never
+//     matches cannot put the app in a reload loop.
+//   · Silent. Nobody is told their browser was out of date.
+//   · Never blocks anything. It runs after the sky is already up, and every
+//     failure path just leaves things as they are.
+const STAMP_KEY = 'aya_selfheal_done';
+
+async function healIfStale() {
+  const meta = document.querySelector('meta[name="build-stamp"]');
+  const mine = meta && meta.content;
+  if (!mine) return; // page older than the stamp, or stamping is off
+  try {
+    if (sessionStorage.getItem(STAMP_KEY)) return;
+  } catch {
+    return; // no session storage means no loop guard, so do nothing at all
+  }
+  try {
+    const res = await fetch('/index.html', { cache: 'no-store' });
+    if (!res.ok) return;
+    const html = await res.text();
+    const m = html.match(/name="build-stamp"\s+content="([^"]+)"/);
+    const live = m && m[1];
+    if (!live || live === mine) return;
+
+    sessionStorage.setItem(STAMP_KEY, live);
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
+    }
+    if (window.caches && caches.keys) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
+    }
+    location.replace(`/?fresh=${Date.now()}`);
+  } catch {
+    // Offline, or the fetch failed. An old page that still works is not an
+    // emergency; the next launch tries again.
+  }
 }
 
 // Close the confirmation and show the author what they just wrote.
@@ -1927,7 +1959,9 @@ function init() {
     closeSheet(els.noticeOverlay, els.noticeModal);
   });
 
-  publishScreenHeight();
+  // Last, and never awaited: the sky is already up by here, and a phone that
+  // turns out to be stale reloads itself into the current one.
+  healIfStale();
 
   maybeShowNotice();
   maybeShowIosGuide();

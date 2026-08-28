@@ -347,6 +347,11 @@ function reachableBalloon(page) {
   // 100px is the test's floor, not the design's: the biggest safe-area inset on
   // a phone today is 62pt, and the rule uses 120px. Anything that stops short of
   // clearing 100px cannot clear a notch.
+  //
+  // Read from computed top/bottom rather than from a rect: several of these are
+  // display:none at any given moment (#sky-bg while a video plays, .overlay
+  // until a sheet opens) and a hidden element has no box to measure — but it
+  // still has the offsets the rule gave it.
   const MARGIN = 100;
   const short = await page.evaluate((margin) => {
     const out = [];
@@ -355,9 +360,9 @@ function reachableBalloon(page) {
       if (!el) continue;
       const cs = getComputedStyle(el);
       const top = parseFloat(cs.top);
-      const bottom = top + parseFloat(cs.height);
-      if (!(top <= -margin) || !(bottom >= innerHeight + margin)) {
-        out.push(`${sel} ${Math.round(top)}..${Math.round(bottom)}`);
+      const bottom = parseFloat(cs.bottom);
+      if (!(top <= -margin) || !(bottom <= -margin)) {
+        out.push(`${sel} top=${cs.top} bottom=${cs.bottom}`);
       }
     }
     return out;
@@ -396,30 +401,30 @@ function reachableBalloon(page) {
     `and never sideways, which would move every balloon (left=${sideways.left}, w=${sideways.width})`
   );
 
-  // The height must not come from 100vh alone. A band survived a 120px
-  // overshoot on a real phone, which no reading of 100vh explains, so the rule
-  // takes screen.height — the one number that is not open to interpretation —
-  // and app.js has to publish it.
-  const published = await page.evaluate(() =>
-    getComputedStyle(document.documentElement).getPropertyValue('--sky-h').trim()
-  );
-  check(
-    /^\d+(\.\d+)?px$/.test(published) && parseFloat(published) > 0,
-    `the real screen height is published to the rule (--sky-h: ${published || 'unset'})`
-  );
-
-  // And the layers must actually follow it when it is larger than the viewport
-  // — which is exactly the phone's case and never the desktop's, so it has to
-  // be forced here to be seen at all.
-  const followed = await page.evaluate(() => {
-    const root = document.documentElement;
-    const was = root.style.getPropertyValue('--sky-h');
-    root.style.setProperty('--sky-h', '2000px');
-    const h = parseFloat(getComputedStyle(document.querySelector('#sky-bg')).height);
-    root.style.setProperty('--sky-h', was);
-    return h;
+  // The box must be built from top AND bottom, never from a height.
+  //
+  // A height has to be told how tall the screen is, and every source for that
+  // has been wrong here at least once: 100vh resolved to 805pt on an 874pt
+  // screen. top/bottom need no such number — the browser resolves both against
+  // the same box — so this checks that neither a height nor a viewport unit has
+  // crept back in.
+  const box = await page.evaluate(() => {
+    const out = [];
+    for (const sel of ['#sky-bg', '#bg-scrim', '#lanterns', '.bg-video', '.overlay']) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const cs = getComputedStyle(el);
+      // `bottom` must be a real negative offset, not `auto` — `auto` is what it
+      // becomes the moment someone sets a height again.
+      const bottom = parseFloat(cs.bottom);
+      if (!Number.isFinite(bottom) || bottom > -100) out.push(`${sel} bottom=${cs.bottom}`);
+    }
+    return out;
   });
-  check(followed >= 2200, `and the layers grow to cover it (${Math.round(followed)}px for a 2000px screen)`);
+  check(
+    box.length === 0,
+    `every full-bleed layer is pinned past the bottom edge, not sized (${box.join(', ') || 'all pinned'})`
+  );
 
   // And the rule has to be IN index.html, not in the stylesheet.
   //
@@ -431,7 +436,7 @@ function reachableBalloon(page) {
   const inline = await page.evaluate(async () => {
     const html = await (await fetch('/index.html', { cache: 'no-store' })).text();
     const blocks = html.match(/<style[^>]*>[\s\S]*?<\/style>/gi) || [];
-    return blocks.some((b) => b.includes('--sky-h') && b.includes('#bg-scrim'));
+    return blocks.some((b) => b.includes('#bg-scrim') && /bottom:\s*calc/.test(b));
   });
   check(inline, 'and the rule ships inside index.html, where it cannot go stale on its own');
   await b.close();

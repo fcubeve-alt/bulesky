@@ -713,7 +713,13 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
     // would still leave the top on a clumped schedule and the stream would
     // stutter for the first minute. Spacing the exits by exactly one beat means
     // the cadence is right from the first second.
-    const H = skyH();
+    // Spread across what a person can SEE, not across the whole field. The
+    // field overshoots the screen by the bleed at both ends (style.css), and
+    // seeding over that puts a share of the opening sky above and below the
+    // glass — the first screen comes up emptier than the steady state, which is
+    // the opposite of what seeding is for.
+    const top = seenTop();
+    const H = seenH();
     items.forEach((it, i) => {
       if (!launch(it)) return;
       // Stagger them along their own flight path, one slot each, so the first
@@ -721,7 +727,7 @@ export function createWhisperWorld(viewport, world, { onTap, onNeedMore }) {
       // spawner to fill an empty sky would take a whole flight time. The
       // jitter keeps two balloons from lining up at identical heights.
       const frac = (i + 0.5) / items.length + rand(-0.02, 0.02);
-      it.y = H * 1.02 - Math.max(0, Math.min(1, frac)) * (H * 1.25 + it.h * 2.2);
+      it.y = top + H * 1.02 - Math.max(0, Math.min(1, frac)) * (H * 1.25 + it.h * 2.2);
       it.baseX = pickFreeX(it); // re-choose now that its real height is known
     });
     spawnAcc = 0;

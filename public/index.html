@@ -17,6 +17,10 @@
 <meta name="twitter:title" content="Are you all right?" />
 <meta name="twitter:description" content="A borderless, anonymous night lake where whispers drift as lanterns." />
 <meta name="twitter:image" content="https://cubewithin.com/icons/icon-512.png" />
+<!-- Which build this page is. /diag.html and the self-heal in app.js both read
+     it, and compare the copy a phone is running against the one the server has.
+     Rewritten by tools/stamp-build.mjs on every deploy — do not edit by hand. -->
+<meta name="build-stamp" content="a760102" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <!-- The label under the icon on an iPhone home screen. Without it iOS falls
@@ -35,27 +39,17 @@
 <link rel="stylesheet" href="/css/style.css?v=bleed3" />
 
 <!-- ══ The sky has to reach the edge of the screen. This is the whole rule. ══
-     Kept HERE, inline, rather than in style.css — on purpose, and not because
-     it belongs here.
+     Kept HERE, inline, rather than in style.css — on purpose.
 
-     Three correct fixes in a row reached the server and never reached the
-     phone. Measured off the last screenshot: 100vh resolved to 810pt on an
-     874pt screen with the layers at top:0 — the geometry of a stylesheet two
-     versions old. An installed home-screen web app kept serving /css/style.css
-     from its own cache, and neither the network-first service worker nor a new
-     ?v= could reliably shift it. index.html is the one file that is always
-     re-fetched, so the rule that decides this now travels with it and cannot
-     arrive stale on its own.
+     Four rounds were lost to fixes that were correct and were not on the phone.
+     The last screenshot settled it: the band was #05060f, a colour introduced in
+     one specific commit, and 69pt tall on an 874pt screen — exactly the geometry
+     of THAT commit's stylesheet. An installed home-screen web app was serving
+     /css/style.css from its own cache and no ?v= bump shifted it. index.html is
+     re-fetched, so the rule that decides this travels with it.
 
-     WHY IT OVERSHOOTS INSTEAD OF COMPUTING. `top: 0` and `100vh` have been
-     measured meaning different things in different installs of the same code:
-     once the origin sat below the status bar with 100vh the whole screen (band
-     at the TOP), once the origin sat at the true top with 100vh short by an
-     inset (band at the BOTTOM). There is no correction that is right in both.
-     So this does not compute the box — it overshoots it by 120px past both
-     vertical edges, which is more than the largest inset any phone has (62pt),
-     and takes its height from --sky-h: the physical screen, measured in JS
-     below, which is the one number no viewport definition can distort.
+     See also /diag.html, which says out loud which build a phone is actually
+     running, and the self-heal in app.js that clears a stale one.
 
      VERTICALLY ONLY. A horizontal bleed would move #lanterns' left edge, and
      the balloon world is positioned inside it — every balloon in the sky would
@@ -66,25 +60,23 @@
      .read-overlay (transparent, and it holds the scrolling text), and anything
      carrying a button — every touchable thing is placed with --safe-top /
      --safe-bottom and must stay clear of both bars. -->
-<script>
-  // Before first paint, and inline for the same reason as the rule below: the
-  // one measurement CSS cannot make is how tall the screen actually is.
-  // app.js re-publishes this on resize and rotation.
-  (function () {
-    try {
-      var el = document.documentElement;
-      var h = Math.max(window.screen && window.screen.height || 0, window.innerHeight || 0);
-      if (h > 0) el.style.setProperty('--sky-h', h + 'px');
-    } catch (e) { /* falls back to 100vh below */ }
-  })();
-</script>
 <style>
+  /* top AND bottom, never height.
+   *
+   * `height` has to be told how tall the screen is, and every source for that
+   * has now been wrong at least once here: `100vh` resolved to 805pt on an
+   * 874pt screen, and `screen.height` needs JavaScript that may not have run.
+   * `top` and `bottom` need to know nothing — the browser resolves both against
+   * the same box, so -120px on each side is 120px past whatever that box turns
+   * out to be. There is no number left to get wrong. */
   #sky-bg, .bg-video, #bg-scrim, #lanterns, .overlay {
     position: fixed;
     top: calc(0px - var(--bleed, 120px));
+    bottom: calc(0px - var(--bleed, 120px));
     left: 0;
-    width: 100vw;
-    height: calc(var(--sky-h, 100vh) + var(--bleed, 120px) * 2);
+    right: 0;
+    width: auto;
+    height: auto;
   }
 </style>
 </head>
