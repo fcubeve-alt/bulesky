@@ -240,6 +240,36 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler pages deploy public --project-name=bulesky --commit-dirty=true --branch=main
 
+      # Did the bindings actually take?
+      #
+      # `wrangler pages deploy` prints no binding table — unlike a Worker deploy,
+      # which lists every one — so a deploy that succeeded tells you nothing about
+      # whether VOICE_BUCKET resolved. The site's own probe does: it reports which
+      # store finished readings are written to. This is the difference between
+      # "the deploy was green" and "the change is live", which this project has
+      # now spent several rounds confusing.
+      #
+      # Never fatal. The site is already published by this point, propagation is
+      # not instant, and a probe that cannot be reached is not a reason to mark a
+      # good deploy failed. It is here to put the truth in the log.
+      - name: Report which store the live site is using
+        continue-on-error: true
+        run: |
+          sleep 10
+          out=$(curl -fsS --max-time 20 "https://cubewithin.com/api/voice/1?probe=1" || true)
+          if [ -z "$out" ]; then
+            echo "::warning::Could not reach the probe — skipping the check."
+            exit 0
+          fi
+          store=$(echo "$out" | sed -n 's/.*"store": *"\([a-z0-9]*\)".*/\1/p' | head -1)
+          echo "live store = ${store:-unknown}"
+          if [ "$store" = "r2" ]; then
+            echo "  ok: finished readings are being written to R2"
+          else
+            echo "$out" | head -40
+            echo "::warning::Live store is \"${store:-unknown}\", not r2 — the VOICE_BUCKET binding did not take. Audio is still going into D1. Bind it in the Pages dashboard (Settings → Functions → R2 bucket bindings: VOICE_BUCKET → bulesky-voice) if wrangler.toml is not enough for this project."
+          fi
+
       - name: Deploy retention-cleanup worker
         continue-on-error: true
         env:
