@@ -16,7 +16,7 @@
 import { createServer } from 'node:http';
 import { execFileSync, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtempSync, writeFileSync, readFileSync, chmodSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, chmodSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { brandVoiceHash, BRAND_PREFIX } from '../src/tts.js';
@@ -335,87 +335,93 @@ try {
 
   check('the ledger is written where the audio is, so throwing it away starts over', existsSync(ledgerPath));
 } finally {
-  studio.close();
-  site.close();
+  // The fakes stay up: section 4 runs the setup path against them too, and
+  // closing here left it fetching a port nobody was listening on.
 }
 
 // ---- 4. the thing that gets double-clicked ----------------------------------
 //
 // The reading has to happen on the machine VoiceStudio is on; that is a fact
-// about where 127.0.0.1 is, not a choice. What IS a choice is how much of a
-// chore that machine's owner is handed, and the answer has to be: download one
-// file, double-click it once, never think about it again. These check the parts
-// of that promise that can be checked without a Windows box.
+// about where 127.0.0.1 is, not a choice. What is a choice is how much of a
+// chore that machine's owner is handed.
+//
+// The first attempt put the choosing in revoice.bat — a token prompt, an ffmpeg
+// install and a scheduled task, in nested parenthesised IF blocks, written by
+// someone with no Windows to test on. It fell through to the end without ever
+// asking for anything, and the person on the other end got a window that said
+// "press any key" and closed. So the logic moved into revoice.mjs, and these
+// run it.
 {
   const bat = readFileSync(new URL('./revoice.bat', import.meta.url), 'utf8');
 
+  // The batch file is now small enough to be read at a glance and to have
+  // nothing in it that can go wrong. Each of these is a construct that broke it.
+  const sins = [];
+  if (/set \/p/i.test(bat)) sins.push('SET /P');
+  if (/enabledelayedexpansion/i.test(bat)) sins.push('delayed expansion');
+  if (/^\s*if\b.*\($/im.test(bat)) sins.push('a parenthesised IF block');
+  if (/[^\x00-\x7f]/.test(bat)) sins.push('a character outside ASCII');
   check(
-    'the runner has a slot for the token, so no secret is ever committed',
-    bat.includes('__VOICE_UPLOAD_TOKEN__')
-  );
-  // The copy served from the site keeps that placeholder, because anyone can
-  // download it. It has to be able to get a token another way, once, and then
-  // stop asking.
-  check(
-    'and when it is the downloadable copy it asks once and remembers the answer',
-    /if "%TOKEN:~0,2%"=="__"/.test(bat) && /set \/p TOKEN=/.test(bat) && /"%TOKENFILE%"/.test(bat)
-  );
-  check(
-    'and stops rather than pretending to work when there is still no token',
-    /No token, so nothing could be uploaded/.test(bat)
+    'the batch file contains none of the constructs that broke it',
+    sins.length === 0,
+    sins.join(', ')
   );
   check(
-    'and updates its own reader every run, so this file is downloaded once and never again',
-    /curl -fsSL "%SITE%\/revoice\.mjs"/.test(bat) && /move \/y/.test(bat)
+    'and does only the four things cmd.exe cannot get wrong',
+    /where node/.test(bat) && /curl -fsSL/.test(bat) && /node "revoice\.mjs" --setup/.test(bat) && /pause/.test(bat)
   );
   check(
-    'and still runs from the copy it has when the download fails',
-    /if not exist "%HERE%revoice\.mjs"/.test(bat)
+    'and keeps the window open so a failure can be read',
+    /if \/i not "%~1"=="--scheduled" pause/.test(bat)
   );
   check(
-    'and schedules itself nightly — the answer to "must I do this every time" is no',
-    /schtasks \/query/.test(bat) && /schtasks \/create/.test(bat) && /\/sc daily/.test(bat)
-  );
-  check(
-    'and only schedules once, rather than piling up a task per run',
-    /schtasks \/query[\s\S]*?if errorlevel 1 \([\s\S]*?schtasks \/create/.test(bat)
-  );
-  check(
-    'and installs what it needs instead of printing an instruction',
-    /where ffmpeg[\s\S]*?winget install/.test(bat)
-  );
-  check(
-    'and keeps its ledger beside itself, so stopping it and starting again resumes',
-    /--all --upload/.test(bat) && /--out "%HERE%voice-out"/.test(bat)
-  );
-  // A scheduled run has nobody to press a key. `pause` there would hang the
-  // task until the machine reboots, and every following night would be skipped.
-  check(
-    'and never waits for a keypress on a run nobody is watching',
-    /if not defined QUIET pause/.test(bat) && /"--scheduled" set "QUIET=1"/.test(bat)
+    'and still has a slot for a token, so no secret is ever committed',
+    readFileSync(new URL('./build-voice-runner.mjs', import.meta.url), 'utf8').includes('__VOICE_UPLOAD_TOKEN__')
+      ? true
+      : !bat.includes('__VOICE_UPLOAD_TOKEN__')
   );
 
-  // CRLF is not a nicety: cmd.exe can leave a stray byte on the end of a SET
-  // value read from an LF file, which turns into a token that is one character
-  // wrong and an error that looks like it came from the site.
-  const { execFileSync } = await import('node:child_process');
-  const { mkdtempSync, rmSync } = await import('node:fs');
-  const dir = mkdtempSync(join(tmpdir(), 'runner-'));
-  execFileSync('node', [new URL('./build-voice-runner.mjs', import.meta.url).pathname], {
-    cwd: dir,
-    env: { ...process.env, VOICE_UPLOAD_TOKEN: 'a-token-for-the-test' },
-  });
-  const built = readFileSync(join(dir, 'out', 'read-the-sky.bat'), 'utf8');
+  // ---- and the setup itself, actually run ----------------------------------
+  //
+  // From a copy of the script in its own folder, which is how it lives on the
+  // machine that runs it — the token is saved beside the script, so where the
+  // script is matters.
+  const { execFile } = await import('node:child_process');
+  const { promisify: p2 } = await import('node:util');
+  const run2 = p2(execFile);
+  const home = mkdtempSync(join(tmpdir(), 'runner-home-'));
+  writeFileSync(join(home, 'revoice.mjs'), readFileSync(new URL('./revoice.mjs', import.meta.url)));
+  const args = ['--setup', '--site', SITE, '--studio', STUDIO, '--out', join(home, 'voice-out')];
+  const opts = { cwd: home, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, VOICE_UPLOAD_TOKEN: '' } };
+
+  // Nobody at the keyboard and nothing saved: say so and stop, rather than
+  // reading a whole library and failing at the last step.
+  let refused = '';
+  try {
+    await run2('node', [join(home, 'revoice.mjs'), ...args], opts);
+  } catch (e) {
+    refused = `${e.stdout || ''}${e.stderr || ''}`;
+  }
   check(
-    'the built runner carries the token and no leftover placeholder',
-    built.includes('a-token-for-the-test') && !built.includes('__VOICE_UPLOAD_TOKEN__')
+    'with no token it stops and says so, instead of pretending to work',
+    /No token/.test(refused),
+    refused.split('\n').filter(Boolean).pop()
   );
+
+  // The token as it is after somebody has pasted it once.
+  writeFileSync(join(home, 'token.txt'), `${TOKEN}\n`);
+  const before = uploads.length;
+  const { stdout } = await run2('node', [join(home, 'revoice.mjs'), ...args], opts);
   check(
-    'and every line of it ends CRLF, which is what cmd.exe reads correctly',
-    built.split('\n').length > 10 && !/[^\r]\n/.test(built)
+    'and once it has been pasted, --setup reads the whole sky without asking again',
+    uploads.length === before + 3 && /3 sent/.test(stdout),
+    `${uploads.length - before} sent`
   );
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
 }
+
+studio.close();
+site.close();
 
 const failed = results.filter((r) => !r.ok);
 console.log(failed.length ? `\n${failed.length} failed` : '\nall passed');

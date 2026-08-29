@@ -59,7 +59,9 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync, unlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
+import { createInterface } from 'node:readline/promises';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // ---- the AYA Brand Voice recipe -------------------------------------------
 // Fixed, and fixed together. Changing any one of these changes how every
@@ -103,12 +105,23 @@ const SITE = (opt('site', 'https://cubewithin.com')).replace(/\/$/, '');
 const OUT = opt('out', 'voice-out');
 const ONE_TEXT = opt('text');
 const ONE_ID = opt('id');
-const LIMIT = has('all') ? 500 : Number(opt('limit', 5));
+const LIMIT = has('all') || has('setup') ? 100000 : Number(opt('limit', 5));
 const KEEP_RAW = has('raw');
 const POST = !has('no-post');
-const UPLOAD = has('upload');
+// --setup is what the desktop runner passes. It means: this is somebody's own
+// machine, do everything that machine needs doing — find the token, install
+// what is missing, arrange to run again tomorrow — and then read the whole sky.
+//
+// All of it lives here rather than in revoice.bat on purpose. The batch file
+// tried to do the token prompt itself once, in a nest of parenthesised IF
+// blocks, written by someone with no Windows to test on. It fell through to the
+// end without ever asking. This file can be run; that is the whole argument.
+const SETUP = has('setup');
+const UPLOAD = has('upload') || SETUP;
 const FORCE = has('force');
-const TOKEN = opt('token', process.env.VOICE_UPLOAD_TOKEN || '');
+const HERE = dirname(fileURLToPath(import.meta.url));
+const TOKEN_FILE = join(HERE, 'token.txt');
+let TOKEN = opt('token', process.env.VOICE_UPLOAD_TOKEN || '');
 
 // What made a reading, as one short id. RECIPE and FILTER are one thing, not
 // two: both change how a whisper sounds, and a library is only consistent if
@@ -282,6 +295,112 @@ async function whispers() {
   if (!res.ok) throw new Error(`could not fetch the sky: ${res.status}`);
   const data = await res.json();
   return { list: (data.bubbles || []).slice(0, LIMIT) };
+}
+
+// ---- setting a machine up, once ---------------------------------------------
+//
+// Everything in this section used to be attempted in revoice.bat. It is here
+// because this file can be executed and checked and that one could not.
+
+const TASK_NAME = 'Are you alright - read new whispers';
+
+async function askOnce(question) {
+  // A scheduled run has no console attached. Asking there would hang the task
+  // until the machine reboots, and every following night would be skipped.
+  if (!process.stdin.isTTY) return '';
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return (await rl.question(question)).trim();
+  } finally {
+    rl.close();
+  }
+}
+
+// --token, then the environment, then what was saved last time, then a person.
+// Saved beside this file rather than anywhere clever: delete the folder and the
+// setup is gone, which is what anyone would expect of a folder they made.
+async function resolveToken() {
+  if (TOKEN) return TOKEN;
+  if (existsSync(TOKEN_FILE)) {
+    const saved = readFileSync(TOKEN_FILE, 'utf8').trim();
+    if (saved) return saved;
+  }
+  console.log('This needs the upload token, once.');
+  console.log('It is the value of the GitHub secret VOICE_UPLOAD_TOKEN.\n');
+  const typed = await askOnce('  Paste it here and press Enter: ');
+  if (!typed) return '';
+  writeFileSync(TOKEN_FILE, typed);
+  console.log(`\n  Saved to ${TOKEN_FILE}. It will not ask again.\n`);
+  return typed;
+}
+
+// Returns 'ok' | 'installed-restart' | 'missing'.
+//
+// 'installed-restart' is its own answer because a freshly installed ffmpeg is
+// not on THIS process's PATH — the environment was inherited before it existed.
+// Carrying on would look like the install had failed.
+function ensureFfmpeg() {
+  if (ffmpegAvailable()) return 'ok';
+  if (process.platform !== 'win32') return 'missing';
+  console.log('ffmpeg is missing. Installing it, once...\n');
+  try {
+    execFileSync(
+      'winget',
+      ['install', '--id', 'Gyan.FFmpeg', '-e', '--accept-source-agreements', '--accept-package-agreements'],
+      { stdio: 'inherit' }
+    );
+  } catch {
+    /* reported by the caller */
+  }
+  return ffmpegAvailable() ? 'ok' : 'installed-restart';
+}
+
+// The answer to "do I have to do this every time". Registered once; the guard
+// is a query rather than /f alone, so repeated runs do not pile up tasks.
+function scheduleNightly() {
+  if (process.platform !== 'win32') return 'not-windows';
+  const bat = join(HERE, 'read-the-sky.bat');
+  if (!existsSync(bat)) return 'no-runner';
+  try {
+    execFileSync('schtasks', ['/query', '/tn', TASK_NAME], { stdio: 'ignore' });
+    return 'already';
+  } catch {
+    /* not registered yet */
+  }
+  try {
+    execFileSync(
+      'schtasks',
+      ['/create', '/tn', TASK_NAME, '/tr', `"${bat}" --scheduled`, '/sc', 'daily', '/st', '03:00', '/f'],
+      { stdio: 'ignore' }
+    );
+    return 'created';
+  } catch {
+    return 'failed';
+  }
+}
+
+if (SETUP) {
+  TOKEN = await resolveToken();
+  if (!TOKEN) {
+    console.error('No token, so nothing could be uploaded. Run this again and paste it.');
+    process.exit(1);
+  }
+
+  const ff = ensureFfmpeg();
+  if (ff === 'installed-restart') {
+    console.log('ffmpeg is installed. Close this window and open it again — that is');
+    console.log('the only way this run can see it. Nothing else will need doing.');
+    process.exit(0);
+  }
+  if (ff === 'missing') {
+    console.error('ffmpeg is not installed and could not be installed automatically.');
+    console.error('Install it once from https://www.gyan.dev/ffmpeg/builds/ and run this again.');
+    process.exit(1);
+  }
+
+  const when = scheduleNightly();
+  if (when === 'created') console.log('Scheduled: new whispers are read every night at 3am.\n');
+  if (when === 'failed') console.log('[note] could not schedule the nightly run; open this whenever you like.\n');
 }
 
 // ---- run -------------------------------------------------------------------
