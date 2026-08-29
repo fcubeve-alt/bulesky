@@ -226,31 +226,39 @@ VoiceStudio 生成的音频按同一套存储规则写进同一个桶,`/api/voic
 - `--upload` 拒绝 `--no-post`:WAV 大约是 AAC 的 17 倍,手机喇叭上听不出区别,但存储账单
   会永久乘以 17。
 
-### 9g. Owner 那边要做的(一次性)
+### 9g. Owner 那边要做的 —— 一次,然后再也不用管
 
-**1. 定一个 token,填进 GitHub(不用装 wrangler,不用命令行)**
+**先说清楚为什么还需要那台电脑做任何事:** VoiceStudio 在 `127.0.0.1:3900`,这个地址只在那台
+机器上存在。站点、GitHub、云端容器,没有一个到得了。所以**发声这一步必须在那儿**。
+这是网络拓扑,不是偷懒。
 
-GitHub 仓库 → Settings → Secrets and variables → Actions → New repository secret
-名字 `VOICE_UPLOAD_TOKEN`,值随便一串长的随机字符(自己记住,下一步要用)。
-然后跑一次 **Actions → Deploy to Cloudflare** —— 部署会把它同步进 Cloudflare Pages,
-和 `ADMIN_PASSWORD`、`OPENAI_API_KEY` 走的是同一条路。没填它只会出一条 warning,
-不会让部署失败,`/api/voice/backfill` 就只是关着。
+除此之外全部自动。那台机器上的负担被压到:**下载一个文件,双击一次。**
 
-**2. 在那台 Windows 上,先试听五条 —— 什么都不会被上传**
+**一次性,两步,都在网页上点,不用碰命令行:**
 
-```bat
-node tools/revoice.mjs
-```
+1. GitHub → Settings → Secrets and variables → Actions → New repository secret
+   名字 `VOICE_UPLOAD_TOKEN`,值随便一长串随机字符。**这一步是授权,不是操作。**
+2. Actions → **Voice — make the desktop runner** → Run workflow。
+   它会把 token 装进线上站点(所以门在 runner 存在的时候就已经开着),
+   并产出一个叫 **read-the-sky** 的压缩包。
 
-**3. 听着对了,再读整片天空(可以随时 Ctrl-C,再跑一次会接着来)**
+**然后,在那台 Windows 上,一次:** 解压,确认 VoiceStudio 开着,双击 `read-the-sky.bat`。
 
-```bat
-set VOICE_UPLOAD_TOKEN=第一步那串
-node tools/revoice.mjs --all --upload
-```
+它自己会:
 
-`GET /api/voice/backfill` 会顺便报 `total` 和 `made`,所以**进度是能看见的** ——
-一整夜的生成不该是瞎跑。
+| | |
+|---|---|
+| 更新自己 | 每次运行都从 `/revoice.mjs` 取最新的朗读器 —— **那个 .bat 只需要下载这一次** |
+| 装依赖 | 没有 ffmpeg 就 `winget` 装上,而不是打印一句"请安装" |
+| **排进计划任务** | 每晚 3 点自己跑一次。**"以后是不是每次都要我手动跑" —— 不用** |
+| 断点续传 | 随时关窗口。做过的记在 `voice-out\read.json`,下次跳过 |
+
+`tools/build-voice-runner.mjs` 负责把 token 替换进去并写成 **CRLF** —— 这不是讲究:
+cmd.exe 逐行读 .bat,一个孤立的 LF 会在 SET 的值尾巴上留一个字节,表现出来就是
+"token 差一个字符",而看起来像是站点的错。
+
+> ⚠️ 产出物里带着一条**真的凭证**。它是私有仓库的 build artifact,**永远不进 git**
+> (`.gitignore` 里的 `out/`)。往这个流水线里加东西时必须保持这一条。
 
 ### 9h. 这没有打破"发布不生成"
 

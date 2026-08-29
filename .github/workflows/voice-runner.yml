@@ -1,0 +1,71 @@
+# Build the desktop runner, with the upload token already in it.
+#
+# The reading has to happen on the machine that has VoiceStudio — it answers on
+# 127.0.0.1:3900, an address that exists nowhere else. This workflow makes the
+# part that runs there as close to nothing as it can be: one file, downloaded
+# once, double-clicked once. It then updates itself, installs what it needs, and
+# schedules itself nightly, so no command is ever typed and nothing has to be
+# remembered.
+#
+# It also installs VOICE_UPLOAD_TOKEN into the Pages project, so the door the
+# runner posts through is open by the time the runner exists.
+#
+# One-time setup, in a web form, no terminal:
+#   Settings → Secrets and variables → Actions → New repository secret
+#   Name: VOICE_UPLOAD_TOKEN   Value: any long random string
+# Then run this workflow and download the artifact it produces.
+name: Voice — make the desktop runner
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuse to build a runner that cannot upload
+        env:
+          VOICE_UPLOAD_TOKEN: ${{ secrets.VOICE_UPLOAD_TOKEN }}
+        run: |
+          if [ -z "${VOICE_UPLOAD_TOKEN:-}" ]; then
+            echo "::error::VOICE_UPLOAD_TOKEN is not set. Add it under Settings -> Secrets and variables -> Actions (any long random string), then run this again. A runner built without it would fail on the site-facing half and look like a bug."
+            exit 1
+          fi
+
+      # The token goes into the Pages project here rather than waiting for the
+      # next site deploy — the runner is useless until the endpoint accepts it,
+      # and building one that does not work yet is how a working setup gets
+      # reported as broken.
+      - name: Open the door on the live site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VOICE_UPLOAD_TOKEN: ${{ secrets.VOICE_UPLOAD_TOKEN }}
+        run: printf '%s' "$VOICE_UPLOAD_TOKEN" | npx wrangler pages secret put VOICE_UPLOAD_TOKEN --project-name=bulesky
+
+      - name: Put the token into the runner
+        env:
+          VOICE_UPLOAD_TOKEN: ${{ secrets.VOICE_UPLOAD_TOKEN }}
+        run: node tools/build-voice-runner.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: read-the-sky
+          path: out/
+          retention-days: 30
+
+      - name: What to do with it
+        run: |
+          echo "### The runner is ready" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download **read-the-sky** from the Artifacts box on this page." >> $GITHUB_STEP_SUMMARY
+          echo "2. Unzip it anywhere on the Windows machine that has VoiceStudio." >> $GITHUB_STEP_SUMMARY
+          echo "3. Make sure VoiceStudio is running, then double-click **read-the-sky.bat**." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "That is the whole of it. It installs what it needs, schedules itself for 3am nightly, and reads whatever has not been read. Closing the window is safe — the next run carries on where it stopped." >> $GITHUB_STEP_SUMMARY

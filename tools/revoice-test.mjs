@@ -339,6 +339,73 @@ try {
   site.close();
 }
 
+// ---- 4. the thing that gets double-clicked ----------------------------------
+//
+// The reading has to happen on the machine VoiceStudio is on; that is a fact
+// about where 127.0.0.1 is, not a choice. What IS a choice is how much of a
+// chore that machine's owner is handed, and the answer has to be: download one
+// file, double-click it once, never think about it again. These check the parts
+// of that promise that can be checked without a Windows box.
+{
+  const bat = readFileSync(new URL('./revoice.bat', import.meta.url), 'utf8');
+
+  check(
+    'the runner has a slot for the token, so no secret is ever committed',
+    bat.includes('__VOICE_UPLOAD_TOKEN__')
+  );
+  check(
+    'and updates its own reader every run, so this file is downloaded once and never again',
+    /curl -fsSL "%SITE%\/revoice\.mjs"/.test(bat) && /move \/y/.test(bat)
+  );
+  check(
+    'and still runs from the copy it has when the download fails',
+    /if not exist "%HERE%revoice\.mjs"/.test(bat)
+  );
+  check(
+    'and schedules itself nightly — the answer to "must I do this every time" is no',
+    /schtasks \/query/.test(bat) && /schtasks \/create/.test(bat) && /\/sc daily/.test(bat)
+  );
+  check(
+    'and only schedules once, rather than piling up a task per run',
+    /schtasks \/query[\s\S]*?if errorlevel 1 \([\s\S]*?schtasks \/create/.test(bat)
+  );
+  check(
+    'and installs what it needs instead of printing an instruction',
+    /where ffmpeg[\s\S]*?winget install/.test(bat)
+  );
+  check(
+    'and keeps its ledger beside itself, so stopping it and starting again resumes',
+    /--all --upload/.test(bat) && /--out "%HERE%voice-out"/.test(bat)
+  );
+  // A scheduled run has nobody to press a key. `pause` there would hang the
+  // task until the machine reboots, and every following night would be skipped.
+  check(
+    'and never waits for a keypress on a run nobody is watching',
+    /if not defined QUIET pause/.test(bat) && /"--scheduled" set "QUIET=1"/.test(bat)
+  );
+
+  // CRLF is not a nicety: cmd.exe can leave a stray byte on the end of a SET
+  // value read from an LF file, which turns into a token that is one character
+  // wrong and an error that looks like it came from the site.
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const dir = mkdtempSync(join(tmpdir(), 'runner-'));
+  execFileSync('node', [new URL('./build-voice-runner.mjs', import.meta.url).pathname], {
+    cwd: dir,
+    env: { ...process.env, VOICE_UPLOAD_TOKEN: 'a-token-for-the-test' },
+  });
+  const built = readFileSync(join(dir, 'out', 'read-the-sky.bat'), 'utf8');
+  check(
+    'the built runner carries the token and no leftover placeholder',
+    built.includes('a-token-for-the-test') && !built.includes('__VOICE_UPLOAD_TOKEN__')
+  );
+  check(
+    'and every line of it ends CRLF, which is what cmd.exe reads correctly',
+    built.split('\n').length > 10 && !/[^\r]\n/.test(built)
+  );
+  rmSync(dir, { recursive: true, force: true });
+}
+
 const failed = results.filter((r) => !r.ok);
 console.log(failed.length ? `\n${failed.length} failed` : '\nall passed');
 process.exit(failed.length ? 1 : 0);
