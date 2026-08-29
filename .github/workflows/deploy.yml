@@ -165,6 +165,28 @@ jobs:
           fi
           printf '%s' "$OPENAI_API_KEY" | npx wrangler pages secret put OPENAI_API_KEY --project-name=bulesky
 
+      # The door the site's own voice comes in through
+      # (docs/CURRENT_AUDIO_ARCHITECTURE.md §9). The brand readings are made on
+      # the owner's machine, where VoiceStudio is, and posted to
+      # /api/voice/backfill; this is what that endpoint checks.
+      #
+      # Its own secret on purpose, NOT ADMIN_PASSWORD: it goes into a shell
+      # history and a script on a desktop, and has to be revocable on its own
+      # without locking anyone out of moderation. Unset, the endpoint is simply
+      # closed and every other part of Listen carries on unchanged — so a
+      # missing token is a warning, not a failed deploy.
+      - name: Sync the voice upload token to the Pages project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VOICE_UPLOAD_TOKEN: ${{ secrets.VOICE_UPLOAD_TOKEN }}
+        run: |
+          if [ -z "${VOICE_UPLOAD_TOKEN:-}" ]; then
+            echo "::warning::VOICE_UPLOAD_TOKEN is not set — /api/voice/backfill stays closed, so readings made on the owner's machine cannot be uploaded. Add it under Settings → Secrets and variables → Actions."
+            exit 0
+          fi
+          printf '%s' "$VOICE_UPLOAD_TOKEN" | npx wrangler pages secret put VOICE_UPLOAD_TOKEN --project-name=bulesky
+
       # ElevenLabs, when there is a key for it. This is the provider the Listen
       # button prefers: a plain HTTPS call rather than a platform binding, and
       # the one that actually reads with feeling.

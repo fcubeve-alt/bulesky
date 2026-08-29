@@ -524,28 +524,118 @@ function showError(el, msg) {
   el.classList.remove('hidden');
 }
 
-// Keep --sky-h right after a rotation.
+// Keep the sky covering the glass — and then CHECK that it does.
 //
-// It is first set by an inline script in index.html, before anything paints —
-// read the comment there for why. This half exists only because turning a phone
-// swaps the screen's dimensions.
+// Eleven rounds went into the band under the sky on an installed home-screen
+// app, and every one of them was the same shape of attempt: work out what the
+// right height is, set it, deploy, wait for a photograph. Open loop. When the
+// photograph still showed a band there was no way to tell which of the guesses
+// had been wrong, so the next round guessed again.
 //
-// Always the LARGEST of the three, because the rule adds the bleed on top: an
-// over-large value can only make a background layer taller than it needs to be,
-// never shorter. That asymmetry is deliberate — this must not become a new way
-// for the black band to come back.
+// The numbers are why. On one real iPhone, measured: the box a `position:
+// fixed` element is laid out in was 684px, `100vh` said 792, and the screen is
+// 874. Three numbers for one screen, none of them the screen. Any formula built
+// out of them is a guess about which one lies today.
+//
+// So this stops predicting and starts measuring. --sky-h is still set the same
+// way — the largest of what the browser will admit to, which is right often
+// enough to be the first try — and then every background layer is asked where
+// it ACTUALLY ends, with getBoundingClientRect(), and anything that falls short
+// is grown by exactly the shortfall. It does not need to know why a layer came
+// up short. It can see that it did.
+//
+// Three properties this has that none of the eleven had:
+//
+//   it is closed          a wrong prediction is corrected in the same frame
+//                         instead of in the next deploy
+//   it can only grow      never shrinks a layer, so it cannot become a new way
+//                         for the band to appear
+//   it says what it saw   the measurement is left in localStorage for
+//                         /diag.html to print, so the next round starts with
+//                         numbers from the phone that has the problem
+//
+// ⚠️ BACKGROUNDS ONLY: #sky-bg, #bg-scrim, .bg-video. Deliberately not
+// #lanterns — the balloon world is positioned inside it and changing its height
+// moves every balloon in the sky (docs/SKY_FEED.md). A transparent layer coming
+// up short is not what a band is made of; a background one is.
+const BLEED = 120;
+
+function skyTarget() {
+  return Math.max(
+    (window.screen && window.screen.height) || 0,
+    window.innerHeight || 0,
+    document.documentElement.clientHeight || 0,
+    (window.visualViewport && window.visualViewport.height) || 0
+  );
+}
+
+// Grow one layer until it reaches past both edges. Returns what it settled at.
+function fitLayer(el, target) {
+  let rect = el.getBoundingClientRect();
+  // A layer that is not laid out at all (the videos start .hidden) measures as
+  // zero and would look infinitely short. It gets fitted when it appears.
+  if (!rect.width || !rect.height) return null;
+
+  const before = rect.bottom;
+  for (let i = 0; i < 3; i += 1) {
+    const shortAtTop = rect.top > -BLEED + 1;
+    const shortAtBottom = rect.bottom < target + BLEED - 1;
+    if (!shortAtTop && !shortAtBottom) break;
+
+    if (shortAtTop) {
+      const top = parseFloat(getComputedStyle(el).top) || 0;
+      el.style.top = `${top - (rect.top + BLEED)}px`;
+      rect = el.getBoundingClientRect();
+    }
+    if (rect.bottom < target + BLEED - 1) {
+      el.style.height = `${rect.height + (target + BLEED - rect.bottom)}px`;
+      rect = el.getBoundingClientRect();
+    }
+  }
+  return { top: Math.round(rect.top), bottom: Math.round(rect.bottom), grewBy: Math.round(rect.bottom - before) };
+}
+
 function keepSkyHeight() {
-  const set = () => {
-    const h = Math.max(
-      (window.screen && window.screen.height) || 0,
-      window.innerHeight || 0,
-      document.documentElement.clientHeight || 0
-    );
-    if (h > 0) document.documentElement.style.setProperty('--sky-h', `${h}px`);
+  const run = () => {
+    const target = skyTarget();
+    if (target > 0) document.documentElement.style.setProperty('--sky-h', `${target}px`);
+
+    const seen = {};
+    document.querySelectorAll('#sky-bg, #bg-scrim, .bg-video').forEach((el) => {
+      const at = fitLayer(el, target);
+      if (at) seen[el.id || el.className.split(' ')[0]] = at;
+    });
+
+    // Left for /diag.html rather than shown to anybody. Nobody is told their
+    // sky needed a nudge.
+    try {
+      localStorage.setItem(
+        'sky-fit',
+        JSON.stringify({
+          at: Date.now(),
+          screen: (window.screen && window.screen.height) || 0,
+          inner: window.innerHeight || 0,
+          client: document.documentElement.clientHeight || 0,
+          visual: Math.round((window.visualViewport && window.visualViewport.height) || 0),
+          standalone: !!(window.navigator.standalone || matchMedia('(display-mode: standalone)').matches),
+          target,
+          layers: seen,
+        })
+      );
+    } catch { /* a full or disabled store is not worth a broken sky */ }
   };
+
+  run();
   // iOS reports the new dimensions a beat after the event.
-  window.addEventListener('orientationchange', () => setTimeout(set, 250));
-  window.addEventListener('resize', set);
+  window.addEventListener('orientationchange', () => setTimeout(run, 250));
+  window.addEventListener('resize', run);
+  // A video is display:none until it has something to show, so it cannot be
+  // measured before then — and it is the layer that has behaved differently
+  // from the others before (a replaced element ignores `bottom` and resolves
+  // `height: auto` to its own intrinsic size).
+  document.querySelectorAll('.bg-video').forEach((v) => {
+    v.addEventListener('playing', run);
+  });
 }
 
 // Notice when this phone is running an old copy of the site, and fix it.

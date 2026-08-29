@@ -57,6 +57,9 @@
 <h2>The sky layer, as this phone computes it</h2>
 <table id="geom"></table>
 
+<h2>What the app measured, last time it ran</h2>
+<table id="fit"></table>
+
 <h2>Caches</h2>
 <table id="cache"></table>
 
@@ -150,6 +153,37 @@
   // Fetched with cache:no-store so this line is the SERVER's answer, then
   // compared with whatever the phone has for the real page.
   row($('build'), 'this page loaded at', new Date().toISOString().replace('T', ' ').slice(0, 19) + 'Z');
+
+  // The app itself now measures every background layer against the screen and
+  // grows anything that falls short (keepSkyHeight in app.js). It leaves what it
+  // saw here. These rows are the answer to the question eleven rounds could not
+  // answer from a photograph: was the layer short, and by how much, on THIS
+  // phone.
+  //
+  // `standalone` is the row to read first. The three screen numbers above differ
+  // between Safari and a home-screen app, and a measurement taken in the wrong
+  // one has been mistaken for the app's geometry before.
+  (function () {
+    var note = null;
+    try { note = JSON.parse(localStorage.getItem('sky-fit') || 'null'); } catch (e) { note = null; }
+    if (!note) {
+      row($('fit'), 'nothing recorded', 'open the app once, then come back here', 'bad');
+      return;
+    }
+    row($('fit'), 'opened from the home screen', note.standalone ? 'yes' : 'NO — this is Safari, the numbers differ', note.standalone ? 'ok' : 'bad');
+    row($('fit'), 'screen / inner / client / visual', [note.screen, note.inner, note.client, note.visual].join(' · '));
+    row($('fit'), 'height every layer was fitted to', note.target + 'px');
+    Object.keys(note.layers || {}).forEach(function (name) {
+      var l = note.layers[name];
+      var short = l.bottom < note.target;
+      row(
+        $('fit'),
+        name,
+        'top ' + l.top + ' · bottom ' + l.bottom + (l.grewBy ? ' · was grown by ' + l.grewBy + 'px' : ' · needed no help'),
+        short ? 'bad' : 'ok'
+      );
+    });
+  })();
 
   function stampOf(html) {
     var m = html.match(/name="build-stamp"\s+content="([^"]+)"/);

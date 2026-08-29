@@ -228,15 +228,24 @@ VoiceStudio 生成的音频按同一套存储规则写进同一个桶,`/api/voic
 
 ### 9g. Owner 那边要做的(一次性)
 
-```bash
-# 1. 在 Cloudflare 上开一个只给这件事用的 secret
-wrangler pages secret put VOICE_UPLOAD_TOKEN --project-name <project>
+**1. 定一个 token,填进 GitHub(不用装 wrangler,不用命令行)**
 
-# 2. 在那台 Windows 上,先试听五条,什么都不会被上传
+GitHub 仓库 → Settings → Secrets and variables → Actions → New repository secret
+名字 `VOICE_UPLOAD_TOKEN`,值随便一串长的随机字符(自己记住,下一步要用)。
+然后跑一次 **Actions → Deploy to Cloudflare** —— 部署会把它同步进 Cloudflare Pages,
+和 `ADMIN_PASSWORD`、`OPENAI_API_KEY` 走的是同一条路。没填它只会出一条 warning,
+不会让部署失败,`/api/voice/backfill` 就只是关着。
+
+**2. 在那台 Windows 上,先试听五条 —— 什么都不会被上传**
+
+```bat
 node tools/revoice.mjs
+```
 
-# 3. 听着对了,再读整片天空(可以随时 Ctrl-C,再跑一次会接着来)
-set VOICE_UPLOAD_TOKEN=<刚才那个>
+**3. 听着对了,再读整片天空(可以随时 Ctrl-C,再跑一次会接着来)**
+
+```bat
+set VOICE_UPLOAD_TOKEN=第一步那串
 node tools/revoice.mjs --all --upload
 ```
 

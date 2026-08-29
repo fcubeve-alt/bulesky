@@ -433,6 +433,49 @@ function reachableBalloon(page) {
     `every layer grows with the real screen height, video included (${followed.join(', ') || 'all 2240px'})`
   );
 
+  // ---- and when the prediction is wrong anyway ------------------------------
+  //
+  // Eleven rounds were spent predicting the right height, deploying, and waiting
+  // for a photograph to say whether the prediction had been right. This is the
+  // check that the app no longer needs the photograph: a background layer is
+  // broken here in exactly the way a real one broke — a <video> left at its own
+  // intrinsic height, which is what `height: auto` resolves to for a replaced
+  // element and how the scenery once stopped 274pt short — and the page is
+  // expected to notice and put it back on its own.
+  //
+  // If this goes red, the app is back to guessing.
+  const healed = await page.evaluate(async () => {
+    const video = document.querySelector('.bg-video');
+    video.classList.remove('hidden');
+    video.style.height = '150px';
+    const broken = video.getBoundingClientRect().bottom;
+
+    window.dispatchEvent(new Event('resize'));
+    await new Promise((r) => requestAnimationFrame(r));
+
+    const target = Math.max(
+      (window.screen && window.screen.height) || 0,
+      window.innerHeight || 0,
+      document.documentElement.clientHeight || 0
+    );
+    const now = video.getBoundingClientRect();
+    return { broken: Math.round(broken), bottom: Math.round(now.bottom), target };
+  });
+  check(
+    healed.bottom >= healed.target,
+    `a layer that comes up short is measured and put back, without a deploy (${healed.broken}px → ${healed.bottom}px, screen ${healed.target})`
+  );
+
+  // What it saw is left where the next round can read it, so a phone with the
+  // problem reports its own numbers instead of being guessed about.
+  const noted = await page.evaluate(() => {
+    try { return JSON.parse(localStorage.getItem('sky-fit') || 'null'); } catch { return null; }
+  });
+  check(
+    !!noted && typeof noted.target === 'number' && !!noted.layers,
+    `and it writes down what it measured (${noted ? `target ${noted.target}, ${Object.keys(noted.layers).length} layers` : 'nothing'})`
+  );
+
   // And the sky gradient stays behind the video as a backstop, so a gap can
   // never again be flat black.
   const backstop = await page.evaluate(() => {
