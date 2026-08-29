@@ -1,0 +1,25 @@
+# Cloudflare Pages response headers.
+#
+# The page must never be cached with a lifetime. Four days were lost to an
+# installed iOS home-screen app serving one copy of index.html no matter what
+# was deployed, and every fix in it was invisible for as long as that copy
+# lived. `no-cache` does not mean "do not store" — it means "do not use this
+# without asking the server first", which is exactly the contract the HTML
+# needs: instant when nothing changed (a 304), current when something did.
+#
+# The hashed assets underneath are a different question and are left alone;
+# they are revalidated by the service worker.
+/
+  Cache-Control: no-cache, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, must-revalidate
+
+/diag.html
+  Cache-Control: no-cache, must-revalidate
+
+# The one file a browser refetches on its own, and therefore the only reliable
+# way back onto a phone that has stopped taking updates. Never let anything sit
+# in front of it.
+/sw.js
+  Cache-Control: no-cache, must-revalidate

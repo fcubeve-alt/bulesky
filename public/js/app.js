@@ -661,8 +661,12 @@ const STAMP_KEY = 'aya_selfheal_done';
 
 async function healIfStale() {
   const meta = document.querySelector('meta[name="build-stamp"]');
-  const mine = meta && meta.content;
-  if (!mine) return; // page older than the stamp, or stamping is off
+  // No stamp at all means this page is older than the stamp itself — which is
+  // to say, as stale as a page can be. It used to return here, and that single
+  // line is why three correct fixes were invisible for four days: the self-heal
+  // switched itself off on exactly the phones that needed it. A missing stamp
+  // is now the strongest possible evidence of staleness, not a reason to stop.
+  const mine = (meta && meta.content) || '(none)';
   try {
     if (sessionStorage.getItem(STAMP_KEY)) return;
   } catch {

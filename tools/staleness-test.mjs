@@ -14,7 +14,7 @@
 //   npm i -D playwright && python3 -m http.server 8788 --directory public
 //   node tools/staleness-test.mjs
 import { chromium } from 'playwright';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 
 const BASE = process.env.SITE || 'http://127.0.0.1:8788';
 
@@ -86,6 +86,80 @@ const b = await chromium.launch({ executablePath: browserPath() });
   const freshLoads = urls.filter((u) => /[?&]fresh=\d+/.test(u)).length;
   check(freshLoads === 1, `and only once, never a reload loop (${freshLoads} fresh loads)`);
   await ctx.close();
+}
+
+// ---- the page that is older than the stamp itself ---------------------------
+//
+// The case above is the easy one: a page with a stamp that does not match. The
+// one that actually happened is worse. An installed home-screen app served a
+// copy from BEFORE the stamp was introduced, so there was no stamp to compare —
+// and the check opened with `if (!mine) return`. On the only phones that needed
+// rescuing, the rescue switched itself off. Three correct fixes were invisible
+// for four days behind that one line.
+//
+// A page with no stamp is not an unknown. It is the oldest page there is.
+{
+  const ctx = await b.newContext();
+  const page = await ctx.newPage();
+  const urls = [];
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) urls.push(f.url()); });
+  await page.route('**/api/**', (r) => r.fulfill({ json: {} }));
+  await page.route('**/api/bubbles**', (r) => r.fulfill({ json: { bubbles: [] } }));
+  let served = 0;
+  await page.route(`${BASE}/`, async (r) => {
+    served += 1;
+    const res = await r.fetch();
+    let html = await res.text();
+    // The stamp is removed outright, exactly as a pre-stamp build has none.
+    if (served === 1) html = html.replace(/<meta name="build-stamp"[^>]*>/, '');
+    return r.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html });
+  });
+
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  const ok = page.locator('#notice-ok');
+  if (await ok.isVisible().catch(() => false)) await ok.click();
+  await page.waitForURL(/[?&]fresh=\d+/, { timeout: 8000 }).catch(() => {});
+  check(
+    urls.some((u) => /[?&]fresh=\d+/.test(u)),
+    'a page with no stamp at all is treated as the oldest page there is, and heals'
+  );
+  await ctx.close();
+}
+
+// ---- the way back onto a phone that has stopped listening -------------------
+//
+// Everything above is code that lives in the page, and a page that will not
+// update cannot run it. A service worker script is the one file a browser
+// refetches on its own — on navigation, at least daily, bypassing the HTTP
+// cache — so it is the only reliable channel to an install that has gone deaf.
+// These are asserted as text because they cannot be exercised without a phone
+// in that state.
+{
+  const sw = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
+  check(
+    /clients\.matchAll\(\s*\{\s*type:\s*'window'/.test(sw) && /client\.navigate/.test(sw),
+    'the service worker can navigate a window that is showing an old copy'
+  );
+  check(
+    /stale\.length/.test(sw),
+    'and only does it when it actually found an older cache, never on every deploy'
+  );
+  // 'no-cache' asks the browser to check with the server; an installed iOS web
+  // app can decline. 'reload' does not ask.
+  check(
+    /cache:\s*navigating\s*\?\s*'reload'/.test(sw),
+    'and the page itself is fetched bypassing the HTTP cache, not merely revalidated'
+  );
+
+  const headers = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8');
+  const noCache = ['/', '/index.html', '/sw.js'].filter((path) => {
+    const block = headers.split(/\n(?=\/)/).find((b) => b.trim().startsWith(`${path}\n`) || b.trim() === path);
+    return block && /Cache-Control:\s*no-cache/.test(block);
+  });
+  check(
+    noCache.length === 3,
+    `and nothing may sit in front of the page or the worker (${noCache.join(', ') || 'none'})`
+  );
 }
 
 // A phone that is already current must not reload at all.
