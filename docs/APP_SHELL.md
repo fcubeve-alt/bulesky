@@ -95,3 +95,46 @@ node tools/cors-test.mjs        # App 能过、后台不能过
 ### 还卡着的只有账号
 
 上架资料(名称、描述、关键词、隐私问卷逐项答案、年龄分级、给审核员的备注)全部写在 `docs/APP_STORE.md`,是可以直接往表单里粘的成品。**图标做好了,隐私清单在构建里,流水线就位了 —— 剩下的是去注册 Apple 开发者账号,审核 1–3 天,其他所有事都能和它并行。**
+
+---
+
+## ⚠️ App 满屏(2026-08)—— 黑边不在网页里,在原生窗口里
+
+`docs/HANDOVER.md` §1 记的那条黑边,查了十次都在查 CSS。**网页那一半其实早就对了**:
+`tools/sky-feedback-test.mjs` 里"每一层都溢出屏幕两端"的断言一直是绿的,因为网页从来没有
+错——错的是**网页被放进去的那个原生窗口**。WebView 被摆在状态栏和导航栏**之间**,两头各
+剩一条窗口底色,任何 CSS 都够不着那里。
+
+Capacitor 的脚手架默认就是错的,两个平台各错一处:
+
+| 平台 | 脚手架默认 | 后果 | 现在 |
+|---|---|---|---|
+| iOS | `contentInset: "always"` | WKWebView 按安全区把内容内缩,上下各留一条 | `"never"` |
+| Android | 主题不透明 + `decorFitsSystemWindows` 为真 | 网页被夹在两根系统栏之间 | 见下面三条 |
+
+### Android 要三条同时成立,少一条黑边就回来
+
+1. **`styles.xml`**:`statusBarColor` / `navigationBarColor` 透明,`windowDrawsSystemBarBackgrounds` 为真。
+   —— 单有这条,只是把系统栏的颜色换成了窗口底色,边还在。
+2. **`MainActivity.onCreate`**:`WindowCompat.setDecorFitsSystemWindows(getWindow(), false)`。
+   —— 这条才真正让 WebView **画到系统栏底下**,而不是它们中间。
+3. **`values-v27/styles.xml`**:`windowLayoutInDisplayCutoutMode = shortEdges`。
+   —— 少这条,有刘海的机器会把窗口整个压到刘海下面,还是那条黑边,只是换到了顶上。
+
+`androidx.core:core` 在 `app/build.gradle` 里**显式**写了一行:`WindowCompat` 是靠传递依赖进来的,
+只在 runtime classpath 上,不写这行编译不过。
+
+### 还有一条:四个面必须同色
+
+能在 WebView 之前或背后露出来的面有四个 —— `<html>` 画的画布、iOS 窗口底色、Android 窗口
+底色、启动图背景。**任何一个和别人不一样,那个不一样本身就是一条可见的边**,症状和布局
+错完全一样。现在四个都是 `#05060f`,由 `tools/app-fullscreen-test.mjs` 断言。
+
+### 怎么验
+
+```bash
+node tools/app-fullscreen-test.mjs
+```
+不需要模拟器、不需要设备、不需要构建 —— 上面每一条都是配置文件里的一行,谁都可能顺手
+"整理"掉,而下一次发现要等一张手机截图。所以按文本断死。
+

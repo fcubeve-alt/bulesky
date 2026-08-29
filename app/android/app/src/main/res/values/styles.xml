@@ -9,10 +9,37 @@
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
+    <!-- The theme the app actually runs under.
+
+         Edge to edge. The sky is the whole screen, so the WebView is drawn
+         behind the status bar and behind the navigation bar rather than
+         between them. Three things together make that true and none of them
+         works alone:
+
+           these transparent bar colours     without them the bars are painted
+                                             solid and the sky stops at their
+                                             edge — the band that was reported
+           MainActivity's setDecorFitsSystemWindows(false)
+                                             without it the WebView is still
+                                             LAID OUT inside the bars, so the
+                                             colours above just reveal
+                                             windowBackground underneath
+           viewport-fit=cover in index.html  without it the page has no
+                                             env(safe-area-inset-*) and every
+                                             button sits under a system bar
+
+         windowBackground is the sky's own near-black, the same value <html>
+         paints on the canvas (public/css/style.css). It is what shows during
+         the frame between the splash going away and the first paint, and
+         matching it means that frame is invisible instead of a flash. -->
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <item name="android:windowBackground">@color/skyBackground</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
 

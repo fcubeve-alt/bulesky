@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The one colour the app is allowed to show that is not the sky itself.
+         Same value as `html { background-color }` in public/css/style.css and
+         as backgroundColor in app/capacitor.config.json — the three surfaces
+         that can be seen before or behind the WebView. They have to match, or
+         the seam between them is the black band all over again. -->
+    <color name="skyBackground">#05060f</color>
+</resources>

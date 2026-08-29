@@ -45,7 +45,14 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- The sky reaches the top of the glass, so the clock and the battery sit
+	     directly on it. Light glyphs, decided here for the whole app rather than
+	     per view controller: there is one view controller, it is Capacitor's, and
+	     leaving this true gives it the default dark glyphs — black text on a
+	     night sky. Nothing in the app ever wants a light status bar. -->
 	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<true/>
+	<false/>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
 </dict>
 </plist>
