@@ -33,7 +33,20 @@ jobs:
       - name: Publish the desktop reader
         run: |
           cp tools/revoice.mjs public/revoice.mjs
+          # The runner itself, downloadable rather than hunted for in a build
+          # artifact. GitHub only offers a "Run workflow" button for workflows
+          # that exist on the DEFAULT branch, so the workflow that builds a
+          # token-carrying runner is invisible from any other branch — which is
+          # a fine way to build something nobody can obtain. A plain URL always
+          # works. It ships with the token placeholder intact and asks for the
+          # token once on first run, because a file anyone can download must not
+          # carry a credential.
+          python3 - <<'PY'
+          bat = open('tools/revoice.bat', encoding='utf-8').read()
+          open('public/read-the-sky.bat', 'w', encoding='utf-8', newline='\r\n').write(bat)
+          PY
           echo "published /revoice.mjs ($(wc -c < public/revoice.mjs) bytes)"
+          echo "published /read-the-sky.bat ($(wc -c < public/read-the-sky.bat) bytes)"
 
       - name: Ensure D1 database exists
         env:

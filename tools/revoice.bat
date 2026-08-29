@@ -24,8 +24,9 @@ setlocal enabledelayedexpansion
 chcp 65001 >nul 2>nul
 
 set "SITE=https://cubewithin.com"
-set "VOICE_UPLOAD_TOKEN=__VOICE_UPLOAD_TOKEN__"
+set "TOKEN=__VOICE_UPLOAD_TOKEN__"
 set "HERE=%~dp0"
+set "TOKENFILE=%HERE%token.txt"
 set "TASK=Are you alright - read new whispers"
 
 rem --- scheduled runs pass --scheduled, and must never wait for a keypress ---
@@ -37,6 +38,39 @@ echo   Reading the sky in the brand voice.
 echo   site   %SITE%
 echo   studio http://127.0.0.1:3900
 echo.
+
+rem --- 0. the token ----------------------------------------------------------
+rem This file is downloadable from the site, so it cannot ship with a secret in
+rem it. It asks once and keeps the answer next to itself.
+rem
+rem The copy built by tools/build-voice-runner.mjs has the token substituted in
+rem already and never reaches this block. The test is on the first two
+rem characters rather than the whole placeholder so that it holds whether that
+rem substitution replaces one occurrence or all of them — a real token does not
+rem begin with two underscores.
+if "%TOKEN:~0,2%"=="__" (
+  if exist "%TOKENFILE%" (
+    set /p TOKEN=<"%TOKENFILE%"
+  ) else (
+    echo   First run, so it needs the upload token once.
+    echo   It is the value you put in the GitHub secret VOICE_UPLOAD_TOKEN.
+    echo.
+    set /p TOKEN="   Paste it and press Enter: "
+    if not "!TOKEN!"=="" (
+      >"%TOKENFILE%" echo !TOKEN!
+      echo   Saved beside this file. It will not ask again.
+    )
+    echo.
+  )
+)
+if "!TOKEN!"=="" (
+  echo   No token, so nothing could be uploaded. Run this again and paste it.
+  goto :done
+)
+if "!TOKEN:~0,2!"=="__" (
+  echo   No token, so nothing could be uploaded. Run this again and paste it.
+  goto :done
+)
 
 rem --- 1. the reader itself, always the current one --------------------------
 rem Fetched every run rather than shipped once. This file is the only thing that
@@ -95,7 +129,7 @@ if errorlevel 1 (
 
 rem --- 5. read whatever has not been read ------------------------------------
 echo.
-node "%HERE%revoice.mjs" --all --upload --site "%SITE%" --out "%HERE%voice-out"
+node "%HERE%revoice.mjs" --all --upload --site "%SITE%" --out "%HERE%voice-out" --token "!TOKEN!"
 
 :done
 echo.

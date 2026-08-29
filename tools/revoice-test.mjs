@@ -353,6 +353,17 @@ try {
     'the runner has a slot for the token, so no secret is ever committed',
     bat.includes('__VOICE_UPLOAD_TOKEN__')
   );
+  // The copy served from the site keeps that placeholder, because anyone can
+  // download it. It has to be able to get a token another way, once, and then
+  // stop asking.
+  check(
+    'and when it is the downloadable copy it asks once and remembers the answer',
+    /if "%TOKEN:~0,2%"=="__"/.test(bat) && /set \/p TOKEN=/.test(bat) && /"%TOKENFILE%"/.test(bat)
+  );
+  check(
+    'and stops rather than pretending to work when there is still no token',
+    /No token, so nothing could be uploaded/.test(bat)
+  );
   check(
     'and updates its own reader every run, so this file is downloaded once and never again',
     /curl -fsSL "%SITE%\/revoice\.mjs"/.test(bat) && /move \/y/.test(bat)
