@@ -83,16 +83,29 @@ export async function hash() {
 // 暗号 (a passphrase) and told you to remember it. My Sky answers that now, and
 // looking anyone up by name is gone, so the name has exactly one job left.
 //
-// ONE PHONE, ONE NAME. Asked for once, on the first thing you write, and from
+// ONE STORE, ONE NAME. Asked for once, on the first thing you write, and from
 // then on shown rather than asked — the compose sheet says "as 夜里的猫" instead
 // of holding out an empty box. Changing it is possible, but from My Sky, which
 // is a deliberate act rather than something that happens because a field was
 // sitting there at two in the morning.
 //
-// It also makes a person countable. With a fresh name on every whisper there is
-// no way to tell forty whispers by one person from forty people — though note
-// the count itself has always come from the device secret's hash, not from the
-// name. What one name per phone fixes is that the sky now READS as it counts.
+// ⚠️ It is one store, NOT one phone, and the difference is the whole caveat.
+// localStorage is scoped to one browser profile on one origin. The same phone
+// therefore holds a separate identity in Safari, another in Chrome, another in
+// every private window, and another again in a page added to the home screen —
+// each of them empty, each asking for a name, each becoming a new "person" in
+// the numbers. One person can hold ten without meaning to.
+//
+// Nothing here can join them up. What could — canvas/font fingerprinting and
+// friends — is exactly what this site promises not to do, and would not survive
+// App Store review either. So the site does three things instead: it offers to
+// carry an existing identity across at the moment a new one would be minted
+// (the line under the name box on the first whisper), it lets a recovery code
+// merge them back down at any time, and it reports the count honestly as an
+// upper bound rather than as people (functions/api/admin/stats.js).
+//
+// Inside the App this really is one device: one WebView, one store, no private
+// windows. That is a reason the App matters beyond distribution.
 const NAME_KEY = 'aya_author_name';
 
 // Whether this device has settled on a name yet. One phone, one name: it is

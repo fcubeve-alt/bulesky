@@ -9,6 +9,11 @@
   --radius-md: 15px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  /* How far the full-bleed layers overshoot the viewport, top and bottom. Must
+     stay larger than the biggest safe-area inset on any phone (62pt today). */
+  --bleed: 120px;
 }
 
 * { box-sizing: border-box; }
@@ -22,21 +27,47 @@ html, body {
   overflow: hidden;
   overscroll-behavior: none;
 }
+/* The one background that is allowed to be wrong, and therefore must not be.
+ *
+ * A colour set on <html> is propagated to the CANVAS — the surface behind
+ * everything, which extends past the layout viewport into the notch and the
+ * home-indicator strip. Nothing else can paint there. Left unset it is white,
+ * and on an iPhone home-screen install that is exactly what showed: a white bar
+ * under the sky. Every other layer here is `position: fixed`, which cannot
+ * reach outside the viewport no matter how it is sized.
+ *
+ * ⚠️ Do not remove this because "something else covers it". Nothing else can. */
+html { background-color: #05060f; }
 body { position: fixed; inset: 0; }
 
 .hidden { display: none !important; }
 
-/* ---- Background: plain dark fallback shown behind/without a video ---- */
-#sky-bg {
+/* ---- One box, for everything that has to fill the glass ----
+ *
+ * ⚠️ THE RULE ITSELF IS NOT HERE. It is an inline <style> in index.html, and
+ * that is deliberate — see the comment there before moving it back.
+ *
+ * The short version: this file is fetched by its own URL, and three correct
+ * fixes in a row reached the server and never reached the phone, because an
+ * installed home-screen web app kept serving the stylesheet it already had.
+ * index.html is the one file that is always re-fetched, so the one rule that
+ * decides whether the sky reaches the edge of the screen now travels with it.
+ *
+ * What stays here is everything that only PAINTS these layers — colour, z-index,
+ * pointer-events — and the two layers that must NOT bleed. */
+#scene,
+.read-overlay {
   position: fixed;
   inset: 0;
+}
+
+/* ---- Background: plain dark fallback shown behind/without a video ---- */
+#sky-bg {
   z-index: 0;
   background:
     radial-gradient(120% 90% at 50% 18%, #131a38 0%, #0a0e22 45%, #05060f 100%);
 }
 #scene {
-  position: fixed;
-  inset: 0;
   z-index: 1;
   pointer-events: none;
 }
@@ -74,10 +105,6 @@ body { position: fixed; inset: 0; }
 /* Two stacked layers crossfade between playlist clips. Both sit at z-index 0
    and 1; the active one fades to opacity 1 (.bg-show), the other to 0. */
 .bg-video {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
   object-fit: cover;
   z-index: 0;
   pointer-events: none;
@@ -90,22 +117,23 @@ body { position: fixed; inset: 0; }
   z-index: 1;
 }
 #bg-scrim {
-  position: fixed;
-  inset: 0;
   z-index: 2;
   pointer-events: none;
   background: linear-gradient(180deg, rgba(4, 6, 16, 0.32) 0%, rgba(4, 6, 16, 0.42) 55%, rgba(3, 5, 12, 0.6) 100%);
 }
-/* When a video background is active, hide the procedural lake layers. */
-body.has-video #sky-bg,
+/* When a video background is active, hide the procedural lake layers.
+ *
+ * #sky-bg is NOT hidden with them any more, and that is the point: it is the
+ * backstop. It sits at z-index 0, the video covers it completely at z-index 1,
+ * and it costs one gradient — but if the video ever fails to reach an edge
+ * again, what shows there is night sky rather than the flat black that has been
+ * reported four times. Insurance, not decoration. */
 body.has-video #scene,
 body.has-video #mountains,
 body.has-video #mist { display: none; }
 
 /* ---- Whispers (pannable world of lanterns) ---- */
 #lanterns {
-  position: fixed;
-  inset: 0;
   z-index: 5;
   overflow: hidden;
   touch-action: none;
@@ -658,8 +686,6 @@ body.has-video #mist { display: none; }
 
 /* ---- Sheets ---- */
 .overlay {
-  position: fixed;
-  inset: 0;
   background: rgba(3, 5, 14, 0.6);
   backdrop-filter: blur(3px);
   z-index: 40;
@@ -867,6 +893,9 @@ button { font-family: inherit; }
 #compose-sheet .name-field input::placeholder, #reply-sheet .name-field input::placeholder { color: rgba(40, 44, 56, 0.3); }
 #compose-sheet .cx-cancel { color: #8a8f9b; }
 #compose-sheet .cx-hint { color: #b07a3c; }
+/* The way back for someone who has written here in another browser. A quiet
+   line under the name box, on the paper-coloured sheet — an offer, not a step. */
+#compose-sheet .link-btn { color: #8a6a3f; text-align: left; line-height: 1.4; }
 #compose-sheet .crisis-banner {
   background: rgba(255, 157, 92, 0.1);
   border-color: rgba(255, 157, 92, 0.32);
@@ -893,8 +922,6 @@ button { font-family: inherit; }
 
 /* ---- Whisper read view: transparent, credits-style upward scroll ---- */
 .read-overlay {
-  position: fixed;
-  inset: 0;
   z-index: 40;
   pointer-events: auto; /* taps on empty space close the view */
 }

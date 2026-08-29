@@ -14,25 +14,23 @@ database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 [ai]
 binding = "AI"
 
-# Finished readings (the Listen audio). OPTIONAL — and it must stay commented
-# out until the bucket actually exists, because Pages fails a deploy on a
-# binding it cannot resolve, and a site going dark over a storage change is a
-# bad trade.
+# Finished readings (the Listen audio). The bucket exists now, so this is on.
 #
-# Audio currently lives in D1, sliced into rows, in the same database the sky
-# and the reading view query on every tap. That is fine at today's size (55
-# readings, 9.3MB) and it is the first thing that breaks at App scale — this
-# project has already had one round of "the whole site got slow" caused by
-# audio sitting next to the whispers.
+# Audio used to live in D1, sliced into rows, in the same database the sky and
+# the reading view query on every tap — and D1 storage costs 50x what R2 costs
+# per GB. At 169KB a reading that is the difference between about $8 a month and
+# about $0.09 at 100,000 readings, and between $117 and $2.30 at a million. R2
+# also charges nothing for egress, which is the bill that would actually hurt
+# when the library is measured in hundreds of gigabytes.
 #
-# To switch it on:
-#   1. npx wrangler r2 bucket create bulesky-voice
-#   2. uncomment the three lines below and deploy
-#   3. check https://cubewithin.com/api/voice/1?probe=1 says "store": "r2"
+# Nothing is migrated and nothing needs to be: reads try R2 and then D1, so
+# readings made before the bucket existed keep playing, and new ones are written
+# to R2. Old rows age out on their own.
 #
-# Nothing has to be migrated. Reads try R2 and then D1, so readings made before
-# the bucket existed keep playing; new ones are written to R2.
-#
-# [[r2_buckets]]
-# binding = "VOICE_BUCKET"
-# bucket_name = "bulesky-voice"
+# ⚠️ Pages FAILS A DEPLOY on a binding it cannot resolve. The deploy workflow
+# checks this bucket exists before it publishes, so a wrong name here stops with
+# a message that names the buckets it did find, rather than with wrangler's own.
+# Check it landed: https://cubewithin.com/api/voice/1?probe=1 says "store":"r2"
+[[r2_buckets]]
+binding = "VOICE_BUCKET"
+bucket_name = "bulesky-voice"

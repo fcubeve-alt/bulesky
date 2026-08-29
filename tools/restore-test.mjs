@@ -58,8 +58,11 @@ async function phone(browser) {
   await page.route('**/api/me**', (r) => {
     const hash = r.request().headers()['x-author'] || null;
     seen.me.push(hash);
-    const mine = hash && hash === publishedHash ? [{ ...WHISPER, itemType: 'bubble' }] : [];
-    return r.fulfill({ json: { mine, saved: [], gone: 0 } });
+    const owns = Boolean(hash) && hash === publishedHash;
+    const mine = owns ? [{ ...WHISPER, itemType: 'bubble' }] : [];
+    // The server has always known the name — it is the `code` on every whisper.
+    // The browser is the only thing that loses it.
+    return r.fulfill({ json: { name: owns ? WHISPER.code : '', mine, saved: [], gone: 0 } });
   });
   await page.route('**/api/bubbles**', (r) => {
     const req = r.request();
@@ -141,6 +144,17 @@ const listed = await second.page.evaluate(() => {
 });
 check(listed && listed.rows === 1, `the whisper from the lost phone is back (${listed && listed.count})`);
 
+// The name comes back with it, without being asked for again.
+//
+// The recovery code carries the secret and nothing else, so a restored phone
+// used to be recognised — its whispers listed, its delete button offered —
+// while still asking "你的名字" as though it had never written anything. The
+// name was never lost; it is the `code` on every whisper the server holds.
+const restoredName = await second.page.evaluate(() => localStorage.getItem('aya_author_name'));
+check(restoredName === WHISPER.code, `the name comes back with the identity (${restoredName})`);
+const nameLine = (await second.page.locator('#mysky-name').textContent()) || '';
+check(nameLine.includes(WHISPER.code), `and My Sky says who this phone is (${nameLine.trim()})`);
+
 // …and it is deletable, which is the half that actually needed the secret
 // rather than the hash.
 // The list starts folded (My Sky opens as four quiet lines), so open it first.
@@ -155,7 +169,37 @@ check(
   !seen.me.includes(firstSecret) && !seen.detail.includes(firstSecret),
   'the secret never went out on a read — only its hash did'
 );
+
+// …and the next whisper from this phone goes out under that name, unasked.
+await second.page.click('#read-close');
+await second.page.waitForSelector('#read-overlay', { state: 'hidden', timeout: 3000 });
+await second.page.click('#entry-pain');
+await second.page.waitForSelector('#compose-sheet:not(.hidden)', { timeout: 3000 });
+const asksAgain = await second.page.locator('#compose-code').isVisible();
+const asLine = (await second.page.locator('#compose-as').textContent()) || '';
+check(!asksAgain, 'the restored phone is not asked for a name a second time');
+check(asLine.includes(WHISPER.code), `the sheet says who it goes out as (${asLine.trim().slice(0, 30)})`);
 await second.ctx.close();
+
+// ---- the name comes back on its own, without opening My Sky ----
+//
+// The commonest way to lose it is not a lost phone at all: it is the same
+// person in a different browser, or one who cleared the site's data. They open
+// the app and write — they never go near the panel — so the name has to be
+// back before the compose sheet is opened, not when something is looked up.
+{
+  const fourth = await phone(browser);
+  await fourth.page.evaluate((s) => localStorage.setItem('aya_author_secret', s), firstSecret);
+  await fourth.page.reload({ waitUntil: 'domcontentloaded' });
+  const n = fourth.page.locator('#notice-ok');
+  if (await n.isVisible().catch(() => false)) await n.click();
+  await fourth.page
+    .waitForFunction(() => localStorage.getItem('aya_author_name'), { timeout: 4000 })
+    .catch(() => {});
+  const back = await fourth.page.evaluate(() => localStorage.getItem('aya_author_name'));
+  check(back === WHISPER.code, `an identity with no name gets it back on load (${back})`);
+  await fourth.ctx.close();
+}
 
 // ---- a wrong code changes nothing ----
 {

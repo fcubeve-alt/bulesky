@@ -65,7 +65,13 @@ async function open({ detailDelayMs = 0, mine = false, mySky = null, locale = 'e
     if (/\/api\/bubbles\/\d+$/.test(req.url())) {
       if (detailDelayMs) await new Promise((res) => setTimeout(res, detailDelayMs));
       const id = Number(req.url().match(/(\d+)$/)[1]);
-      return r.fulfill({ json: { bubble: { ...W(id), mine, saved: false }, replies: [] } });
+      // 99 is what POST hands back, and the reading view opens on it the moment
+      // the confirmation closes. It has to answer with the words that were
+      // actually written, or the check below reads the stub's filler instead.
+      const bubble = id === 99
+        ? { ...W(99), content: '刚刚写的这一条', code: 'tester', mine: true, saved: false }
+        : { ...W(id), mine, saved: false };
+      return r.fulfill({ json: { bubble, replies: [] } });
     }
     return r.fulfill({ json: { bubbles: Array.from({ length: 12 }, (_, i) => W(i + 1)) } });
   });
@@ -108,6 +114,19 @@ function reachableBalloon(page) {
   check(early === 0, `nothing is launched behind the confirmation (${early} in the air)`);
 
   await page.click('#confirm-close');
+
+  // First the words, then the balloon. The author reads what they just wrote in
+  // the reading view — the same view a tap on a balloon opens — because a ring
+  // around a dot in a sky of dots is not "I can see what I wrote": "发完之后马上
+  // 就变成气球了，有时候还要找一下才找得到".
+  await page.waitForSelector('#read-overlay:not(.hidden)', { timeout: 3000 });
+  const shownBack = (await page.locator('#read-content').textContent()) || '';
+  check(shownBack.includes('刚刚写的这一条'), `the words are on the screen straight away (${shownBack.trim().slice(0, 14)})`);
+
+  // And letting go of them leaves the balloon rising, so nothing is spent by
+  // reading it once.
+  await page.click('#read-close');
+  await page.waitForSelector('#read-overlay', { state: 'hidden', timeout: 3000 });
   await page.waitForSelector('.lantern.spotlight', { timeout: 3000 });
   const mine = page.locator('.lantern.spotlight').first();
   check(
@@ -295,6 +314,148 @@ function reachableBalloon(page) {
   await page.waitForTimeout(200);
   const stillOn = await page.evaluate(() => document.getElementById('music-icon').getAttribute('aria-pressed'));
   check(stillOn === 'true', 'tapping again closes the panel and leaves the music playing');
+  await b.close();
+}
+
+// 9. Nothing but sky, all the way to the edge of the glass.
+//
+// Reported twice from an iPhone home-screen install: a band across the bottom,
+// then a band across the top, then a band across the bottom again. Two separate
+// things have to hold.
+//
+// The canvas — the surface behind everything, and the only one that reaches
+// into the notch and the home-indicator strip — takes its colour from <html>.
+// Unset it is white, and no `position: fixed` layer can cover it. That was the
+// white bar.
+//
+// The full-bleed layers then have to reach past both screen edges themselves.
+// They cannot compute where those edges are: `top: 0` and `100vh` were measured
+// meaning different things in two different installs of the same code, so the
+// rule overshoots instead. What is pinned here is the overshoot — a browser
+// with no insets cannot see a band, but it can see whether the layers are built
+// to clear one.
+{
+  const { b, page } = await open();
+  await page.waitForTimeout(600);
+
+  const canvas = await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+  const rgb = (canvas.match(/\d+/g) || []).map(Number);
+  const opaque = rgb.length === 3 || (rgb.length === 4 && rgb[3] !== 0);
+  const dark = rgb.length >= 3 && rgb[0] + rgb[1] + rgb[2] < 120;
+  check(opaque && dark, `the canvas behind everything is painted dark (${canvas})`);
+
+  // 100px is the test's floor, not the design's: the biggest safe-area inset on
+  // a phone today is 62pt and the rule uses 120px, and the real gap measured on
+  // the reported phone was 190px between the fixed-positioning box and the
+  // glass. Anything that stops short of clearing 100px cannot clear a notch.
+  //
+  // Read from computed values rather than from a rect: several of these are
+  // display:none at any given moment (.overlay until a sheet opens, .bg-video
+  // before a clip loads) and a hidden element has no box — but it still has the
+  // offsets and the height the rule gave it.
+  const MARGIN = 100;
+  const short = await page.evaluate((margin) => {
+    const out = [];
+    for (const sel of ['#sky-bg', '#bg-scrim', '#lanterns', '.bg-video', '.overlay']) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const cs = getComputedStyle(el);
+      const top = parseFloat(cs.top);
+      const bottom = top + parseFloat(cs.height);
+      if (!(top <= -margin) || !(bottom >= innerHeight + margin)) {
+        out.push(`${sel} ${Math.round(top)}..${Math.round(bottom)}`);
+      }
+    }
+    return out;
+  }, MARGIN);
+  check(
+    short.length === 0,
+    `every full-bleed layer overshoots both screen edges (${short.join(', ') || `all clear by ${MARGIN}px+`})`
+  );
+
+  // The two that deliberately do NOT bleed still have to cover the viewport
+  // exactly — a taller #scene would move the waterline, a shifted .read-overlay
+  // would move the words.
+  const exact = await page.evaluate(() => {
+    const out = [];
+    for (const sel of ['#scene', '.read-overlay']) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const cs = getComputedStyle(el);
+      const top = parseFloat(cs.top);
+      const h = parseFloat(cs.height);
+      if (Math.abs(top) > 1 || Math.abs(h - innerHeight) > 1) out.push(`${sel} top=${Math.round(top)} h=${Math.round(h)}`);
+    }
+    return out;
+  });
+  check(exact.length === 0, `the lake and the reading view stay exactly on the viewport (${exact.join(', ') || 'both exact'})`);
+
+  // And the bleed must not leak sideways: the balloon world is positioned
+  // inside #lanterns, so a horizontal offset would shift every balloon in the
+  // sky by that much.
+  const sideways = await page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector('#lanterns'));
+    return { left: parseFloat(cs.left), width: parseFloat(cs.width) };
+  });
+  check(
+    Math.abs(sideways.left) < 1 && Math.abs(sideways.width - 390) < 2,
+    `and never sideways, which would move every balloon (left=${sideways.left}, w=${sideways.width})`
+  );
+
+  // Every layer must FOLLOW --sky-h, and the <video> most of all.
+  //
+  // This is the check that would have caught the worst regression in this whole
+  // saga. The rule was briefly written as top+bottom with height:auto, which
+  // stretches a <div> correctly and does NOT stretch a <video>: for replaced
+  // elements `height: auto` resolves to the intrinsic height and `bottom` is
+  // ignored. Every div in the rule looked right while the scenery stopped at
+  // 600pt on an 874pt screen. So .bg-video is checked by the same measure as
+  // the rest, deliberately, and 2000px is forced because no desktop viewport
+  // would ever exercise it.
+  const followed = await page.evaluate(() => {
+    const root = document.documentElement;
+    const was = root.style.getPropertyValue('--sky-h');
+    root.style.setProperty('--sky-h', '2000px');
+    const out = [];
+    for (const sel of ['#sky-bg', '#bg-scrim', '#lanterns', '.bg-video', '.overlay']) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const cs = getComputedStyle(el);
+      const h = parseFloat(cs.height);
+      const top = parseFloat(cs.top);
+      if (!(h >= 2200) || !(top <= -100)) out.push(`${sel} top=${cs.top} h=${cs.height}`);
+    }
+    root.style.setProperty('--sky-h', was);
+    return out;
+  });
+  check(
+    followed.length === 0,
+    `every layer grows with the real screen height, video included (${followed.join(', ') || 'all 2240px'})`
+  );
+
+  // And the sky gradient stays behind the video as a backstop, so a gap can
+  // never again be flat black.
+  const backstop = await page.evaluate(() => {
+    document.body.classList.add('has-video');
+    const d = getComputedStyle(document.querySelector('#sky-bg')).display;
+    document.body.classList.remove('has-video');
+    return d;
+  });
+  check(backstop !== 'none', `the sky gradient stays behind the video as a backstop (display: ${backstop})`);
+
+  // And the rule has to be IN index.html, not in the stylesheet.
+  //
+  // Not a style preference — the reason is the bug. Three correct fixes reached
+  // the server and never reached the phone, because an installed home-screen web
+  // app went on serving /css/style.css from its own cache while re-fetching the
+  // page itself. A rule that decides whether the sky reaches the edge of the
+  // screen must not be able to arrive stale on its own.
+  const inline = await page.evaluate(async () => {
+    const html = await (await fetch('/index.html', { cache: 'no-store' })).text();
+    const blocks = html.match(/<style[^>]*>[\s\S]*?<\/style>/gi) || [];
+    return blocks.some((b) => b.includes('#bg-scrim') && b.includes('--sky-h'));
+  });
+  check(inline, 'and the rule ships inside index.html, where it cannot go stale on its own');
   await b.close();
 }
 

@@ -626,7 +626,7 @@ $('open-stats').addEventListener('click', async () => {
   try {
     const d = await api('/api/admin/stats');
     const rows = [
-      ['People who have written something', d.writers, 'distinct devices — one hash, one device. A phone and a laptop are two; a phone restored from a recovery code is still one.'],
+      ['Writing identities', d.writers, 'An upper bound on people, not a count of them. One identity is one browser profile: a different browser, a private window, or a home-screen web app on the SAME phone each start a new one. Restoring with a recovery code merges back into one. Read it as "at most this many people".'],
       ['…in the last 7 days', d.writersWeek, ''],
       ['…in the last 30 days', d.writersMonth, ''],
       ['Whispers in the sky', d.whispers, ''],

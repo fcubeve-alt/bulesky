@@ -17,13 +17,87 @@
 <meta name="twitter:title" content="Are you all right?" />
 <meta name="twitter:description" content="A borderless, anonymous night lake where whispers drift as lanterns." />
 <meta name="twitter:image" content="https://cubewithin.com/icons/icon-512.png" />
+<!-- Which build this page is. /diag.html and the self-heal in app.js both read
+     it, and compare the copy a phone is running against the one the server has.
+     Rewritten by tools/stamp-build.mjs on every deploy — do not edit by hand. -->
+<meta name="build-stamp" content="a760102" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
+<!-- The label under the icon on an iPhone home screen. Without it iOS falls
+     back to the manifest's short_name, which read "Starry Mind" — a name from
+     an early draft that appears nowhere else in the product. It is the site's
+     own name here, the same words the top bar shows. iOS truncates a long label
+     to about twelve characters with an ellipsis, which is why it is not
+     "Are you all right?".
+     ⚠️ Read only when the icon is added. Changing it does nothing to an icon
+     already on someone's home screen — that one has to be removed and re-added. -->
+<meta name="apple-mobile-web-app-title" content="Are you alright?" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 <link rel="icon" href="/icons/icon-192.png" />
-<link rel="stylesheet" href="/css/style.css?v=read34" />
+<link rel="stylesheet" href="/css/style.css?v=bleed3" />
+
+<!-- ══ The sky has to reach the edge of the screen. This is the whole rule. ══
+     Kept HERE, inline, rather than in style.css — on purpose.
+
+     Four rounds were lost to fixes that were correct and were not on the phone.
+     The last screenshot settled it: the band was #05060f, a colour introduced in
+     one specific commit, and 69pt tall on an 874pt screen — exactly the geometry
+     of THAT commit's stylesheet. An installed home-screen web app was serving
+     /css/style.css from its own cache and no ?v= bump shifted it. index.html is
+     re-fetched, so the rule that decides this travels with it.
+
+     See also /diag.html, which says out loud which build a phone is actually
+     running, and the self-heal in app.js that clears a stale one.
+
+     VERTICALLY ONLY. A horizontal bleed would move #lanterns' left edge, and
+     the balloon world is positioned inside it — every balloon in the sky would
+     shift sideways with it.
+
+     NOT IN THIS LIST, deliberately: #scene (the lake — HORIZON is a fraction of
+     its height, so a taller box moves the waterline; #sky-bg bleeds behind it),
+     .read-overlay (transparent, and it holds the scrolling text), and anything
+     carrying a button — every touchable thing is placed with --safe-top /
+     --safe-bottom and must stay clear of both bars. -->
+<script>
+  // How tall the screen actually is. Set before anything paints.
+  //
+  // The diagnostics page finally measured what CSS believes on a real phone:
+  // the box a `position: fixed` element is laid out in was 684px tall on an
+  // 874px screen, and `100vh` said 792. Both are short, by different amounts,
+  // so neither can size a layer that has to reach the glass. `screen.height` is
+  // the physical screen and is none of their business.
+  (function () {
+    try {
+      var el = document.documentElement;
+      var h = Math.max(
+        (window.screen && window.screen.height) || 0,
+        window.innerHeight || 0,
+        el.clientHeight || 0
+      );
+      if (h > 0) el.style.setProperty('--sky-h', h + 'px');
+    } catch (e) { /* the 200vh fallback below is deliberately oversized */ }
+  })();
+</script>
+<style>
+  /* An explicit HEIGHT. Never `bottom`, never `auto`.
+   *
+   * ⚠️ `bottom` was tried and broke the background worse than the bug it was
+   * fixing. <video> is a REPLACED element, and for those `height: auto` resolves
+   * to the intrinsic height and `bottom` is simply ignored — so the scenery
+   * stopped less than three quarters of the way down the screen while every
+   * plain <div> in the same rule stretched correctly. If it is ever tempting
+   * again: a rule that works for #sky-bg and not for .bg-video is this one. */
+  #sky-bg, .bg-video, #bg-scrim, #lanterns, .overlay {
+    position: fixed;
+    top: calc(0px - var(--bleed, 120px));
+    left: 0;
+    width: 100vw;
+    height: calc(var(--sky-h, 200vh) + var(--bleed, 120px) * 2);
+    bottom: auto;
+  }
+</style>
 </head>
 <body>
 
@@ -198,9 +272,15 @@
     <span id="compose-code-label" class="chip"></span>
     <input id="compose-code" type="text" maxlength="25" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
   </div>
-  <!-- Shown INSTEAD of the box above, once this phone has a name. One phone,
-       one name: it is asked for on the first whisper and never again, so what
-       is left to say is which name this is going out under. -->
+  <!-- Shown with the box above, only while this browser has no name yet. A
+       different browser, a private window or a home-screen web app on the same
+       phone all arrive here with empty storage, and typing a new name is how
+       one person quietly becomes five. This is the moment to offer the other
+       door — before the new identity exists. -->
+  <button id="compose-restore" type="button" class="link-btn hidden"></button>
+  <!-- Shown INSTEAD of the box above, once this browser has a name. It is asked
+       for on the first whisper and never again, so what is left to say is which
+       name this is going out under. -->
   <p id="compose-as" class="cx-hint hidden"></p>
   <input id="compose-hp" type="text" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
   <p id="compose-public-hint" class="cx-hint"></p>

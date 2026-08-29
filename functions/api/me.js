@@ -27,7 +27,7 @@ export async function onRequestGet({ request, env }) {
   const hash = cleanHash(request.headers.get('x-author'));
   // Not an error — a device that has never written anything simply has an empty
   // sky, and the panel says so rather than showing a failure.
-  if (!hash) return json({ mine: [], saved: [] });
+  if (!hash) return json({ name: '', mine: [], saved: [] });
 
   const { results: mine } = await env.DB.prepare(
     `SELECT id, type, content, warmth, lights, created_at
@@ -67,6 +67,29 @@ export async function onRequestGet({ request, env }) {
   // fix — it is the design working — but a shelf that silently shrinks is
   // unsettling, so the interface can say "one of the stories you kept has left
   // the sky" instead of just losing it.
+  // The name this device writes under, according to the server.
+  //
+  // The browser keeps it in localStorage, but localStorage is not the same
+  // lifetime as the identity: clear the site's data, restore onto a new phone
+  // with a recovery code, or open the site in a different browser after
+  // adopting the secret, and the device still IS the same author — the server
+  // matches the hash and shows the delete button — while the name box is empty
+  // and asks who you are all over again. That was the report: "他能识别这个手机
+  // 的话…他也应该能显示名字才对".
+  //
+  // The name was never lost. Every whisper carries it as `code`, so the most
+  // recent one is what this person is currently known as, and the client adopts
+  // it when it has none of its own. One phone, one name — restored rather than
+  // asked for again.
+  const namedRow = await env.DB.prepare(
+    `SELECT code FROM bubbles
+      WHERE author_hash = ? AND code IS NOT NULL AND code <> ''
+      ORDER BY created_at DESC
+      LIMIT 1`
+  )
+    .bind(hash)
+    .first();
+
   const gone = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM saves s
       WHERE s.author_hash = ?
@@ -79,6 +102,7 @@ export async function onRequestGet({ request, env }) {
     .first();
 
   return json({
+    name: (namedRow && namedRow.code) || '',
     mine: mine || [],
     saved: [
       ...(savedBubbles || []).map((b) => ({ ...b, itemType: 'bubble' })),

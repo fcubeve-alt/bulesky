@@ -65,6 +65,7 @@ const els = {
   composeCodeLabel: $('compose-code-label'),
   composeCode: $('compose-code'),
   composeAs: $('compose-as'),
+  composeRestore: $('compose-restore'),
   composeHp: $('compose-hp'),
   composeError: $('compose-error'),
   composeCancel: $('compose-cancel'),
@@ -204,6 +205,7 @@ function applyText() {
   els.composeSub.textContent = t('composeSub');
   els.composeCodeLabel.textContent = t('composeNameChip');
   els.composeCode.placeholder = t('codePlaceholder');
+  els.composeRestore.textContent = t('composeRestore');
   els.replyCodeLabel.textContent = t('replyNameChip');
   els.composeCancel.textContent = t('cancel');
   els.composeSubmit.textContent = t('submit');
@@ -421,7 +423,7 @@ function openCompose(type) {
   // going out as. Handing someone an editable name field on every whisper is
   // what produced a person with forty names and a sky that could not be
   // counted.
-  showNameField(els.composeCode.parentElement, els.composeAs, els.composeCode);
+  showNameField(els.composeCode.parentElement, els.composeAs, els.composeCode, els.composeRestore);
   els.composeCount.textContent = '0 / 1000';
   els.composeError.classList.add('hidden');
   els.composeHp.value = '';
@@ -464,8 +466,22 @@ async function submitCompose() {
     // already near the top or gone, and the whole thing read as "I posted it
     // and it vanished". It is held instead, then launched into a readable tier
     // in the middle of the screen with a ring around it.
-    state.pendingMine = { id: data.id, type: data.type, content: data.content, warmth: 0, lights: 0 };
-    showConfirm(data, firstEver && Boolean(secret));
+    state.pendingMine = { id: data.id, type: data.type, content: data.content, code: data.code, warmth: 0, lights: 0 };
+    // The confirmation sheet exists for the things you only need told once: the
+    // name you now go by, and the recovery code that is the only way back to
+    // your own words. On the second whisper it has nothing left to say — the
+    // compose sheet already showed the name on the way in — and repeating it
+    // turns sending into a form with an OK button on the end.
+    //
+    // "第二次你发送的时候这些就没必要出现了…后面就不要再有又跳出一个,太啰唆了."
+    // So from the second whisper on it is skipped entirely and the words go
+    // straight up: the balloon into the sky, the reading view onto the text.
+    //
+    // The one exception is a whisper the crisis check flagged. That sheet is
+    // carrying a phone number to somebody who may need it tonight, and being
+    // brief is not worth more than that.
+    if (firstEver || data.crisisFlag) showConfirm(data, firstEver && Boolean(secret));
+    else releaseMyWhisper();
     loadWhispers();
   } catch {
     showError(els.composeError, t('errorGeneric'));
@@ -481,7 +497,7 @@ async function submitCompose() {
 // no way to change it here — changing it is a deliberate act done from My Sky,
 // not something that happens because an editable field was sitting on the
 // screen at two in the morning.
-function showNameField(row, line, input) {
+function showNameField(row, line, input, restore) {
   const name = identity.displayName();
   row.classList.toggle('hidden', Boolean(name));
   line.classList.toggle('hidden', !name);
@@ -491,6 +507,16 @@ function showNameField(row, line, input) {
   } else {
     input.value = '';
   }
+  // "One phone, one name" is true of the App, where there is one WebView and
+  // one store. On the web it is true of one BROWSER PROFILE: Safari, Chrome, a
+  // private window and a home-screen web app on the same phone are four empty
+  // stores, and each one asks for a name as though it had met a new person.
+  //
+  // Nothing can join them up from here — the only techniques that could are
+  // fingerprinting ones, and this site does not do that. What can be done is
+  // ask, at the one moment it is still cheap: before the new identity exists,
+  // offer to bring the old one across instead.
+  if (restore) restore.classList.toggle('hidden', Boolean(name));
 }
 
 function showError(el, msg) {
@@ -498,16 +524,111 @@ function showError(el, msg) {
   el.classList.remove('hidden');
 }
 
-// Close the confirmation and send the author's own whisper up, ringed, into a
-// readable tier in the part of the sky they are looking at. Both ways out of
-// the sheet come here, so there is no way to dismiss it and not see the
-// balloon.
+// Keep --sky-h right after a rotation.
+//
+// It is first set by an inline script in index.html, before anything paints —
+// read the comment there for why. This half exists only because turning a phone
+// swaps the screen's dimensions.
+//
+// Always the LARGEST of the three, because the rule adds the bleed on top: an
+// over-large value can only make a background layer taller than it needs to be,
+// never shorter. That asymmetry is deliberate — this must not become a new way
+// for the black band to come back.
+function keepSkyHeight() {
+  const set = () => {
+    const h = Math.max(
+      (window.screen && window.screen.height) || 0,
+      window.innerHeight || 0,
+      document.documentElement.clientHeight || 0
+    );
+    if (h > 0) document.documentElement.style.setProperty('--sky-h', `${h}px`);
+  };
+  // iOS reports the new dimensions a beat after the event.
+  window.addEventListener('orientationchange', () => setTimeout(set, 250));
+  window.addEventListener('resize', set);
+}
+
+// Notice when this phone is running an old copy of the site, and fix it.
+//
+// This is the bug that cost four rounds. Three correct fixes were deployed, went
+// green, and were not on the phone: an installed home-screen web app went on
+// serving its own cached page, and from the outside that is indistinguishable
+// from a fix that did not work. Every ?v= bump and the network-first service
+// worker both failed to shift it.
+//
+// So the page now carries a build stamp and asks the server what the current one
+// is. If they differ, everything a stale install can be holding is thrown away —
+// the service worker, its caches — and the page is reloaded once on a URL the
+// cache has never seen.
+//
+// Rules that keep this from becoming its own bug:
+//   · ONCE per load, guarded in sessionStorage, so a stamp that somehow never
+//     matches cannot put the app in a reload loop.
+//   · Silent. Nobody is told their browser was out of date.
+//   · Never blocks anything. It runs after the sky is already up, and every
+//     failure path just leaves things as they are.
+const STAMP_KEY = 'aya_selfheal_done';
+
+async function healIfStale() {
+  const meta = document.querySelector('meta[name="build-stamp"]');
+  const mine = meta && meta.content;
+  if (!mine) return; // page older than the stamp, or stamping is off
+  try {
+    if (sessionStorage.getItem(STAMP_KEY)) return;
+  } catch {
+    return; // no session storage means no loop guard, so do nothing at all
+  }
+  try {
+    const res = await fetch('/index.html', { cache: 'no-store' });
+    if (!res.ok) return;
+    const html = await res.text();
+    const m = html.match(/name="build-stamp"\s+content="([^"]+)"/);
+    const live = m && m[1];
+    if (!live || live === mine) return;
+
+    sessionStorage.setItem(STAMP_KEY, live);
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
+    }
+    if (window.caches && caches.keys) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
+    }
+    location.replace(`/?fresh=${Date.now()}`);
+  } catch {
+    // Offline, or the fetch failed. An old page that still works is not an
+    // emergency; the next launch tries again.
+  }
+}
+
+// Close the confirmation and show the author what they just wrote.
+//
+// Two things happen, and the order is the point. The whisper is put into the
+// sky as a ringed balloon in a readable tier — and then the reading view opens
+// on it, the same view a tap on any balloon gives, so the words are on the
+// screen and drifting upward the moment the confirmation is out of the way.
+//
+// A ringed balloon on its own was not enough. "发完之后马上就变成气球了，有时候
+// 还要找一下才找得到" — you write something at two in the morning, press send,
+// and the thing you wrote turns into a dot you have to go looking for. Closing
+// the reading view leaves the balloon still rising underneath, so nothing is
+// lost by opening it: you read it once, then let it go.
+//
+// Both ways out of the sheet come here — and from the second whisper on there
+// is no sheet at all and submitCompose calls this directly, so this is the one
+// place a published whisper reaches the sky. The closeSheet below is a no-op
+// when the sheet was never opened.
 function releaseMyWhisper() {
   closeSheet(els.confirmOverlay, els.confirmSheet);
   const mine = state.pendingMine;
   if (!mine) return;
   state.pendingMine = null;
   whisperWorld.pin(mine, { spotlight: true });
+  // No rect: this is not zooming out of a balloon the eye was already on, it
+  // opens on the words themselves. `mine` is passed as the known whisper so
+  // nothing waits on the network — same rule as tapping a balloon.
+  openDetail(mine.id, null, mine);
 }
 
 function showConfirm(data, showRecovery = false) {
@@ -1289,6 +1410,45 @@ function resultGroup(title, count) {
 // Found by the secret this device holds — not by typing a name into a box, the
 // way it used to work. A name is printed under every whisper; a secret is not
 // written down anywhere a reader can see it.
+function showMyName() {
+  const name = identity.displayName();
+  els.myskyName.textContent = name ? t('mySkyName').replace('{name}', name) : '';
+  els.myskyName.classList.toggle('hidden', !name);
+  els.myskyRename.classList.toggle('hidden', !name);
+  els.myskyNameInput.value = name;
+  els.myskyNameInput.placeholder = t('codePlaceholder');
+  els.myskyNameSave.textContent = t('renameSave');
+}
+
+// Get the name back from the server when this browser has lost it.
+//
+// The identity and the name are stored in the same place but do not travel
+// together: a recovery code carries the secret onto a new phone and nothing
+// else, and clearing site data takes the name while the person is still the
+// same author. Either way the device ends up recognised — its whispers are
+// listed, the delete button appears — and yet asked "你的名字" as if it had
+// never written anything.
+//
+// So ask the server, which has known all along. Only when there is no local
+// name: a name typed here is the one that counts, and this must never quietly
+// overwrite a rename that has not reached a whisper yet.
+async function syncName() {
+  if (!identity.hasSecret() || identity.hasName()) return;
+  try {
+    const hash = await identity.hash();
+    if (!hash) return;
+    const res = await fetch(apiUrl('/api/me'), { headers: { 'x-author': hash } });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.name || identity.hasName()) return;
+    identity.rememberName(data.name);
+    showMyName();
+  } catch {
+    // Offline, or the request failed. The name box comes back, which is the
+    // old behaviour — nothing is broken by not knowing.
+  }
+}
+
 async function loadMySky() {
   const box = els.mysky;
   box.textContent = '';
@@ -1299,13 +1459,7 @@ async function loadMySky() {
   // The name lives here when you are not writing — and this is the ONLY place
   // it can be changed, which is what makes "one phone, one name" true rather
   // than merely default.
-  const name = identity.displayName();
-  els.myskyName.textContent = name ? t('mySkyName').replace('{name}', name) : '';
-  els.myskyName.classList.toggle('hidden', !name);
-  els.myskyRename.classList.toggle('hidden', !name);
-  els.myskyNameInput.value = name;
-  els.myskyNameInput.placeholder = t('codePlaceholder');
-  els.myskyNameSave.textContent = t('renameSave');
+  showMyName();
   const code = identity.hasSecret() ? identity.recoveryCode() : null;
   els.recoveryBox.open = false;
   els.recoveryNote.classList.toggle('hidden', !code);
@@ -1347,6 +1501,13 @@ async function loadMySky() {
     const data = await res.json();
     if (!res.ok) throw new Error('failed');
 
+    // The same answer already carries the name, so a device that arrived here
+    // without one gets it back without a second request.
+    if (data.name && !identity.hasName()) {
+      identity.rememberName(data.name);
+      showMyName();
+    }
+
     const mine = data.mine || [];
     const saved = data.saved || [];
     const any = mine.length > 0 || saved.length > 0;
@@ -1374,6 +1535,8 @@ function restoreIdentity() {
   }
   els.restoreInput.value = '';
   els.myskyMsg.textContent = t('restoreOk');
+  // The code carries the secret and nothing else, so the name on the new phone
+  // is still empty. loadMySky asks the server for both.
   loadMySky();
 }
 
@@ -1704,6 +1867,18 @@ function init() {
   });
   els.aboutClose.addEventListener('click', () => els.aboutPanel.classList.add('hidden'));
 
+  // "Written here before, on another browser?" — the way back, offered at the
+  // only moment it costs nothing: before this browser has minted an identity of
+  // its own. Closes the compose sheet, opens My Sky with the recovery box
+  // already unfolded, so it is one tap rather than a hunt.
+  els.composeRestore.addEventListener('click', () => {
+    closeSheet(els.composeOverlay, els.composeSheet);
+    loadMySky();
+    els.findPanel.classList.remove('hidden');
+    els.recoveryBox.open = true;
+    els.restoreInput.focus();
+  });
+
   els.findIcon.addEventListener('click', () => {
       loadMySky();
     els.findPanel.classList.toggle('hidden');
@@ -1808,9 +1983,21 @@ function init() {
     closeSheet(els.noticeOverlay, els.noticeModal);
   });
 
+  // Rotating swaps the screen's dimensions, so the height the inline script in
+  // index.html measured before first paint stops being right. Republish it.
+  keepSkyHeight();
+
+  // Last, and never awaited: the sky is already up by here, and a phone that
+  // turns out to be stale reloads itself into the current one.
+  healIfStale();
+
   maybeShowNotice();
   maybeShowIosGuide();
   maybeShowFirstHint();
+
+  // Before the compose sheet can ask for a name, find out whether this device
+  // already has one. Returns immediately for everyone who does.
+  syncName();
 
   // ?w=<id> opens one whisper straight away. This is what the link on a share
   // card points at, and without it the card would be a picture with a URL that

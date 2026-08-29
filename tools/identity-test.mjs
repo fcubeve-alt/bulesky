@@ -26,11 +26,26 @@ async function open(mine, extra = {}) {
   const b = await chromium.launch({ executablePath: browserPath() });
   const page = await b.newPage();
   const sent = [];
+  let published = null;
   await page.route('**/api/**', (r) => r.fulfill({ json: {} }));
   await page.route('**/api/bubbles**', (r) => {
     const req = r.request();
-    if (req.method() === 'POST') { sent.push(JSON.parse(req.postData() || '{}')); return r.fulfill({ status: 201, json: { id: 9, code: 'tester', type: 'pain', content: 'x', createdAt: Date.now() } }); }
-    if (/\/api\/bubbles\/\d+$/.test(req.url())) return r.fulfill({ json: { bubble: { ...W, mine, ...extra }, replies: [] } });
+    if (req.method() === 'POST') {
+      const body = JSON.parse(req.postData() || '{}');
+      sent.push(body);
+      // Echo what was written, the way the real endpoint does — the author is
+      // shown their own words the moment the confirmation closes, so a stub
+      // that answers 'x' would make that check meaningless.
+      published = { id: 9, code: body.code, type: body.type, content: body.content, lights: 0, created_at: Date.now() };
+      return r.fulfill({ status: 201, json: { ...published, createdAt: published.created_at } });
+    }
+    const byId = /\/api\/bubbles\/(\d+)$/.exec(req.url());
+    if (byId) {
+      const bubble = published && String(published.id) === byId[1]
+        ? { ...published, mine: true, saved: false }
+        : { ...W, mine, ...extra };
+      return r.fulfill({ json: { bubble, replies: [] } });
+    }
     return r.fulfill({ json: { bubbles: [W] } });
   });
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -135,17 +150,50 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
   console.log(`${kept === '夜里的猫' ? 'PASS' : 'FAIL'}  the name is kept on the device (${kept})`);
   console.log(`${sent[0] && sent[0].code === '夜里的猫' ? 'PASS' : 'FAIL'}  and published with the whisper`);
 
+  // Closing the confirmation shows what was just written, in the reading view,
+  // drifting upward — the same thing a tap on a balloon gives.
+  //
+  // A ringed balloon was not enough: "发完之后马上就变成气球了，有时候还要找一下
+  // 才找得到". You press send at two in the morning and the thing you wrote turns
+  // into a dot you have to hunt for. The words come up first; the balloon is
+  // still there underneath when the reading view is closed.
+  await page.click('#confirm-close');
+  await page.waitForSelector('#read-overlay:not(.hidden)', { timeout: 3000 });
+  const justWritten = (await page.locator('#read-content').textContent()) || '';
+  console.log(`${justWritten.includes('第一次写点什么') ? 'PASS' : 'FAIL'}  the whisper is shown back to its author after sending (${justWritten.trim().slice(0, 20)})`);
+  const signed = (await page.locator('#read-author').textContent()) || '';
+  console.log(`${signed.includes('夜里的猫') ? 'PASS' : 'FAIL'}  signed with the name it went out under (${signed.trim()})`);
+
+  // Closed, and the balloon is still in the sky.
+  await page.click('#read-close');
+  await page.waitForSelector('#read-overlay', { state: 'hidden', timeout: 3000 });
+  const stillFlying = await page.evaluate(() => document.querySelectorAll('.lantern').length);
+  console.log(`${stillFlying > 0 ? 'PASS' : 'FAIL'}  and it is still flying once the reading view is closed (${stillFlying} in the sky)`);
+
   // Next whisper: the box is GONE. One phone, one name — it is asked for once
   // and after that the sheet says who this is going out as. An editable name
   // field on every whisper is what produced one person with forty names.
-  await page.click('#confirm-close');
   await page.click('#entry-wish');
   const boxGone = await page.locator('#compose-code').isVisible();
   const asLine = (await page.locator('#compose-as').textContent()) || '';
   console.log(`${!boxGone ? 'PASS' : 'FAIL'}  the name is not asked for a second time`);
   console.log(`${asLine.includes('夜里的猫') ? 'PASS' : 'FAIL'}  the sheet says who it goes out as (${asLine.trim().slice(0, 30)})`);
   console.log(`${(await page.inputValue('#compose-code')) === '夜里的猫' ? 'PASS' : 'FAIL'}  …and that is what gets sent`);
-  await page.click('#compose-cancel');
+
+  // And sending it does not stop to tell you your own name again. The
+  // confirmation sheet is for the things you hear once — the name you now go
+  // by, the recovery code. On the second whisper it has nothing left to say:
+  // "第二次你发送的时候这些就没必要出现了…太啰唆了". Straight to the sky.
+  await page.fill('#compose-content', '第二次写点什么');
+  await page.waitForTimeout(900);
+  await page.click('#compose-submit');
+  await page.waitForSelector('#read-overlay:not(.hidden)', { timeout: 3000 });
+  const secondSheet = await page.locator('#confirm-sheet').isVisible();
+  const secondText = (await page.locator('#read-content').textContent()) || '';
+  console.log(`${!secondSheet ? 'PASS' : 'FAIL'}  the second whisper does not stop at a confirmation`);
+  console.log(`${secondText.includes('第二次写点什么') ? 'PASS' : 'FAIL'}  it goes straight to the words (${secondText.trim().slice(0, 20)})`);
+  await page.click('#read-close');
+  await page.waitForSelector('#read-overlay', { state: 'hidden', timeout: 3000 });
 
   // Same on a reply — an unsigned reply is what makes a sky of 匿名.
   await page.goto(`${BASE}/?w=${W.id}`, { waitUntil: 'domcontentloaded' });
@@ -170,6 +218,40 @@ for (const [mine, expected] of [[false, true], [true, false]]) {
   await page.waitForTimeout(300);
   const renamed = await page.evaluate(() => localStorage.getItem('aya_author_name'));
   console.log(`${renamed === '走夜路的人' ? 'PASS' : 'FAIL'}  and My Sky is where it changes (${renamed})`);
+  await b.close();
+}
+
+// 4b2. A new browser is offered the way back before it becomes a new person.
+//
+// "一台手机我们就对应一个用户名" is true of the App and not of the web: Safari,
+// Chrome, a private window and a home-screen web app on the same phone are four
+// empty stores, and each one asks for a name. Nothing on the page can join them
+// up — the techniques that could are fingerprinting ones this site will not use
+// — so the one honest move is to ask at the moment the second identity would be
+// minted, and to make saying yes a single tap.
+{
+  const { b, page } = await open(false);
+  await page.click('#entry-pain');
+  await page.waitForSelector('#compose-sheet:not(.hidden)');
+  const offered = await page.locator('#compose-restore').isVisible();
+  console.log(`${offered ? 'PASS' : 'FAIL'}  a browser with no name is offered the way back`);
+
+  // One tap: the compose sheet closes and My Sky opens with the recovery box
+  // already unfolded, rather than leaving someone to find it.
+  await page.click('#compose-restore');
+  await page.waitForSelector('#find-panel:not(.hidden)', { timeout: 3000 });
+  const boxOpen = await page.evaluate(() => document.getElementById('recovery-box').open);
+  const pasteReady = await page.locator('#restore-input').isVisible();
+  console.log(`${boxOpen && pasteReady ? 'PASS' : 'FAIL'}  and one tap lands on the box to paste it into`);
+
+  // Once this browser has a name of its own the offer goes away — it is for the
+  // empty store, not a standing invitation to become somebody else.
+  await page.evaluate(() => localStorage.setItem('aya_author_name', '夜里的猫'));
+  await page.click('#find-close');
+  await page.click('#entry-pain');
+  await page.waitForSelector('#compose-sheet:not(.hidden)');
+  const stillOffered = await page.locator('#compose-restore').isVisible();
+  console.log(`${!stillOffered ? 'PASS' : 'FAIL'}  and it is gone once this browser has a name`);
   await b.close();
 }
 
