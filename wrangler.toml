@@ -34,3 +34,16 @@ binding = "AI"
 [[r2_buckets]]
 binding = "VOICE_BUCKET"
 bucket_name = "bulesky-voice"
+
+# ---- secrets, for reference (set with `wrangler pages secret put`, never here) --
+#
+#   ADMIN_PASSWORD       the moderation queue and /admin
+#   OPENAI_API_KEY       the relay that leads the Listen provider chain
+#   VOICE_UPLOAD_TOKEN   /api/voice/backfill — the door the site's own voice
+#                        comes in through (docs/CURRENT_AUDIO_ARCHITECTURE.md §9)
+#
+# ⚠️ VOICE_UPLOAD_TOKEN is deliberately NOT ADMIN_PASSWORD. It lives in a shell
+# history and a script on a desktop machine so that a whole library can be read
+# on a GPU and posted back; it has to be revocable on its own without locking the
+# owner out of moderation. Unset, /api/voice/backfill is simply closed and
+# everything else about Listen carries on unchanged.

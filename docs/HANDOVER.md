@@ -128,6 +128,9 @@ screen.height                     874px   ← 真实屏幕
 
 ## 3. 还剩什么
 
+> **2026-08-29 更新(分支 `claude/wonderful-feynman-41t21o`)。**
+> 第 1 节那条黑边和 3.1 那两个待决定项都有结论了,见文末第 6 节。
+
 ### 3.1 需要用户决定(问了但还没答复)
 
 1. **音频归属方案**:复用现有的「按文本 hash 存」(不用改数据库/端点/前端,Worker 只需要一个桶的写权限),还是按文档加 `permanent_audio_url` 字段(要迁移+状态机+Worker 要写生产数据库)。**建议前者**,理由在 `CURRENT_AUDIO_ARCHITECTURE.md` §6a。
@@ -173,3 +176,57 @@ node tools/app-shell-test.mjs
 
 部署:Actions → **Deploy to Cloudflare** → Run workflow(分支 `claude/privacy-official-blog-qa490n`)。
 `push` 触发只认 `claude/lingxingkong-prd-t1x2mg`,所以现在都是手动 dispatch。
+
+---
+
+## 6. 2026-08-29:黑边定位到了,音色回填的链路建好了
+
+Owner 的原话:「app的页面要是手机的全部屏幕,不要有黑边;把现在所有气球的音频重新生成,
+用我们自己的已调好的音色。其他的细节不要问我,你自己判断。」
+
+### 6a. 黑边:**不在网页里,在原生窗口里**
+
+第 1 节整节都在查 CSS。**网页那一半其实早就对了** —— `tools/sky-feedback-test.mjs` 里
+"每一层都溢出屏幕两端"的断言一直是绿的,在无头浏览器里按真实手机尺寸量过 28 项。
+
+错的是**网页被放进去的那个原生窗口**,而且 Capacitor 的脚手架两个平台各错一处:
+
+- **iOS**:`contentInset: "always"` —— WKWebView 按安全区把内容内缩,上下各留一条窗口底色。
+  改成 `"never"`。
+- **Android**:主题不透明 + `decorFitsSystemWindows` 默认为真 —— WebView 被夹在状态栏和
+  导航栏**之间**。要**三条同时成立**才行(透明栏色 / `setDecorFitsSystemWindows(false)` /
+  `shortEdges`),少一条边就回来。
+
+外加一条:能在 WebView 之前或背后露出来的面有四个(`<html>` 画布、两个原生窗口底色、启动图),
+**任何一个和别人不一样,那个不一样本身就是一条可见的边**。现在四个都是 `#05060f`。
+
+完整记录在 `docs/APP_SHELL.md` 末尾那节。断言在 `tools/app-fullscreen-test.mjs`,不需要
+设备就能跑。Android 侧已经在 Actions 上真编译通过。
+
+> ⚠️ 这**不推翻**第 1 节。那一节讲的是"添加到主屏幕"的 PWA,里面关于缓存和
+> `<video>` 是替换元素的两条结论仍然成立,`/diag.html` 仍然是查 PWA 那条路的工具。
+> 这一节讲的是 **App**,是另一条路。
+
+### 6b. 音色:能建的都建好并验过了,**生成本身我做不了**
+
+VoiceStudio 在 `127.0.0.1:3900`,是 Owner 那台 Windows 的地址,云端容器没有路由能到 ——
+网络拓扑,不是权限。所以**声音只能在那台机器上生成**。
+
+做的是把生成之外的每一环建好、用假 VoiceStudio 端到端验过,让那边只剩一条命令:
+
+```bash
+node tools/revoice.mjs --all --upload
+```
+
+设计和取舍写在 `docs/CURRENT_AUDIO_ARCHITECTURE.md` §9,顺带把该文档 §6 那四个冲突点
+(§6a 字段、§6b 打破懒生成、§6c 写生产的通道、§6d 配方进 hash)全部结掉了。
+**3.2 第 3 条那串 EQ 链现在可以安全替换** —— 配方变了会自动重读,不可能出现半个库一种听感。
+
+要 Owner 做的只有一件:`wrangler pages secret put VOICE_UPLOAD_TOKEN`。
+
+### 6c. 没做的
+
+3.3 第 6 条(**音频比悄悄话活得久**,`src/retention.js` 一年后不删音频)**还没修**。
+它和这次两件事都无关,但它现在就是漏的,而且和站上的隐私承诺直接冲突。
+`src/voice-store.js` 里 `deleteVoice()` 已经写好了,缺的是调用它的地方 ——
+现在还多了一份品牌音频要一起删。

@@ -5,10 +5,11 @@
 // reach it — not this repo's CI, not the site, not me.
 //
 // What it does, per whisper: ask VoiceStudio for a WAV, run the brand EQ and
-// de-esser over it, encode to AAC, and write it into a folder you can listen to.
-// It does NOT upload anything and does NOT touch the live site. That is
-// deliberate: the point of this pass is to hear the result before deciding
-// whether the whole library gets re-read.
+// de-esser over it, encode to AAC, and write it into a folder you can listen to
+// — and, with --upload, send it to the site so that it becomes the reading
+// everyone gets. Without --upload it touches nothing live, which is the
+// default on purpose: hear the result before the whole library is re-read in
+// it.
 //
 //   node tools/revoice.mjs                  # five whispers, to audition
 //   node tools/revoice.mjs --all            # every whisper the sky returns
@@ -16,10 +17,27 @@
 //   node tools/revoice.mjs --id 482         # one specific whisper
 //   node tools/revoice.mjs --text "试一句"   # no site needed at all
 //
+// And, once the audition sounds right, the whole point of it:
+//
+//   node tools/revoice.mjs --all --upload   # read the entire sky, in our voice
+//
+// --upload sends each finished reading to /api/voice/backfill, where it becomes
+// what everyone hears when they press Listen. It needs VOICE_UPLOAD_TOKEN (or
+// --token). Nothing is uploaded without it — the default is still an audition
+// that touches nothing.
+//
+// It is safe to stop it and run it again. Every reading that lands is recorded
+// in <out>/read.json, and a second run skips what is already done. It also
+// notices when the RECIPE or the ffmpeg chain below has changed and re-reads
+// what was made with the old one, so the library can never end up half in one
+// voice and half in another.
+//
 // Options worth knowing:
 //   --studio http://127.0.0.1:3900   where VoiceStudio is
 //   --site   https://cubewithin.com  where the whispers come from
 //   --out    voice-out               folder to write into
+//   --token  <secret>                VOICE_UPLOAD_TOKEN, for --upload
+//   --force                          re-read whispers already done
 //   --raw                            keep the untouched WAV beside the AAC,
 //                                    so the EQ can be judged against it
 //   --no-post                        skip ffmpeg entirely
@@ -27,10 +45,20 @@
 // ⚠️ The EQ and de-esser below are my reading of "EQ + 去齿音" and are almost
 // certainly not your exact chain. Replace FILTER with the one from the
 // VoiceStudio doc — it is one string, and it is part of the voice, not a
-// detail: if it changes later, every reading made before it sounds different.
+// detail.
+//
+// Replacing it is safe now, and this is how: RECIPE and FILTER are hashed
+// together into a recipe id, and that id is written next to every reading in
+// <out>/read.json. Change either one and the next run treats everything made
+// under the old id as unread and does it again. So the honest answer to "what
+// happens if the chain turns out to be wrong" is: fix the string, run the same
+// command, walk away. What cannot happen is the thing that would have been
+// unfixable — a library where half the whispers are in one timbre and half in
+// another with no way to tell which is which.
 
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync, unlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 // ---- the AYA Brand Voice recipe -------------------------------------------
@@ -78,6 +106,20 @@ const ONE_ID = opt('id');
 const LIMIT = has('all') ? 500 : Number(opt('limit', 5));
 const KEEP_RAW = has('raw');
 const POST = !has('no-post');
+const UPLOAD = has('upload');
+const FORCE = has('force');
+const TOKEN = opt('token', process.env.VOICE_UPLOAD_TOKEN || '');
+
+// What made a reading, as one short id. RECIPE and FILTER are one thing, not
+// two: both change how a whisper sounds, and a library is only consistent if
+// every file in it was made by the same pair. Written beside each reading in
+// the ledger below, and compared on the next run.
+const RECIPE_ID = createHash('sha256')
+  .update(JSON.stringify(RECIPE))
+  .update(POST ? FILTER : 'no-post')
+  .update(AAC_BITRATE)
+  .digest('hex')
+  .slice(0, 12);
 
 // ---- helpers ---------------------------------------------------------------
 function slug(s, n = 40) {
@@ -146,18 +188,100 @@ function duration(path) {
   }
 }
 
+// ---- the ledger ------------------------------------------------------------
+//
+// Which whispers have been read, and by which recipe. It lives in the output
+// folder rather than anywhere clever because that is where the audio is: throw
+// the folder away and the run starts over, which is the behaviour anyone would
+// expect from a folder called voice-out.
+//
+// Keyed on the whisper's id, but the HASH is what is compared. An author can
+// edit nothing after posting, so in practice they are the same check — except
+// for the one case that matters, where a whisper was taken down and its id
+// reused by nothing at all. Comparing the hash means the ledger can never claim
+// a reading of some other words.
+const LEDGER = join(OUT, 'read.json');
+
+function loadLedger() {
+  try {
+    const data = JSON.parse(readFileSync(LEDGER, 'utf8'));
+    return data && data.done ? data : { version: 1, done: {} };
+  } catch {
+    return { version: 1, done: {} };
+  }
+}
+
+function saveLedger(ledger) {
+  writeFileSync(LEDGER, JSON.stringify(ledger, null, 2));
+}
+
+function alreadyRead(ledger, w) {
+  if (FORCE) return false;
+  const seen = ledger.done[String(w.id)];
+  return !!seen && seen.recipe === RECIPE_ID && (!w.hash || seen.hash === w.hash);
+}
+
+// ---- talking to the site ---------------------------------------------------
+function siteHeaders() {
+  return { 'x-voice-token': TOKEN };
+}
+
+// Every whisper on the site, in id order.
+//
+// Deliberately not /api/bubbles: that is the sky feed — a per-viewer weighted
+// sample with a cap on it (docs/SKY_FEED.md). Reading "everything it returns"
+// would quietly miss most of the site, and miss a different part of it on every
+// run, which is the worst possible failure for a job whose whole purpose is
+// leaving nothing out.
+async function everyWhisper() {
+  const all = [];
+  let after = 0;
+  let total = null;
+  let made = null;
+  for (;;) {
+    const res = await fetch(`${SITE}/api/voice/backfill?after=${after}&limit=200`, {
+      headers: siteHeaders(),
+    });
+    if (res.status === 401) throw new Error('the site did not accept the token (VOICE_UPLOAD_TOKEN)');
+    if (res.status === 503) throw new Error('the site has no VOICE_UPLOAD_TOKEN set — see docs/ROADMAP.md §7f');
+    if (!res.ok) throw new Error(`could not list the sky: ${res.status}`);
+    const page = await res.json();
+    if (total === null) { total = page.total; made = page.made; }
+    all.push(...(page.bubbles || []).map((b) => ({ ...b, content: b.text })));
+    if (!page.next || all.length >= LIMIT) break;
+    after = page.next;
+  }
+  return { list: all.slice(0, LIMIT), total, made };
+}
+
+async function upload(id, path, mime = 'audio/aac') {
+  const res = await fetch(`${SITE}/api/voice/backfill?id=${id}`, {
+    method: 'POST',
+    headers: { ...siteHeaders(), 'content-type': mime },
+    body: readFileSync(path),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.ok) {
+    throw new Error(`upload rejected (${res.status}) ${body.error || ''}`.trim());
+  }
+  return body;
+}
+
 async function whispers() {
-  if (ONE_TEXT) return [{ id: 'sample', type: 'pain', content: ONE_TEXT }];
+  if (ONE_TEXT) return { list: [{ id: 'sample', type: 'pain', content: ONE_TEXT }] };
   if (ONE_ID) {
     const res = await fetch(`${SITE}/api/bubbles/${ONE_ID}`);
     if (!res.ok) throw new Error(`could not fetch whisper ${ONE_ID}: ${res.status}`);
     const data = await res.json();
-    return [data.bubble];
+    return { list: [data.bubble] };
   }
+  // Uploading reads the whole library, so it needs the whole library. An
+  // audition is allowed to be a handful off the front page.
+  if (UPLOAD) return await everyWhisper();
   const res = await fetch(`${SITE}/api/bubbles?limit=${LIMIT}`);
   if (!res.ok) throw new Error(`could not fetch the sky: ${res.status}`);
   const data = await res.json();
-  return (data.bubbles || []).slice(0, LIMIT);
+  return { list: (data.bubbles || []).slice(0, LIMIT) };
 }
 
 // ---- run -------------------------------------------------------------------
@@ -165,17 +289,31 @@ if (POST && !ffmpegAvailable()) {
   console.error('ffmpeg is not on PATH. Install it, or pass --no-post to write raw WAVs.');
   process.exit(1);
 }
+// A WAV is about seventeen times the size of the AAC of the same reading.
+// Uploading one would multiply the storage bill by that, permanently, for audio
+// nobody can hear the difference in over a phone speaker.
+if (UPLOAD && !POST) {
+  console.error('--upload needs the ffmpeg pass: raw WAV is ~17x the size for no audible gain.');
+  process.exit(1);
+}
+if (UPLOAD && !TOKEN) {
+  console.error('--upload needs VOICE_UPLOAD_TOKEN (or --token). Nothing was sent.');
+  process.exit(1);
+}
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
 
 console.log(`studio : ${STUDIO}`);
 console.log(`source : ${ONE_TEXT ? '(--text)' : SITE}`);
 console.log(`out    : ${OUT}`);
-console.log(`recipe : ${RECIPE.voice} · ${RECIPE.instruct} · speed ${RECIPE.speed} · guidance ${RECIPE.guidance_scale} · seed ${RECIPE.seed}`);
-console.log(`post   : ${POST ? FILTER : '(skipped)'}\n`);
+console.log(`recipe : ${RECIPE.voice} · ${RECIPE.instruct} · speed ${RECIPE.speed} · guidance ${RECIPE.guidance_scale} · seed ${RECIPE.seed}  [${RECIPE_ID}]`);
+console.log(`post   : ${POST ? FILTER : '(skipped)'}`);
+console.log(`upload : ${UPLOAD ? `${SITE}/api/voice/backfill` : 'no — nothing live is touched'}\n`);
 
 let list;
+let sky = {};
 try {
-  list = await whispers();
+  sky = await whispers();
+  list = sky.list;
 } catch (e) {
   console.error(`Could not get anything to read: ${e.message}`);
   process.exit(1);
@@ -184,8 +322,15 @@ if (!list.length) {
   console.error('Nothing to read.');
   process.exit(1);
 }
+if (UPLOAD && sky.total != null) {
+  console.log(`the sky holds ${sky.total} whispers; ${sky.made} are already in our voice\n`);
+}
+
+const ledger = loadLedger();
 
 let ok = 0;
+let skipped = 0;
+let uploaded = 0;
 const failures = [];
 let wavBytes = 0;
 let aacBytes = 0;
@@ -193,10 +338,18 @@ let aacBytes = 0;
 for (const [i, w] of list.entries()) {
   const text = String(w.content || '').trim();
   if (!text) continue;
+  const head = `[${i + 1}/${list.length}] #${w.id} ${languageOf(text)} ${text.length} chars`;
+
+  // Resuming is the normal case, not the exception: reading a whole sky on one
+  // GPU takes long enough that it will be interrupted.
+  if (UPLOAD && alreadyRead(ledger, w)) {
+    skipped += 1;
+    continue;
+  }
+
   const name = `${String(w.id).padStart(4, '0')}_${slug(text)}`;
   const wavPath = join(OUT, `${name}.wav`);
   const aacPath = join(OUT, `${name}.m4a`);
-  const head = `[${i + 1}/${list.length}] #${w.id} ${languageOf(text)} ${text.length} chars`;
 
   try {
     const started = Date.now();
@@ -205,15 +358,29 @@ for (const [i, w] of list.entries()) {
     wavBytes += wav.length;
     const secs = ((Date.now() - started) / 1000).toFixed(1);
 
+    let line;
     if (POST) {
       post(wavPath, aacPath);
-      const { size } = await import('node:fs').then((fs) => fs.statSync(aacPath));
+      const { size } = statSync(aacPath);
       aacBytes += size;
-      if (!KEEP_RAW) await import('node:fs').then((fs) => fs.unlinkSync(wavPath));
-      console.log(`${head} → ${(size / 1024).toFixed(0)}KB, ${duration(aacPath).toFixed(1)}s, ${secs}s to make`);
+      if (!KEEP_RAW) unlinkSync(wavPath);
+      line = `${head} → ${(size / 1024).toFixed(0)}KB, ${duration(aacPath).toFixed(1)}s, ${secs}s to make`;
     } else {
-      console.log(`${head} → ${(wav.length / 1024).toFixed(0)}KB wav, ${secs}s to make`);
+      line = `${head} → ${(wav.length / 1024).toFixed(0)}KB wav, ${secs}s to make`;
     }
+
+    if (UPLOAD) {
+      // Recorded only after the site has confirmed it, and saved immediately.
+      // A ledger written ahead of the upload would let a crash lose a reading
+      // and claim it was done — the one failure a resume cannot recover from.
+      const sent = await upload(w.id, aacPath);
+      ledger.done[String(w.id)] = { recipe: RECIPE_ID, hash: sent.hash, bytes: sent.bytes, at: Date.now() };
+      saveLedger(ledger);
+      uploaded += 1;
+      line += ` → sent (${sent.store})`;
+    }
+
+    console.log(line);
     ok += 1;
   } catch (e) {
     failures.push({ id: w.id, why: e.message });
@@ -221,7 +388,7 @@ for (const [i, w] of list.entries()) {
   }
 }
 
-console.log(`\n${ok}/${list.length} read`);
+console.log(`\n${ok}/${list.length} read${skipped ? `, ${skipped} already done` : ''}`);
 if (POST && aacBytes) {
   console.log(`wav ${(wavBytes / 1048576).toFixed(1)}MB → aac ${(aacBytes / 1048576).toFixed(1)}MB (${(wavBytes / aacBytes).toFixed(1)}x smaller)`);
   console.log(`average ${(aacBytes / ok / 1024).toFixed(0)}KB a reading — the site's current average is 169KB`);
@@ -229,6 +396,12 @@ if (POST && aacBytes) {
 if (failures.length) {
   console.log('\nfailed:');
   for (const f of failures) console.log(`  #${f.id}: ${f.why}`);
+  console.log('\nRun the same command again — what succeeded is recorded and will be skipped.');
 }
-console.log(`\nListen to what is in ${OUT}/ before anything is uploaded anywhere.`);
+if (UPLOAD) {
+  console.log(`\n${uploaded} sent. They are what Listen plays from now on.`);
+} else {
+  console.log(`\nListen to what is in ${OUT}/ before anything is uploaded anywhere.`);
+  console.log('When it sounds right: node tools/revoice.mjs --all --upload');
+}
 process.exit(failures.length && !ok ? 1 : 0);

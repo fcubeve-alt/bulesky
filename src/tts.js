@@ -281,6 +281,46 @@ export async function voiceHash(text, type, env) {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// ---- the voice the site is meant to sound like -----------------------------
+//
+// Everything above is about the machine voices: a relay, then Workers AI, then
+// MeloTTS, tried in order so that a whisper is never silent. They are a floor,
+// not a choice. The reading the site actually wants is made off-site, on the
+// one machine that has VoiceStudio, by tools/revoice.mjs, and posted back in
+// through /api/voice/backfill.
+//
+// It gets its own key, and the key names no provider on purpose.
+//
+// `voiceHash` above is keyed on providerFor(env) and auraModel(env), which is
+// right for a machine voice: change the relay and what a listener hears changes
+// with it, so the old rows should stop being looked up. It is exactly wrong
+// here. This audio was not made by any provider; it was made once, deliberately,
+// on somebody's GPU. Keying it on the relay would mean that turning the relay
+// off — or the day its free quota lapses and providerFor() falls through to
+// aura — silently orphans the entire library and every whisper quietly goes back
+// to a machine voice, having cost a night of generating.
+//
+// There is no recipe version in here either, and that is also deliberate. One
+// text has exactly one brand reading, so a changed recipe OVERWRITES rather than
+// accumulating: the library can never hold two timbres at once, which is the
+// thing a version number would have been protecting against. Keeping every
+// reading consistent after a recipe change is the uploader's job — it records
+// what made each file and re-reads whatever no longer matches (tools/revoice.mjs).
+export const BRAND_PREFIX = 'aya-';
+
+export async function brandVoiceHash(text, type) {
+  const material = ['brand', 'aya', type, text].join(' ');
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(material));
+  const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  // Prefixed, so the shelf can be counted. Brand and machine readings live in
+  // the same bucket under the same `voice/` prefix, and without a marker there
+  // is no way to ask "how much of the sky has been read in our own voice?"
+  // short of hashing every whisper on the site. With one, it is an R2 list and
+  // a LIKE. ./backfill reports it; a night of generating is not something to
+  // run blind.
+  return BRAND_PREFIX + hex;
+}
+
 // Returns { bytes, mime, provider, failures }, or throws. voiceKey is one of
 // VOICES' keys.
 //

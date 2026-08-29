@@ -1,5 +1,6 @@
 import {
   voiceHash,
+  brandVoiceHash,
   pickVoice,
   synthesize,
   providerFor,
@@ -259,6 +260,23 @@ async function readAloud({ request, params, env, waitUntil }) {
       status: 404,
       headers: { 'content-type': 'application/json; charset=utf-8' },
     });
+  }
+
+  // The brand reading first, always.
+  //
+  // If this whisper has been read in the site's own voice (tools/revoice.mjs,
+  // posted in through ./backfill) that is what everyone hears, and no provider
+  // is consulted — the same zero-external-calls guarantee a cache hit has
+  // always had, one lookup earlier. It is asked for before the machine-voice
+  // key rather than after because the point of the backfill is that this is the
+  // hit: once the library is read, every request stops here.
+  //
+  // A miss costs one extra read against the store. That is the whole price of
+  // the whispers that have not been read yet, and it shrinks to nothing as they
+  // are.
+  const branded = await readVoice(env, await brandVoiceHash(text, bubble.type));
+  if (branded) {
+    return audio(branded.bytes, branded.mime, request, `brand:${branded.voice || 'aya'}:${branded.from}`);
   }
 
   const hash = await voiceHash(text, bubble.type, env);

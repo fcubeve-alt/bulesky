@@ -9,6 +9,7 @@
   - **⚠️ 一条朗读只能有一个人在读。** 长悄悄话是**分片、分别请求**再拼起来的,所以任何"这个不行就换下一个"的写法,含义都会从"重试"变成"下半段换个人念"——音色表每个角色只留一个 id、一片都不许换音色重试、缓存写入要 DELETE+INSERT 同批(否则两次合成会交错成"前半段 A + 后半段 B")、客户端出过声之后不许再退回手机自带的声音。**中转站的音色也不许靠模型名匹配去猜**:猜不中就会发 OpenAI 的名字过去,对方不认识就自己挑,而且每次挑的可能不一样。
   - **⚠️ 这个 endpoint 永远不能返回 5xx**:Pages Function 返回任何 5xx,Cloudflare 边缘会把 body 换成它自己那个 16 字节错误页。失败也要返回 `200` + JSON,前端**按 `content-type` 判断**。之前"神秘的 502 + 日志里什么都没有"就是这么来的——worker 一直好好的,是我们的解释被边缘丢掉了。
   - **⚠️ 选音色不要调 Workers AI**:`pickVoice()` 曾在每次缓存未命中时都跑一次,**不管配的是哪个语音服务商**,所以换服务商从来没解决问题。现在改成本地哈希(`pickVoiceLocally`),`VOICE_CLASSIFIER=1` 才开回 AI 选角。
+  - **⚠️ 品牌音色的键不带 provider,不要"统一"掉。** `brandVoiceHash()`(`aya-<sha256>`)和 `voiceHash()` 长得像但不是一回事:后者把 provider 和模型名写进 hash 是对的(换了中转站,听到的就变了,老行本来就该作废),**前者绝不能这么做** —— 那份音频是在 Owner 的 GPU 上一次性做出来的,键上带了 provider,中转站一关、或者免费额度用完那天 `providerFor()` 落到 aura,**整个音频库会悄无声息地失效**,所有悄悄话退回机器音,而那是一整夜的生成。同理:`/api/voice/{id}` **必须先查品牌键**;`tools/revoice-test.mjs` 里那条"把所有 provider 拿掉还能出声"的断言是这整套东西的根,它红了就说明没人听得到那一夜的成果,**而且没有任何地方会报错**。详见 `docs/CURRENT_AUDIO_ARCHITECTURE.md` §9。
   - **⚠️ 从点击到出声之间不能有 `await`**——`play()` 和 `speechSynthesis.speak()` 都受 iOS 手势限制,这条已经踩过三次。
 - Product strategy & roadmap: `docs/ROADMAP.md`.
 
