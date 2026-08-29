@@ -353,24 +353,51 @@ function reachableBalloon(page) {
   // display:none at any given moment (.overlay until a sheet opens, .bg-video
   // before a clip loads) and a hidden element has no box — but it still has the
   // offsets and the height the rule gave it.
-  const MARGIN = 100;
+  // Measured where it is PAINTED, not where the declarations say it should be.
+  //
+  // This used to read the computed top and height and add them up, which is a
+  // check on the arithmetic of a rule rather than on whether the scenery
+  // reaches the glass. The scenery is sized by `inset: 0` and a transform now,
+  // and getBoundingClientRect() is the only thing that reports the result of a
+  // transform. It is also the honest question: a photograph shows painted
+  // pixels, and painted pixels are what a band is made of.
+  const MARGIN = 40;
   const short = await page.evaluate((margin) => {
     const out = [];
-    for (const sel of ['#sky-bg', '#bg-scrim', '#lanterns', '.bg-video', '.overlay']) {
+    for (const sel of ['#sky-bg', '#bg-scrim', '.bg-video']) {
       const el = document.querySelector(sel);
       if (!el) continue;
-      const cs = getComputedStyle(el);
-      const top = parseFloat(cs.top);
-      const bottom = top + parseFloat(cs.height);
-      if (!(top <= -margin) || !(bottom >= innerHeight + margin)) {
-        out.push(`${sel} ${Math.round(top)}..${Math.round(bottom)}`);
+      const r = el.getBoundingClientRect();
+      if (!(r.top <= -margin) || !(r.bottom >= innerHeight + margin)) {
+        out.push(`${sel} ${Math.round(r.top)}..${Math.round(r.bottom)}`);
       }
     }
     return out;
   }, MARGIN);
   check(
     short.length === 0,
-    `every full-bleed layer overshoots both screen edges (${short.join(', ') || `all clear by ${MARGIN}px+`})`
+    `every layer that paints reaches past both edges of the screen (${short.join(', ') || `all clear by ${MARGIN}px+`})`
+  );
+
+  // The whole point of the change: none of the three asks the browser how tall
+  // the screen is. One phone reported 684, 792 and 874 for the same screen, and
+  // twelve rounds were spent picking between them.
+  const usesNoNumber = await page.evaluate(() => {
+    const bad = [];
+    for (const sel of ['#sky-bg', '#bg-scrim', '.bg-video']) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const cs = getComputedStyle(el);
+      // `inset: 0` resolves to exactly the viewport; anything else means a
+      // measured height has crept back in.
+      if (Math.abs(parseFloat(cs.height) - innerHeight) > 1) bad.push(`${sel} h=${cs.height}`);
+      if (cs.transform === 'none') bad.push(`${sel} not scaled`);
+    }
+    return bad;
+  });
+  check(
+    usesNoNumber.length === 0,
+    `and none of them is sized by a number the browser had to be asked for (${usesNoNumber.join(', ') || 'inset:0 + scale, all three'})`
   );
 
   // The two that deliberately do NOT bleed still have to cover the viewport
@@ -417,7 +444,10 @@ function reachableBalloon(page) {
     const was = root.style.getPropertyValue('--sky-h');
     root.style.setProperty('--sky-h', '2000px');
     const out = [];
-    for (const sel of ['#sky-bg', '#bg-scrim', '#lanterns', '.bg-video', '.overlay']) {
+    // Only the transparent layers now. The three that paint are sized by
+    // `inset: 0` and do not consult --sky-h at all — that is the fix, not a
+    // regression.
+    for (const sel of ['#lanterns', '.overlay']) {
       const el = document.querySelector(sel);
       if (!el) continue;
       const cs = getComputedStyle(el);
@@ -430,7 +460,7 @@ function reachableBalloon(page) {
   });
   check(
     followed.length === 0,
-    `every layer grows with the real screen height, video included (${followed.join(', ') || 'all 2240px'})`
+    `the layers that carry content still follow the screen height (${followed.join(', ') || 'both 2240px'})`
   );
 
   // ---- and when the prediction is wrong anyway ------------------------------

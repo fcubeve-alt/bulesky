@@ -570,6 +570,14 @@ function skyTarget() {
 }
 
 // Grow one layer until it reaches past both edges. Returns what it settled at.
+//
+// The bar is the screen and nothing more: top at or above 0, bottom at or below
+// the last row of pixels. It used to demand a further --bleed of overshoot at
+// each end, which was right when the rule was built out of a measured height and
+// the bleed was the margin for that measurement being wrong. The rule in
+// index.html no longer measures anything, so the only question left is the one
+// that was ever being asked — does the scenery reach the glass — and asking for
+// more than that would have this fighting the transform that already answers it.
 function fitLayer(el, target) {
   let rect = el.getBoundingClientRect();
   // A layer that is not laid out at all (the videos start .hidden) measures as
@@ -578,8 +586,8 @@ function fitLayer(el, target) {
 
   const before = rect.bottom;
   for (let i = 0; i < 3; i += 1) {
-    const shortAtTop = rect.top > -BLEED + 1;
-    const shortAtBottom = rect.bottom < target + BLEED - 1;
+    const shortAtTop = rect.top > 1;
+    const shortAtBottom = rect.bottom < target - 1;
     if (!shortAtTop && !shortAtBottom) break;
 
     if (shortAtTop) {
@@ -587,8 +595,8 @@ function fitLayer(el, target) {
       el.style.top = `${top - (rect.top + BLEED)}px`;
       rect = el.getBoundingClientRect();
     }
-    if (rect.bottom < target + BLEED - 1) {
-      el.style.height = `${rect.height + (target + BLEED - rect.bottom)}px`;
+    if (rect.bottom < target - 1) {
+      el.style.height = `${rect.height + (target - rect.bottom) + BLEED}px`;
       rect = el.getBoundingClientRect();
     }
   }

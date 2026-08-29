@@ -81,15 +81,58 @@
   })();
 </script>
 <style>
-  /* An explicit HEIGHT. Never `bottom`, never `auto`.
+  /* ══ The scenery. It is sized by NO NUMBER AT ALL. ══
    *
-   * ⚠️ `bottom` was tried and broke the background worse than the bug it was
-   * fixing. <video> is a REPLACED element, and for those `height: auto` resolves
-   * to the intrinsic height and `bottom` is simply ignored — so the scenery
-   * stopped less than three quarters of the way down the screen while every
-   * plain <div> in the same rule stretched correctly. If it is ever tempting
-   * again: a rule that works for #sky-bg and not for .bg-video is this one. */
-  #sky-bg, .bg-video, #bg-scrim, #lanterns, .overlay {
+   * Twelve rounds went into a band along the bottom of an installed home-screen
+   * app, and every single one of them was an argument about which number to
+   * trust. Measured on one real iPhone, one screen produced three:
+   *
+   *     the box a `position: fixed` element is laid out in     684
+   *     100vh                                                  792
+   *     screen.height                                          874
+   *
+   * The last attempt read screen.height in JavaScript and built the height out
+   * of it. A photograph of a brand-new phone, fresh install, measured to the
+   * pixel, put the bottom of these layers at 812pt on an 874pt screen — so on
+   * that phone that number is wrong too, by 62pt, which is exactly the band.
+   *
+   * So this rule contains no height, no viewport unit, and nothing from
+   * JavaScript. It cannot be wrong about the size of the screen because it never
+   * asks.
+   *
+   *   inset: 0     the box IS the viewport, whatever the viewport turns out to
+   *                be. Not a measurement of it — the thing itself.
+   *   scale(1.2)   and then it is drawn 20% larger than that, from the centre,
+   *                which puts its painted edge about a tenth of a screen past
+   *                every side. 62pt needed 0. This has ~87.
+   *
+   * ⚠️ Why a transform rather than negative offsets: <video> is a REPLACED
+   * element. `bottom` is ignored on one and `height: auto` resolves to its own
+   * intrinsic size, which is how the scenery once stopped 274pt short while
+   * every plain <div> in the same rule stretched correctly. A transform is
+   * applied after layout, to the rendered box, and treats a <video> and a <div>
+   * identically. That is the entire reason it is the one used here.
+   *
+   * The cost is that the background is cropped by a tenth. It is scenery behind
+   * a night sky; nobody can tell. A band along the bottom, everybody can.
+   *
+   * ⚠️ #lanterns and .overlay are NOT in this rule and must not be added to it.
+   * The balloon world is positioned inside #lanterns — scaling it would move
+   * and resize every balloon in the sky (docs/SKY_FEED.md). They keep the older
+   * rule below, which is harmless for a layer with nothing opaque in it. */
+  #sky-bg, .bg-video, #bg-scrim {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: scale(1.2);
+    transform-origin: 50% 50%;
+  }
+
+  /* The transparent layers. These carry content rather than paint, so a few
+   * points of shortfall at an edge cannot show as a band — and being wrong
+   * about their height is cheaper than moving every balloon. */
+  #lanterns, .overlay {
     position: fixed;
     top: calc(0px - var(--bleed, 120px));
     left: 0;
