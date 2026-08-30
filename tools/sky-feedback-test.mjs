@@ -564,6 +564,52 @@ function reachableBalloon(page) {
   });
   check(portrait.ok, `and a portrait clip covers it too, not only a landscape one (${portrait.box})`);
 
+  // ---- the surface behind everything ----------------------------------------
+  //
+  // The gap in both photographs measured exactly rgb(5,6,15) — the flat end of
+  // #sky-bg's gradient, and the colour <html> paints on the canvas. So the gap
+  // was never a hole. Something was painting there; it was painting flat
+  // near-black, and flat near-black against moving scenery reads as a bar.
+  //
+  // So the two hindmost surfaces now carry the picture instead: #sky-bg gets the
+  // live frame scaled up from a 16x32 stamp (a blur, for free), and <html> gets
+  // its average colour — and the root element's background is propagated to the
+  // canvas, which by specification covers the whole painting surface, including
+  // anywhere outside the layout viewport that no element can reach.
+  const behind = await page.evaluate(async () => {
+    // A headless video has no frames, so drawImage is stood in for. What is
+    // under test is the sampling and what it does with the result, not the
+    // decoder.
+    const orig = CanvasRenderingContext2D.prototype.drawImage;
+    CanvasRenderingContext2D.prototype.drawImage = function (src) {
+      if (src instanceof HTMLVideoElement) {
+        this.fillStyle = 'rgb(100, 150, 200)';
+        this.fillRect(0, 0, 16, 32);
+        return undefined;
+      }
+      return orig.apply(this, arguments);
+    };
+    const v = document.querySelector('.bg-video');
+    v.classList.remove('hidden');
+    v.classList.add('bg-show');
+    Object.defineProperty(v, 'readyState', { value: 4, configurable: true });
+    Object.defineProperty(v, 'videoWidth', { value: 1920, configurable: true });
+    Object.defineProperty(v, 'videoHeight', { value: 1080, configurable: true });
+    await new Promise((r) => setTimeout(r, 1000));
+    return {
+      html: document.documentElement.style.backgroundColor,
+      sky: (document.getElementById('sky-bg').style.backgroundImage || '').replace(/"/g, '').slice(0, 14),
+    };
+  });
+  check(
+    behind.html === 'rgb(80, 120, 160)',
+    `the canvas behind everything takes the colour of the sky being shown (${behind.html || 'unchanged'})`
+  );
+  check(
+    behind.sky.startsWith('url(data:image'),
+    `and the backstop layer shows the frame itself, not a flat gradient (${behind.sky || 'none'})`
+  );
+
   // What it saw is left where the next round can read it, so a phone with the
   // problem reports its own numbers instead of being guessed about.
   const noted = await page.evaluate(() => {

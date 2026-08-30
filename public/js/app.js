@@ -621,20 +621,56 @@ function fitLayer(el, target) {
 // is the bug. That asymmetry is why this takes the largest figure available and
 // then adds to it, rather than trying to find the one true screen height, which
 // is what the previous thirteen attempts were doing.
-const COVER_MARGIN = 1.12;
+// A third more than the biggest number anyone will admit to.
+//
+// Fourteen rounds of this have all been the same bet: that some number reports
+// the screen honestly. On this phone one screen has reported 684, 692, 792 and
+// 874 at different moments, and every attempt has been a choice between them.
+//
+// This one stops choosing. Over-covering costs crop on a background nobody looks
+// at directly; under-covering is the bug that has cost a week. So it takes the
+// largest figure available and adds a third, which is far more slack than the
+// worst disagreement ever measured (874 vs 684 is 28%).
+const COVER_MARGIN = 1.35;
+
+// The box a `position: fixed` element is actually laid out in, measured rather
+// than deduced. It is the one figure here that cannot be a lie: it is not a
+// report about the viewport, it is what the browser does with `inset: 0`.
+let probe = null;
+function viewportBox() {
+  if (!probe) {
+    probe = document.createElement('div');
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText =
+      'position:fixed;inset:0;visibility:hidden;pointer-events:none;z-index:-1';
+    document.body.appendChild(probe);
+  }
+  const r = probe.getBoundingClientRect();
+  return r.width && r.height ? r : null;
+}
 
 function coverVideos() {
-  const W = Math.max(
-    (window.screen && window.screen.width) || 0,
-    window.innerWidth || 0,
-    document.documentElement.clientWidth || 0
-  ) * COVER_MARGIN;
+  const box = viewportBox();
+  const W =
+    Math.max(
+      (window.screen && window.screen.width) || 0,
+      window.innerWidth || 0,
+      document.documentElement.clientWidth || 0,
+      (box && box.width) || 0
+    ) * COVER_MARGIN;
   const H = skyTarget() * COVER_MARGIN;
   if (!(W > 0 && H > 0)) return;
 
+  // Centred on the middle of the box a fixed element really gets. Centring is
+  // the one placement where being wrong costs the same at both ends, which is
+  // what stops a mistake becoming a bar at one edge and nothing at the other —
+  // and that is exactly the shape the photographs showed.
+  const cx = box ? box.left + box.width / 2 : W / COVER_MARGIN / 2;
+  const cy = box ? box.top + box.height / 2 : H / COVER_MARGIN / 2;
+
   document.querySelectorAll('.bg-video').forEach((v) => {
-    // Before metadata arrives there is no aspect ratio to match. The listener
-    // below brings it back the moment there is.
+    // Before metadata arrives there is no aspect ratio to match. The listeners
+    // below bring it back the moment there is.
     const vw = v.videoWidth;
     const vh = v.videoHeight;
     if (!vw || !vh) return;
@@ -644,15 +680,99 @@ function coverVideos() {
     const h = Math.ceil(vh * scale);
     v.style.width = `${w}px`;
     v.style.height = `${h}px`;
-    // Centred on the screen, not on the element's containing block: the two
-    // have disagreed by tens of points on this phone, and centring is the one
-    // placement where being wrong costs the same at both ends.
-    v.style.left = `${Math.round((W / COVER_MARGIN - w) / 2)}px`;
-    v.style.top = `${Math.round((H / COVER_MARGIN - h) / 2)}px`;
-    // Belt and braces: with the box already the video's shape this changes
-    // nothing, and it removes the last thing that could reintroduce a bar.
+    v.style.left = `${Math.round(cx - w / 2)}px`;
+    v.style.top = `${Math.round(cy - h / 2)}px`;
+    // With the box already the video's shape this changes nothing, and it
+    // removes the last thing that could reintroduce a bar.
     v.style.objectFit = 'fill';
   });
+}
+
+// ---- and if, after all that, something still falls short --------------------
+//
+// The two photographs that finally explained this measured the gap at exactly
+// rgb(5,6,15). That is #05060f — the flat end of #sky-bg's gradient and the
+// colour <html> paints on the canvas. In other words the gap is not a hole:
+// something IS painting there, and what it paints is a flat near-black that
+// reads as a bar against moving scenery.
+//
+// So stop painting a flat near-black. Every so often the live frame is drawn
+// into a canvas the size of a postage stamp — 16 by 32 — and that is used two
+// ways:
+//
+//   as #sky-bg's background   scaled up to fill, which is a blur for free, so
+//                             any strip the video misses shows the same scene
+//                             softened rather than a black band
+//   as <html>'s colour        the average of the frame. The root element's
+//                             background is propagated to the CANVAS, which by
+//                             specification covers the entire painting surface —
+//                             including anything outside the layout viewport,
+//                             where no element of any kind can reach.
+//
+// That last one is the floor under everything. Whatever else is wrong, the
+// furthest-back surface is now the colour of the sky being shown, not black.
+//
+// Sixteen by thirty-two, three times a second at most: a drawImage that small is
+// free, and the result is a wash of colour, which is all it has to be.
+const BACKSTOP_MS = 700;
+let stamp = null;
+let stampCtx = null;
+
+function paintBackstop() {
+  const video =
+    document.querySelector('.bg-video.bg-show') ||
+    [...document.querySelectorAll('.bg-video')].find((v) => v.readyState >= 2);
+  if (!video || !video.videoWidth || video.readyState < 2) return;
+
+  if (!stamp) {
+    stamp = document.createElement('canvas');
+    stamp.width = 16;
+    stamp.height = 32;
+    stampCtx = stamp.getContext('2d', { willReadFrequently: true });
+  }
+  if (!stampCtx) return;
+
+  try {
+    stampCtx.drawImage(video, 0, 0, stamp.width, stamp.height);
+  } catch {
+    return; // not decodable yet
+  }
+
+  const sky = document.getElementById('sky-bg');
+  try {
+    // A 16x32 JPEG is a few hundred bytes, so this costs less than the string
+    // that describes it.
+    const url = stamp.toDataURL('image/jpeg', 0.6);
+    if (sky) {
+      sky.style.backgroundImage = `url(${url})`;
+      sky.style.backgroundSize = 'cover';
+      sky.style.backgroundPosition = 'center';
+    }
+    const { data } = stampCtx.getImageData(0, 0, stamp.width, stamp.height);
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      r += data[i];
+      g += data[i + 1];
+      b += data[i + 2];
+    }
+    const n = data.length / 4;
+    // Darkened a little: the canvas sits behind everything and the sky it is
+    // standing in for is night. A backstop that is brighter than the picture is
+    // a bar of a different colour.
+    document.documentElement.style.backgroundColor =
+      `rgb(${Math.round(r / n * 0.8)}, ${Math.round(g / n * 0.8)}, ${Math.round(b / n * 0.8)})`;
+  } catch {
+    // A cross-origin clip taints the canvas and both of those throw. The App
+    // streams its video from the site, so this is a real case — and the answer
+    // is to leave the gradient exactly as it was, not to break anything.
+  }
+}
+
+function keepBackstopPainted() {
+  paintBackstop();
+  setInterval(paintBackstop, BACKSTOP_MS);
 }
 
 function keepSkyHeight() {
@@ -696,6 +816,7 @@ function keepSkyHeight() {
   // measured before then — and it is the layer that has behaved differently
   // from the others before (a replaced element ignores `bottom` and resolves
   // `height: auto` to its own intrinsic size).
+  keepBackstopPainted();
   document.querySelectorAll('.bg-video').forEach((v) => {
     v.addEventListener('playing', run);
     // The aspect ratio is not known until here, and a playlist changes clips
