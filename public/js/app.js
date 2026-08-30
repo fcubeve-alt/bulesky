@@ -603,13 +603,68 @@ function fitLayer(el, target) {
   return { top: Math.round(rect.top), bottom: Math.round(rect.bottom), grewBy: Math.round(rect.bottom - before) };
 }
 
+// Give the video the video's own shape, in pixels, and centre it on the screen.
+//
+// This is `object-fit: cover`, done by hand, because on iOS it was not being
+// done at all. Two photographs two minutes apart showed the frame 812pt tall on
+// one clip and 848 on the next, on the same 874pt screen, with the leftover
+// strip at the bottom of one and the top of the other — and the strip measured
+// exactly rgb(5,6,15), the canvas colour, so it was never footage. The box was
+// the right size the whole time; the picture inside it was letterboxed.
+//
+// The trick is that once the element's aspect ratio equals the video's, `cover`,
+// `contain` and `fill` all produce the same picture. Whichever one the browser
+// decides to honour, there is nowhere for a bar to go.
+//
+// Over-covering is free — it crops a little more of a background nobody is
+// looking at directly — so the target is deliberately generous. Under-covering
+// is the bug. That asymmetry is why this takes the largest figure available and
+// then adds to it, rather than trying to find the one true screen height, which
+// is what the previous thirteen attempts were doing.
+const COVER_MARGIN = 1.12;
+
+function coverVideos() {
+  const W = Math.max(
+    (window.screen && window.screen.width) || 0,
+    window.innerWidth || 0,
+    document.documentElement.clientWidth || 0
+  ) * COVER_MARGIN;
+  const H = skyTarget() * COVER_MARGIN;
+  if (!(W > 0 && H > 0)) return;
+
+  document.querySelectorAll('.bg-video').forEach((v) => {
+    // Before metadata arrives there is no aspect ratio to match. The listener
+    // below brings it back the moment there is.
+    const vw = v.videoWidth;
+    const vh = v.videoHeight;
+    if (!vw || !vh) return;
+
+    const scale = Math.max(W / vw, H / vh);
+    const w = Math.ceil(vw * scale);
+    const h = Math.ceil(vh * scale);
+    v.style.width = `${w}px`;
+    v.style.height = `${h}px`;
+    // Centred on the screen, not on the element's containing block: the two
+    // have disagreed by tens of points on this phone, and centring is the one
+    // placement where being wrong costs the same at both ends.
+    v.style.left = `${Math.round((W / COVER_MARGIN - w) / 2)}px`;
+    v.style.top = `${Math.round((H / COVER_MARGIN - h) / 2)}px`;
+    // Belt and braces: with the box already the video's shape this changes
+    // nothing, and it removes the last thing that could reintroduce a bar.
+    v.style.objectFit = 'fill';
+  });
+}
+
 function keepSkyHeight() {
   const run = () => {
     const target = skyTarget();
+    coverVideos();
     if (target > 0) document.documentElement.style.setProperty('--sky-h', `${target}px`);
 
+    // The videos are placed by coverVideos() above and are deliberately not in
+    // this list any more: growing a letterboxed element only grows the letterbox.
     const seen = {};
-    document.querySelectorAll('#sky-bg, #bg-scrim, .bg-video').forEach((el) => {
+    document.querySelectorAll('#sky-bg, #bg-scrim').forEach((el) => {
       const at = fitLayer(el, target);
       if (at) seen[el.id || el.className.split(' ')[0]] = at;
     });
@@ -643,6 +698,11 @@ function keepSkyHeight() {
   // `height: auto` to its own intrinsic size).
   document.querySelectorAll('.bg-video').forEach((v) => {
     v.addEventListener('playing', run);
+    // The aspect ratio is not known until here, and a playlist changes clips
+    // without the page ever resizing — which is precisely the moment the strip
+    // moved from the bottom of one clip to the top of the next.
+    v.addEventListener('loadedmetadata', run);
+    v.addEventListener('loadeddata', run);
   });
 }
 

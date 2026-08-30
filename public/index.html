@@ -120,13 +120,48 @@
    * The balloon world is positioned inside #lanterns — scaling it would move
    * and resize every balloon in the sky (docs/SKY_FEED.md). They keep the older
    * rule below, which is harmless for a layer with nothing opaque in it. */
-  #sky-bg, .bg-video, #bg-scrim {
+  #sky-bg, #bg-scrim {
     position: fixed;
     inset: 0;
     width: 100%;
     height: 100%;
     transform: scale(1.2);
     transform-origin: 50% 50%;
+  }
+
+  /* ⚠️ THE VIDEO IS NOT SIZED HERE. coverVideos() in app.js does it, in pixels.
+   *
+   * Thirteen rounds were spent on the box this element sits in. Two photographs
+   * finally showed why none of it worked: the gap is a colour, exactly
+   * rgb(5,6,15), which is #05060f — the canvas, not anything in the footage —
+   * and it appeared at the BOTTOM on one clip and at the TOP on the next, two
+   * minutes apart, at different sizes. The frame was 812pt tall on one and 848
+   * on the other, on the same 874pt screen.
+   *
+   * A box does not change height between two clips. The frame INSIDE the box
+   * does. `object-fit: cover` is not being honoured for this element on iOS, so
+   * the video renders letterboxed inside a box that was the right size all
+   * along — and every fix aimed at the box was aimed at the wrong thing. It is
+   * also exactly why scale(1.2) changed nothing: enlarging the element enlarges
+   * the letterbox with it.
+   *
+   * So the element is given the video's OWN aspect ratio, in pixels, big enough
+   * to cover the screen and centred on it. When the box and the frame have the
+   * same shape, contain, cover and fill are the same thing — and it stops
+   * mattering which of them the browser decides to apply.
+   *
+   * Only what cannot be computed lives here. */
+  .bg-video {
+    position: fixed;
+    left: 0;
+    top: 0;
+    /* A starting size only, replaced in pixels the moment the clip announces
+     * its shape. Without it an unsized <video> falls back to its 300x150
+     * default and would sit in the corner for the frame before that — and if
+     * the script never runs at all, this is the old behaviour rather than a
+     * postage stamp. */
+    width: 100vw;
+    height: 100vh;
   }
 
   /* The transparent layers. These carry content rather than paint, so a few

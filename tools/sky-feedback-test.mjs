@@ -364,7 +364,10 @@ function reachableBalloon(page) {
   const MARGIN = 40;
   const short = await page.evaluate((margin) => {
     const out = [];
-    for (const sel of ['#sky-bg', '#bg-scrim', '.bg-video']) {
+    // The video is deliberately absent: it is placed in pixels by coverVideos()
+    // and checked further down, against the clip's own aspect ratio. Sizing it
+    // here is what let a letterboxed frame hide inside a correct box.
+    for (const sel of ['#sky-bg', '#bg-scrim']) {
       const el = document.querySelector(sel);
       if (!el) continue;
       const r = el.getBoundingClientRect();
@@ -384,7 +387,7 @@ function reachableBalloon(page) {
   // twelve rounds were spent picking between them.
   const usesNoNumber = await page.evaluate(() => {
     const bad = [];
-    for (const sel of ['#sky-bg', '#bg-scrim', '.bg-video']) {
+    for (const sel of ['#sky-bg', '#bg-scrim']) {
       const el = document.querySelector(sel);
       if (!el) continue;
       const cs = getComputedStyle(el);
@@ -397,7 +400,7 @@ function reachableBalloon(page) {
   });
   check(
     usesNoNumber.length === 0,
-    `and none of them is sized by a number the browser had to be asked for (${usesNoNumber.join(', ') || 'inset:0 + scale, all three'})`
+    `and none of them is sized by a number the browser had to be asked for (${usesNoNumber.join(', ') || 'inset:0 + scale, both'})`
   );
 
   // The two that deliberately do NOT bleed still have to cover the viewport
@@ -475,8 +478,11 @@ function reachableBalloon(page) {
   //
   // If this goes red, the app is back to guessing.
   const healed = await page.evaluate(async () => {
-    const video = document.querySelector('.bg-video');
-    video.classList.remove('hidden');
+    // A painting layer, not the video: the video is placed by coverVideos() and
+    // growing a letterboxed element only grows the letterbox, which is the whole
+    // reason it was taken out of this loop.
+    const video = document.querySelector('#sky-bg');
+    video.style.transform = 'none';
     video.style.height = '150px';
     const broken = video.getBoundingClientRect().bottom;
 
@@ -495,6 +501,68 @@ function reachableBalloon(page) {
     healed.bottom >= healed.target,
     `a layer that comes up short is measured and put back, without a deploy (${healed.broken}px → ${healed.bottom}px, screen ${healed.target})`
   );
+
+  // ---- the picture inside the box -------------------------------------------
+  //
+  // Thirteen rounds went at the box the video sits in. Two photographs showed
+  // the box was never the problem: the missing strip measured exactly
+  // rgb(5,6,15) — the canvas, not footage — and it was 62pt at the BOTTOM on one
+  // clip and 25.7pt at the TOP on the next, two minutes apart on the same
+  // screen. A box does not change shape between clips; a letterboxed frame
+  // inside it does. `object-fit: cover` was not being honoured.
+  //
+  // So the element is given the video's own aspect ratio in pixels. When the box
+  // and the frame are the same shape, cover, contain and fill all agree, and
+  // there is nowhere for a bar to go whichever one the browser picks.
+  const framed = await page.evaluate(async () => {
+    const v = document.querySelector('.bg-video');
+    v.classList.remove('hidden');
+    // A real clip only announces its shape at loadedmetadata, which is also the
+    // moment a playlist swaps clips without the page ever resizing.
+    Object.defineProperty(v, 'videoWidth', { value: 1920, configurable: true });
+    Object.defineProperty(v, 'videoHeight', { value: 1080, configurable: true });
+    v.dispatchEvent(new Event('loadedmetadata'));
+    await new Promise((r) => requestAnimationFrame(r));
+    const r = v.getBoundingClientRect();
+    return {
+      boxAspect: r.width / r.height,
+      videoAspect: 1920 / 1080,
+      top: Math.round(r.top),
+      bottom: Math.round(r.bottom),
+      left: Math.round(r.left),
+      right: Math.round(r.right),
+      w: innerWidth,
+      h: Math.max(screen.height, innerHeight, document.documentElement.clientHeight),
+    };
+  });
+  check(
+    Math.abs(framed.boxAspect - framed.videoAspect) < 0.01,
+    `the video element is given the clip's own shape, so no fit mode can letterbox it (${framed.boxAspect.toFixed(3)} vs ${framed.videoAspect.toFixed(3)})`
+  );
+  check(
+    framed.top <= 0 && framed.bottom >= framed.h && framed.left <= 0 && framed.right >= framed.w,
+    `and it covers the whole screen on all four sides (${framed.left}..${framed.right} x ${framed.top}..${framed.bottom} over ${framed.w}x${framed.h})`
+  );
+
+  // A portrait clip has to work as well as a landscape one — the strip changed
+  // ends between two clips, which is what a shape change does.
+  const portrait = await page.evaluate(async () => {
+    const v = document.querySelector('.bg-video');
+    Object.defineProperty(v, 'videoWidth', { value: 1080, configurable: true });
+    Object.defineProperty(v, 'videoHeight', { value: 2340, configurable: true });
+    v.dispatchEvent(new Event('loadedmetadata'));
+    await new Promise((r) => requestAnimationFrame(r));
+    const r = v.getBoundingClientRect();
+    return {
+      ok:
+        r.top <= 0 &&
+        r.bottom >= Math.max(screen.height, innerHeight, document.documentElement.clientHeight) &&
+        r.left <= 0 &&
+        r.right >= innerWidth,
+      box: `${Math.round(r.left)}..${Math.round(r.right)} x ${Math.round(r.top)}..${Math.round(r.bottom)}`,
+    };
+  });
+  check(portrait.ok, `and a portrait clip covers it too, not only a landscape one (${portrait.box})`);
 
   // What it saw is left where the next round can read it, so a phone with the
   // problem reports its own numbers instead of being guessed about.
