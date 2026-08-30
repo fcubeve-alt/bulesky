@@ -57,6 +57,11 @@ function makeEnv({ token = TOKEN } = {}) {
           }
           return { results: [] };
         },
+        async run() {
+          // deleteVoice clears both shelves, always — a whisper taken down must
+          // not leave its reading behind in whichever one it happens to be in.
+          return {};
+        },
         async first() {
           if (/COUNT\(\*\) AS n FROM bubbles/.test(sql)) {
             return { n: SKY.filter((b) => !b.hidden && b.content.trim()).length };
@@ -86,6 +91,7 @@ function makeEnv({ token = TOKEN } = {}) {
           customMetadata: o.opts.customMetadata,
         };
       },
+      async delete(key) { r2.delete(key); },
       async list({ prefix }) {
         return { objects: [...r2.keys()].filter((k) => k.startsWith(prefix)).map((k) => ({ key: k })), truncated: false };
       },
@@ -151,6 +157,61 @@ const withToken = (t = TOKEN) => ({ 'x-voice-token': t });
 
   const after = await (await onRequestGet({ request: req('/api/voice/backfill', { headers: withToken() }), env })).json();
   check('the count of what has been read goes up', after.made === 1, String(after.made));
+
+  // ---- the same whisper, read again -----------------------------------------
+  //
+  // A count that went 84 -> 169 after a second pass looked exactly like uploads
+  // piling up. They were not: the key had changed between the two runs, so the
+  // same eighty-odd whispers were being counted on two shelves at once. Same id
+  // twice must be one reading, and it must be the SECOND one.
+  const again = new Uint8Array(4096).fill(3);
+  again.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x4d, 0x34, 0x41, 0x20], 0);
+  await onRequestPost({
+    request: req('/api/voice/backfill?id=1', { method: 'POST', headers: { ...withToken(), 'content-type': 'audio/mp4' }, body: again }),
+    env,
+  });
+  const afterTwice = await (await onRequestGet({ request: req('/api/voice/backfill', { headers: withToken() }), env })).json();
+  const rewritten = await readVoice(env, brandVoiceKey(1));
+  check(
+    'reading a whisper again replaces it rather than adding another',
+    afterTwice.made === 1 && rewritten.bytes[100] === 3,
+    `made ${afterTwice.made}, byte ${rewritten.bytes[100]}`
+  );
+
+  // ---- and the copy the key change stranded ---------------------------------
+  {
+    const env4 = makeEnv();
+    const legacy = await brandVoiceHash(SKY[0].content, SKY[0].type);
+    const bytes4 = new Uint8Array(4096);
+    bytes4.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x4d, 0x34, 0x41, 0x20], 0);
+    await writeVoice(env4, legacy, bytes4, 'audio/mp4', 'aya');
+    const before4 = await (await onRequestGet({ request: req('/api/voice/backfill', { headers: withToken() }), env: env4 })).json();
+    check('a reading under the old key is reported as legacy, not as progress',
+      before4.made === 0 && before4.legacy === 1, `made ${before4.made}, legacy ${before4.legacy}`);
+
+    // A sweep must NOT take it while it is the only reading that whisper has.
+    const early = await (await onRequestGet({ request: req('/api/voice/backfill?sweep=1', { headers: withToken() }), env: env4 })).json();
+    check('and a sweep leaves it alone while it is the only reading there is',
+      early.removed === 0 && !!(await readVoice(env4, legacy)));
+
+    // Once the whisper has a current reading, the old one is only taking space.
+    await onRequestPost({
+      request: req('/api/voice/backfill?id=1', { method: 'POST', headers: { ...withToken(), 'content-type': 'audio/mp4' }, body: bytes4 }),
+      env: env4,
+    });
+    check('uploading again clears the superseded copy by itself',
+      !(await readVoice(env4, legacy)));
+
+    // And the sweep is there for whispers nobody uploads again.
+    const env5 = makeEnv();
+    const legacy5 = await brandVoiceHash(SKY[1].content, SKY[1].type);
+    await writeVoice(env5, legacy5, bytes4, 'audio/mp4', 'aya');
+    await writeVoice(env5, brandVoiceKey(2), bytes4, 'audio/mp4', 'aya');
+    const swept = await (await onRequestGet({ request: req('/api/voice/backfill?sweep=1', { headers: withToken() }), env: env5 })).json();
+    check('and the sweep clears the rest, leaving one reading per whisper',
+      swept.removed === 1 && swept.legacy === 0 && swept.made === 1,
+      `removed ${swept.removed}, made ${swept.made}, legacy ${swept.legacy}`);
+  }
 
   const head = await onRequestHead({ request: req('/api/voice/backfill?id=1', { headers: withToken() }), env });
   const head2 = await onRequestHead({ request: req('/api/voice/backfill?id=2', { headers: withToken() }), env });

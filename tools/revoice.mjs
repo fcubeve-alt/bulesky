@@ -270,6 +270,25 @@ async function everyWhisper() {
   return { list: all.slice(0, LIMIT), total, made };
 }
 
+// Clear out readings left under the older key. Paged, because the site does one
+// page per request on purpose — a Worker has a ceiling on outside calls and a
+// whole library in one go is how this would pass a test and fail in use.
+async function sweepLegacy() {
+  let after = 0;
+  let removed = 0;
+  for (let page = 0; page < 200; page += 1) {
+    const res = await fetch(`${SITE}/api/voice/backfill?sweep=1&after=${after}&limit=50`, {
+      headers: siteHeaders(),
+    });
+    if (!res.ok) break;
+    const data = await res.json();
+    removed += data.removed || 0;
+    if (!data.next) return { removed, made: data.made, legacy: data.legacy };
+    after = data.next;
+  }
+  return { removed };
+}
+
 async function upload(id, path, mime = 'audio/aac') {
   const res = await fetch(`${SITE}/api/voice/backfill?id=${id}`, {
     method: 'POST',
@@ -522,6 +541,17 @@ if (failures.length) {
 }
 if (UPLOAD) {
   console.log(`\n${uploaded} sent. They are what Listen plays from now on.`);
+  // Re-reading a whisper already replaces its own old copy; this is for the ones
+  // nobody is going to read again.
+  try {
+    const swept = await sweepLegacy();
+    if (swept.removed) console.log(`${swept.removed} superseded readings cleared out.`);
+    if (swept.made != null) {
+      console.log(`the sky now holds ${swept.made} readings in our voice${swept.legacy ? `, ${swept.legacy} still on the old shelf` : ''}.`);
+    }
+  } catch {
+    /* tidying is not worth failing a finished run over */
+  }
 } else {
   console.log(`\nListen to what is in ${OUT}/ before anything is uploaded anywhere.`);
   console.log('When it sounds right: node tools/revoice.mjs --all --upload');

@@ -1,5 +1,5 @@
 import { brandVoiceHash, brandVoiceKey, BRAND_PREFIX } from '../../../src/tts.js';
-import { readVoice, writeVoice, voiceStore, sniffAudioMime } from '../../../src/voice-store.js';
+import { readVoice, writeVoice, deleteVoice, voiceStore, sniffAudioMime } from '../../../src/voice-store.js';
 
 // The door the site's own voice comes in through.
 //
@@ -63,23 +63,95 @@ function authed(request, env) {
 
 // How much of the sky is already in the site's own voice. Counted rather than
 // estimated, because the alternative to knowing is generating a library twice.
-async function readingsMade(env) {
+// Two numbers, not one, and the difference between them is the whole story of
+// one confusing evening.
+//
+// `made` counts readings under the current key, one per whisper — upload the
+// same id twice and it stays the same number, because the second write replaces
+// the first. `legacy` counts what is left under the older text-hash key: files
+// that are still on the shelf, are never read (the id key is tried first), and
+// are only waiting to be swept.
+//
+// Reported separately because reporting them together is what made a single
+// count go from 84 to 169 after a re-read and look like uploads were piling up.
+// Nothing was piling up. The key had changed underneath, so the same eighty-odd
+// whispers were being counted in two places at once.
+async function countReadings(env) {
+  const current = `voice/${brandVoiceKey('')}`; // voice/aya-id-
   if (env && env.VOICE_BUCKET) {
-    let count = 0;
+    let made = 0;
+    let all = 0;
     let cursor;
     do {
       const page = await env.VOICE_BUCKET.list({ prefix: `voice/${BRAND_PREFIX}`, cursor });
-      count += page.objects.length;
+      all += page.objects.length;
+      made += page.objects.filter((o) => o.key.startsWith(current)).length;
       cursor = page.truncated ? page.cursor : null;
     } while (cursor);
-    return count;
+    return { made, legacy: all - made };
   }
   const row = await env.DB.prepare(
-    `SELECT COUNT(DISTINCT hash) AS n FROM voice_chunks WHERE hash LIKE ?`
+    `SELECT
+       COUNT(DISTINCT CASE WHEN hash LIKE ? THEN hash END) AS made,
+       COUNT(DISTINCT CASE WHEN hash LIKE ? AND hash NOT LIKE ? THEN hash END) AS legacy
+     FROM voice_chunks`
   )
-    .bind(`${BRAND_PREFIX}%`)
+    .bind(`${brandVoiceKey('')}%`, `${BRAND_PREFIX}%`, `${brandVoiceKey('')}%`)
     .first();
-  return (row && row.n) || 0;
+  return { made: (row && row.made) || 0, legacy: (row && row.legacy) || 0 };
+}
+
+// Throw away the copy under the old key, once the new one is safely written.
+//
+// Every re-upload cleans up after itself, so a library that is read again is
+// tidy by the time the run ends, and the ?sweep=1 pass below is only for the
+// whispers nobody is going to read again.
+async function dropLegacy(env, text, type) {
+  try {
+    await deleteVoice(env, await brandVoiceHash(text, type));
+  } catch {
+    /* an orphan nothing reads is not worth failing an upload over */
+  }
+}
+
+// ---- clearing out what the key change left behind ---------------------------
+//
+// Readings made before the key became the whisper's id are still on the shelf
+// under a hash of the words. Nothing reads them — the id key is tried first —
+// so they are pure storage, and they are what made a single count jump from 84
+// to 169 and look like duplicates.
+//
+// Paged on purpose. A Worker has a ceiling on how many outside calls one request
+// may make, and a sweep is two of them per whisper; doing a whole library in one
+// request is how this would work in testing and die on the real site.
+async function sweep(env, after, limit) {
+  const { results } = await env.DB.prepare(
+    `SELECT id, type, content FROM bubbles
+      WHERE hidden = 0 AND id > ? AND LENGTH(TRIM(content)) > 0
+      ORDER BY id ASC LIMIT ?`
+  )
+    .bind(after, Math.min(limit, 50))
+    .all();
+
+  const rows = results || [];
+  let removed = 0;
+  for (const b of rows) {
+    const text = String(b.content || '').trim();
+    // Only ever delete the old copy of a whisper that HAS a current one. A
+    // whisper still living on its legacy reading keeps it until it is re-read.
+    if (!(await readVoice(env, brandVoiceKey(b.id)))) continue;
+    const legacy = await brandVoiceHash(text, b.type);
+    if (!(await readVoice(env, legacy))) continue;
+    await deleteVoice(env, legacy);
+    removed += 1;
+  }
+
+  return json({
+    swept: rows.length,
+    removed,
+    next: rows.length === Math.min(limit, 50) ? rows[rows.length - 1].id : null,
+    ...(await countReadings(env)),
+  });
 }
 
 // ---- what there is to read -------------------------------------------------
@@ -99,6 +171,8 @@ export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const after = Number(url.searchParams.get('after') || 0) || 0;
   const limit = Math.min(Number(url.searchParams.get('limit') || 100) || 100, MAX_PAGE);
+
+  if (url.searchParams.get('sweep') === '1') return await sweep(env, after, limit);
 
   const { results } = await env.DB.prepare(
     `SELECT id, type, content FROM bubbles
@@ -124,7 +198,7 @@ export async function onRequestGet({ request, env }) {
     bubbles,
     next: bubbles.length === limit ? bubbles[bubbles.length - 1].id : null,
     total: (total && total.n) || 0,
-    made: await readingsMade(env),
+    ...(await countReadings(env)),
     store: voiceStore(env),
   });
 }
@@ -168,8 +242,14 @@ export async function onRequestPost({ request, env }) {
 
   // Keyed on the id. See brandVoiceKey — a hash of the text is one silent miss
   // away from a library that plays nothing it contains.
+  // Same id, same key: R2 replaces the object and the D1 path clears the hash
+  // in the same batch before inserting. Re-reading a whisper overwrites it; it
+  // never accumulates.
   const hash = brandVoiceKey(id);
   const store = await writeVoice(env, hash, bytes, mime, 'aya');
+
+  // And the copy this one supersedes, from before the key was the id.
+  await dropLegacy(env, text, bubble.type);
 
   return json({ ok: true, id, hash, bytes: bytes.length, mime, declared, store });
 }
