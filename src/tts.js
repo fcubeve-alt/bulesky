@@ -308,6 +308,21 @@ export async function voiceHash(text, type, env) {
 // what made each file and re-reads whatever no longer matches (tools/revoice.mjs).
 export const BRAND_PREFIX = 'aya-';
 
+// The key a brand reading is filed under: the whisper's id, and nothing else.
+//
+// It used to be a hash of the whisper's text, which is right for a machine voice
+// — two identical whispers share one synthesis and one bill. It is wrong for
+// this one. These readings are made per whisper on the owner's machine, the
+// saving is nil, and keying on text means any difference at all between what the
+// uploader hashed and what the reader hashes is a silent miss with no error
+// anywhere. An id cannot drift.
+//
+// brandVoiceHash below stays, and is still read, so the readings already
+// uploaded under the old key keep playing without anyone re-reading them.
+export function brandVoiceKey(id) {
+  return `${BRAND_PREFIX}id-${id}`;
+}
+
 export async function brandVoiceHash(text, type) {
   const material = ['brand', 'aya', type, text].join(' ');
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(material));

@@ -208,11 +208,14 @@ function duration(path) {
 // the folder away and the run starts over, which is the behaviour anyone would
 // expect from a folder called voice-out.
 //
-// Keyed on the whisper's id, but the HASH is what is compared. An author can
-// edit nothing after posting, so in practice they are the same check — except
-// for the one case that matters, where a whisper was taken down and its id
-// reused by nothing at all. Comparing the hash means the ledger can never claim
-// a reading of some other words.
+// Keyed on the whisper's id, and that is now the whole of it. The site files a
+// brand reading under the id too (brandVoiceKey), so the id is the identity of
+// the audio rather than a label on it — and an author can edit nothing after
+// posting, so there is no text to drift out from under it.
+//
+// This used to also compare a hash of the words. Dropping that is what stops the
+// change of key from re-reading eighty-four whispers on a GPU for no reason: the
+// readings already uploaded are already the right readings.
 const LEDGER = join(OUT, 'read.json');
 
 function loadLedger() {
@@ -231,7 +234,7 @@ function saveLedger(ledger) {
 function alreadyRead(ledger, w) {
   if (FORCE) return false;
   const seen = ledger.done[String(w.id)];
-  return !!seen && seen.recipe === RECIPE_ID && (!w.hash || seen.hash === w.hash);
+  return !!seen && seen.recipe === RECIPE_ID;
 }
 
 // ---- talking to the site ---------------------------------------------------

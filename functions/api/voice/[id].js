@@ -1,6 +1,7 @@
 import {
   voiceHash,
   brandVoiceHash,
+  brandVoiceKey,
   pickVoice,
   synthesize,
   providerFor,
@@ -9,7 +10,7 @@ import {
   openaiTtsModel,
   openaiVoice,
 } from '../../../src/tts.js';
-import { readVoice, writeVoice, voiceStore } from '../../../src/voice-store.js';
+import { readVoice, writeVoice, voiceStore, sniffAudioMime } from '../../../src/voice-store.js';
 
 // Read a whisper aloud. Returns audio, never JSON on success.
 //
@@ -274,9 +275,18 @@ async function readAloud({ request, params, env, waitUntil }) {
   // A miss costs one extra read against the store. That is the whole price of
   // the whispers that have not been read yet, and it shrinks to nothing as they
   // are.
-  const branded = await readVoice(env, await brandVoiceHash(text, bubble.type));
+  // Filed under the whisper's id. The text hash after it is the older key, kept
+  // so that readings uploaded before the change keep playing.
+  const branded =
+    (await readVoice(env, brandVoiceKey(bubble.id))) ||
+    (await readVoice(env, await brandVoiceHash(text, bubble.type)));
   if (branded) {
-    return audio(branded.bytes, branded.mime, request, `brand:${branded.voice || 'aya'}:${branded.from}`);
+    // Served as what the bytes ARE, not as what they were posted as. The first
+    // batch went up as `audio/aac` when it was MP4, Safari refused it, and the
+    // page fell back to the phone's own voice — a silent failure that looked
+    // exactly like the reading never having been made.
+    const mime = sniffAudioMime(branded.bytes, branded.mime);
+    return audio(branded.bytes, mime, request, `brand:${branded.voice || 'aya'}:${branded.from}`);
   }
 
   const hash = await voiceHash(text, bubble.type, env);
@@ -389,7 +399,13 @@ function audio(data, mime, request, provider) {
     'accept-ranges': 'bytes',
     // The hash covers the text and the delivery, so a given whisper's audio
     // is stable for as long as its words are.
-    'cache-control': 'public, max-age=86400',
+    // A day was too long, and the reason is this change. The audio at this URL
+    // is not immutable: a whisper read by a machine voice today is read in the
+    // site's own voice tomorrow, and every phone that had listened once went on
+    // playing the robot for a full day afterwards with no way to ask for the new
+    // one. Ten minutes still spares the repeat listener the download and lets a
+    // new reading actually arrive. Egress from R2 is free.
+    'cache-control': 'public, max-age=600',
   };
 
   const range = request && request.headers ? request.headers.get('range') : null;

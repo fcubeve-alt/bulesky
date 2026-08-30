@@ -1,5 +1,5 @@
-import { brandVoiceHash, BRAND_PREFIX } from '../../../src/tts.js';
-import { readVoice, writeVoice, voiceStore } from '../../../src/voice-store.js';
+import { brandVoiceHash, brandVoiceKey, BRAND_PREFIX } from '../../../src/tts.js';
+import { readVoice, writeVoice, voiceStore, sniffAudioMime } from '../../../src/voice-store.js';
 
 // The door the site's own voice comes in through.
 //
@@ -112,7 +112,7 @@ export async function onRequestGet({ request, env }) {
   const bubbles = await Promise.all(
     rows.map(async (b) => {
       const text = String(b.content || '').trim();
-      return { id: b.id, type: b.type, text, hash: await brandVoiceHash(text, b.type) };
+      return { id: b.id, type: b.type, text, hash: brandVoiceKey(b.id) };
     })
   );
 
@@ -142,8 +142,8 @@ export async function onRequestPost({ request, env }) {
   const id = Number(url.searchParams.get('id'));
   if (!Number.isFinite(id)) return json({ error: 'invalid_id' }, 400);
 
-  const mime = String(request.headers.get('content-type') || '').split(';')[0].trim();
-  if (!mime.startsWith('audio/')) return json({ error: 'not_audio', mime }, 415);
+  const declared = String(request.headers.get('content-type') || '').split(';')[0].trim();
+  if (!declared.startsWith('audio/')) return json({ error: 'not_audio', mime: declared }, 415);
 
   // The key comes from the whisper as it stands now, never from the caller.
   const bubble = await env.DB.prepare(
@@ -160,10 +160,18 @@ export async function onRequestPost({ request, env }) {
   if (bytes.length < MIN_BYTES) return json({ error: 'too_short', bytes: bytes.length }, 400);
   if (bytes.length > MAX_BYTES) return json({ error: 'too_large', bytes: bytes.length }, 413);
 
-  const hash = await brandVoiceHash(text, bubble.type);
+  // What was sent, not what it was called. `ffmpeg -c:a aac` into a .m4a is an
+  // MP4 container and the first batch was posted as `audio/aac`; Safari would
+  // not decode it and the page fell back to the phone's own voice, which is a
+  // failure that reports itself nowhere.
+  const mime = sniffAudioMime(bytes, declared);
+
+  // Keyed on the id. See brandVoiceKey — a hash of the text is one silent miss
+  // away from a library that plays nothing it contains.
+  const hash = brandVoiceKey(id);
   const store = await writeVoice(env, hash, bytes, mime, 'aya');
 
-  return json({ ok: true, id, hash, bytes: bytes.length, store });
+  return json({ ok: true, id, hash, bytes: bytes.length, mime, declared, store });
 }
 
 // Whether one whisper has been read already, without downloading it twice over
@@ -183,7 +191,8 @@ export async function onRequestHead({ request, env }) {
     .first();
   if (!bubble) return new Response(null, { status: 404 });
 
-  const hash = await brandVoiceHash(String(bubble.content || '').trim(), bubble.type);
-  const found = await readVoice(env, hash);
+  const found =
+    (await readVoice(env, brandVoiceKey(bubble.id))) ||
+    (await readVoice(env, await brandVoiceHash(String(bubble.content || '').trim(), bubble.type)));
   return new Response(null, { status: found ? 200 : 404 });
 }

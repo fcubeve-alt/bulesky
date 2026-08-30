@@ -19,8 +19,8 @@ import { promisify } from 'node:util';
 import { mkdtempSync, writeFileSync, readFileSync, chmodSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { brandVoiceHash, BRAND_PREFIX } from '../src/tts.js';
-import { readVoice } from '../src/voice-store.js';
+import { brandVoiceHash, brandVoiceKey, BRAND_PREFIX } from '../src/tts.js';
+import { readVoice, writeVoice } from '../src/voice-store.js';
 import { onRequestGet, onRequestPost, onRequestHead } from '../functions/api/voice/backfill.js';
 import { onRequestGet as listen } from '../functions/api/voice/[id].js';
 
@@ -142,8 +142,8 @@ const withToken = (t = TOKEN) => ({ 'x-voice-token': t });
     request: req('/api/voice/backfill?id=1', { method: 'POST', headers: { ...withToken(), 'content-type': 'audio/aac' }, body: audio }),
     env,
   })).json();
-  const expected = await brandVoiceHash(SKY[0].content, SKY[0].type);
-  check('an upload is filed under the whisper it names, keyed by that whisper\'s own words', sent.ok && sent.hash === expected);
+  const expected = brandVoiceKey(1);
+  check('an upload is filed under the whisper it names, by that whisper\'s id', sent.ok && sent.hash === expected);
   check('and the key says out loud that it is ours, so the shelf can be counted', expected.startsWith(BRAND_PREFIX));
 
   const stored = await readVoice(env, expected);
@@ -203,6 +203,54 @@ const withToken = (t = TOKEN) => ({ 'x-voice-token': t });
   check('a whisper we have read is answered with our reading, with no provider configured',
     heard.status === 200 && type.startsWith('audio/'), `${heard.status} ${type}`);
   check('and it is the bytes that were uploaded', (await heard.arrayBuffer()).byteLength === 4096);
+
+  // ---- the label has to match the bytes ------------------------------------
+  //
+  // The failure this exists to stop, exactly as it happened: eighty-four
+  // readings uploaded, every hash checked and correct, every one served — and
+  // every one came out as the phone's own robot voice. `ffmpeg -c:a aac` into a
+  // .m4a is an MP4 container, it was posted as `audio/aac`, which is the type
+  // for a bare ADTS stream, and Safari refused to decode it. app.js does the
+  // right thing with audio it cannot decode and falls back to the device voice,
+  // so nothing anywhere reported a problem. Nothing could.
+  {
+    const env2 = makeEnv();
+    const mp4 = new Uint8Array(4096);
+    mp4.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x4d, 0x34, 0x41, 0x20], 0); // ....ftypM4A
+    const posted = await (await onRequestPost({
+      request: req('/api/voice/backfill?id=1', {
+        method: 'POST',
+        headers: { ...withToken(), 'content-type': 'audio/aac' },
+        body: mp4,
+      }),
+      env: env2,
+    })).json();
+    check('audio posted under the wrong name is stored as what it actually is',
+      posted.mime === 'audio/mp4' && posted.declared === 'audio/aac',
+      `${posted.declared} -> ${posted.mime}`);
+
+    const played = await listen({ request: req('/api/voice/1'), params: { id: '1' }, env: env2 });
+    check('and Listen hands the browser a type it can decode',
+      (played.headers.get('content-type') || '').startsWith('audio/mp4'),
+      played.headers.get('content-type'));
+  }
+
+  // ---- and the readings that went up before the key changed -----------------
+  //
+  // Brand readings are filed under the whisper's id now. The first batch went up
+  // under a hash of the words. They are on a bucket somewhere and nobody is
+  // going to re-read them on a GPU to move them, so the old key stays readable.
+  {
+    const env3 = makeEnv();
+    const legacy = await brandVoiceHash(SKY[1].content, SKY[1].type);
+    const bytes3 = new Uint8Array(4096);
+    bytes3.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x4d, 0x34, 0x41, 0x20], 0);
+    await writeVoice(env3, legacy, bytes3, 'audio/aac', 'aya');
+    const old = await listen({ request: req('/api/voice/2'), params: { id: '2' }, env: env3 });
+    check('a reading filed under the old key still plays, without being made again',
+      old.status === 200 && (old.headers.get('content-type') || '').startsWith('audio/'),
+      old.headers.get('content-type'));
+  }
 
   // The client decides what it got by content-type (CLAUDE.md), so a whisper we
   // have NOT read must still say so as JSON rather than as a broken button.
@@ -267,7 +315,7 @@ const site = createServer((rq, rs) => {
     // words and reports that key back. The uploader records it and compares it
     // to the listing on the next run, so a fake that invented a key here would
     // make resuming look broken when it is not.
-    rs.end(JSON.stringify({ ok: true, hash: await brandVoiceHash(b.content, b.type), bytes: bytes.length, store: 'r2' }));
+    rs.end(JSON.stringify({ ok: true, hash: brandVoiceKey(b.id), bytes: bytes.length, store: 'r2' }));
   });
 });
 await new Promise((r) => studio.listen(0, r));

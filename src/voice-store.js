@@ -25,6 +25,33 @@ const PREFIX = 'voice/';
 // the cap to leave room for the rest of the row.
 const CHUNK_BYTES = 900_000;
 
+// What these bytes actually are, regardless of what anyone called them.
+//
+// This exists because of one wasted evening. Readings made on the owner's
+// machine are `ffmpeg -c:a aac` into a .m4a, which is an MP4 CONTAINER, and they
+// were posted as `audio/aac` — the type for a bare ADTS stream. The label and
+// the bytes disagreed, Safari would not decode it, and app.js does the right
+// thing with audio it cannot decode: it falls back to the phone's own voice. So
+// eighty-four readings uploaded perfectly, were served perfectly, and came out
+// as the robot voice, with nothing anywhere reporting an error.
+//
+// A caller does not get to decide this any more. The bytes do.
+export function sniffAudioMime(bytes, fallback = 'audio/mpeg') {
+  const b = bytes;
+  if (!b || b.length < 12) return fallback;
+  // ISO base media (MP4, M4A): an 'ftyp' box, four bytes in.
+  if (b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70) return 'audio/mp4';
+  // ADTS AAC: twelve sync bits, then a layer of 00. Checked before MP3 because
+  // both begin 0xFF and only this mask separates them.
+  if (b[0] === 0xff && (b[1] & 0xf6) === 0xf0) return 'audio/aac';
+  if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) return 'audio/mpeg'; // ID3
+  if (b[0] === 0xff && (b[1] & 0xe0) === 0xe0) return 'audio/mpeg'; // MPEG frame
+  if (b[0] === 0x4f && b[1] === 0x67 && b[2] === 0x67 && b[3] === 0x53) return 'audio/ogg';
+  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return 'audio/webm';
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46) return 'audio/wav';
+  return fallback;
+}
+
 export function voiceStore(env) {
   return env && env.VOICE_BUCKET ? 'r2' : 'd1';
 }
