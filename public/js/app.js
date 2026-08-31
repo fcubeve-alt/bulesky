@@ -748,21 +748,19 @@ function paintBackstop() {
       sky.style.backgroundSize = 'cover';
       sky.style.backgroundPosition = 'center';
     }
-    const { data } = stampCtx.getImageData(0, 0, stamp.width, stamp.height);
-    let r = 0;
-    let g = 0;
-    let b = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      r += data[i];
-      g += data[i + 1];
-      b += data[i + 2];
-    }
-    const n = data.length / 4;
-    // Darkened a little: the canvas sits behind everything and the sky it is
-    // standing in for is night. A backstop that is brighter than the picture is
-    // a bar of a different colour.
-    document.documentElement.style.backgroundColor =
-      `rgb(${Math.round(r / n * 0.8)}, ${Math.round(g / n * 0.8)}, ${Math.round(b / n * 0.8)})`;
+    // ⚠️ NOTHING HERE TOUCHES <html>'s background-color, and that is the point.
+    //
+    // It did for one round: the average of the frame was written to
+    // documentElement.style every 700ms, on the theory that the canvas is the
+    // one surface that covers everything. The strip along the bottom went from
+    // our own #05060f — dark, and a seam rather than a bar — to pure white,
+    // 255 255 255, measured off the photograph. Same 62.0pt, far worse to look
+    // at. WebKit takes the root background and paints the area outside the web
+    // content with it, and it does not follow a value that is rewritten twice a
+    // second; what it fell back to was white.
+    //
+    // The stylesheet's `html { background-color: #05060f }` is a stable value
+    // and gets propagated properly. Leave it alone.
   } catch {
     // A cross-origin clip taints the canvas and both of those throw. The App
     // streams its video from the site, so this is a real case — and the answer
@@ -775,10 +773,32 @@ function keepBackstopPainted() {
   setInterval(paintBackstop, BACKSTOP_MS);
 }
 
+// How far the page falls short of the glass at the bottom, in pixels.
+//
+// Fourteen rounds tried to close this gap. It is measured here instead, and
+// everything that sits along the bottom of the screen is moved up by it, so the
+// controls clear the strip whatever the strip turns out to be. On a phone where
+// the page does reach the bottom this is 0 and nothing moves.
+//
+// The two figures are the honest ones: a `position: fixed; inset: 0` probe is
+// what the browser actually does with the viewport, and the largest screen
+// figure available is the best guess at the glass. Their difference is the
+// strip — the same 62pt that has been photographed at the bottom of this phone
+// all week.
+function measureStrip() {
+  const box = viewportBox();
+  if (!box) return;
+  const short = Math.max(0, Math.round(skyTarget() - box.bottom));
+  // Only ever a lift, never a push down, and capped: a wrong measurement must
+  // not be able to shove the buttons into the middle of the sky.
+  document.documentElement.style.setProperty('--strip-bottom', `${Math.min(short, 160)}px`);
+}
+
 function keepSkyHeight() {
   const run = () => {
     const target = skyTarget();
     coverVideos();
+    measureStrip();
     if (target > 0) document.documentElement.style.setProperty('--sky-h', `${target}px`);
 
     // The videos are placed by coverVideos() above and are deliberately not in

@@ -18,6 +18,13 @@
 /diag.html
   Cache-Control: no-cache, must-revalidate
 
+# The name and the icon under it. Chrome caches a manifest hard and for a long
+# time, and there is no version in its URL — so an old copy is how a home screen
+# went on saying "Starry Mind" months after the name changed, with nothing on the
+# site still containing that word.
+/manifest.json
+  Cache-Control: no-cache, must-revalidate
+
 # The one file a browser refetches on its own, and therefore the only reliable
 # way back onto a phone that has stopped taking updates. Never let anything sit
 # in front of it.

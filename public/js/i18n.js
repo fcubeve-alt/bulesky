@@ -138,7 +138,10 @@ const DICTS = {
     iosClose: '知道了',
   },
   en: {
-    appName: 'Starry Mind',
+    // The site's own name, in English. It read 'Starry Mind' until now — a name
+    // from an early draft that survives nowhere else, and the one Chrome offered
+    // when somebody added the page to their home screen.
+    appName: 'Are you alright?',
     appSubtitle: 'An anonymous whisper-box — one shared sky, no borders',
     tagline: 'The night is listening.\nSet a light adrift on the lake.',
     tapHint: 'Tap a light to read a heart · drag to drift across the sky',

@@ -595,19 +595,54 @@ function reachableBalloon(page) {
     Object.defineProperty(v, 'readyState', { value: 4, configurable: true });
     Object.defineProperty(v, 'videoWidth', { value: 1920, configurable: true });
     Object.defineProperty(v, 'videoHeight', { value: 1080, configurable: true });
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 1600));
     return {
       html: document.documentElement.style.backgroundColor,
       sky: (document.getElementById('sky-bg').style.backgroundImage || '').replace(/"/g, '').slice(0, 14),
     };
   });
+  // ⚠️ The opposite of what this asked a round ago. Writing the frame's average
+  // to <html> every 700ms turned the strip along the bottom from our own dark
+  // #05060f into pure white — measured 255,255,255 off the photograph, same
+  // 62.0pt, far worse. WebKit paints the area outside the web content from the
+  // root background and does not follow a value rewritten twice a second.
   check(
-    behind.html === 'rgb(80, 120, 160)',
-    `the canvas behind everything takes the colour of the sky being shown (${behind.html || 'unchanged'})`
+    behind.html === '',
+    `the root background is left to the stylesheet, where WebKit can follow it (${behind.html || 'untouched'})`
   );
   check(
     behind.sky.startsWith('url(data:image'),
     `and the backstop layer shows the frame itself, not a flat gradient (${behind.sky || 'none'})`
+  );
+
+  // ---- and the controls clear whatever is left ------------------------------
+  //
+  // The strip is measured rather than fought. Everything anchored to the bottom
+  // of the screen is placed with --safe-bottom, which is now the larger of the
+  // home indicator and that measurement — so one number moves the two entry
+  // buttons, the footer, the now-playing line and the reading view's own row
+  // together, and a control can never end up underneath it.
+  const lifted = await page.evaluate(async () => {
+    const root = document.documentElement;
+    // The bar is anchored to the bottom edge and stays there; what has to clear
+    // the strip is what is inside it.
+    const bar = document.querySelector('.bottom-btn') || document.querySelector('.bottom-bar button');
+    const before = bar ? bar.getBoundingClientRect().bottom : 0;
+    root.style.setProperty('--strip-bottom', '62px');
+    await new Promise((r) => requestAnimationFrame(r));
+    const after = bar ? bar.getBoundingClientRect().bottom : 0;
+    root.style.removeProperty('--strip-bottom');
+    return { moved: Math.round(before - after), declared: !!bar };
+  });
+  check(
+    lifted.declared && lifted.moved > 0,
+    `a strip at the bottom lifts the controls clear of it rather than hiding them under it (${lifted.moved}px)`
+  );
+  check(
+    /--safe-bottom:\s*max\(/.test(await page.evaluate(() => [...document.styleSheets]
+      .flatMap((sheet) => { try { return [...sheet.cssRules]; } catch { return []; } })
+      .map((r) => r.cssText).join('\n'))),
+    'and it is one value, so every bottom-anchored control moves together'
   );
 
   // What it saw is left where the next round can read it, so a phone with the

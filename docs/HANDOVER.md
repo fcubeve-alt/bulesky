@@ -403,7 +403,46 @@ v.style.objectFit = 'fill';
 跨源视频会污染 canvas,`toDataURL` 和 `getImageData` 都会抛 —— App 的视频是从站点流的,
 所以这是真实情况。**抛了就保持原样的渐变,不破坏任何东西**(try/catch,已在代码里)。
 
-### 7i. 如果这次还不行
+### 7i. 第十五轮:把那条边当成屏幕的边,而不是要填的洞
+
+**先记一条我自己造的倒退。** 7h ③(每 700ms 把画面平均色写进 `<html>` 背景)
+**必须撤掉,而且不要再加回来**。照片量出来:那条边从我们自己的 `#05060f`
+变成了**纯白 255,255,255**,还是同样的 62.0pt —— 比原来难看得多。
+WebKit 用根元素的背景去画 web 内容之外的区域,**它不跟一个每秒被改两次的值**,
+跟丢了就回落到白。样式表里那句 `html { background-color: #05060f }` 是稳定值,
+能被正确传播,**别去动它**。7h ①② 保留。
+
+**然后是这一轮真正做的事:不再试图填掉那 62pt,而是承认它就是屏幕的边。**
+
+```js
+short = skyTarget() - viewportBox().bottom     // 实测,不是推断
+root.style.setProperty('--strip-bottom', short + 'px')
+```
+```css
+--safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--strip-bottom, 0px));
+```
+
+**一个值,底部所有控件一起动** —— 两个入口按钮、页脚链接、正在播放那一行、
+阅读页自己那一排。页面本来就都用 `--safe-bottom` 摆位,所以只改这一行定义就够了。
+在页面确实铺到底的手机上 `--strip-bottom` 是 0,一切和以前一模一样。
+
+**为什么这是对的做法:** 控件**避开**那条边,看起来是刻意留的边距;
+控件**压在**那条边下面,看起来就是坏了。Owner 的原话就是这个意思 ——
+把按钮放到白条上面去,整体反而好看。
+
+⚠️ `measureStrip()` **只会往上抬,而且封顶 160px**。量错了不能把按钮推到天空中间去。
+
+### 7j. Chrome 加到桌面还叫 "Starry Mind" —— 两个原因
+
+1. `public/js/i18n.js` 的 `en.appName` **还是 `'Starry Mind'`** —— 站上唯一还留着这个词的地方
+   (`index.html` 第 27 行那段注释是在讲这件事,不是在用它)。已改成 `Are you alright?`。
+2. **`manifest.json` 不在 `public/_headers` 里**,Chrome 对 manifest 缓存又硬又久,
+   而它的 URL 里没有版本号 —— 所以一份几个月前的旧 manifest 可以一直提供旧名字。已加
+   `no-cache`。
+
+Safari 用的是 `apple-mobile-web-app-title`(早就对了),Chrome 用的是 manifest 的
+`short_name` —— **两个来源,所以两个名字**,这就是"同一个网址两个浏览器两个名字"的全部原因。
+
 
 `/diag.html` 现在多了一段 "What the app measured",直接列出每一层画到哪儿、差多少、
 以及是不是 standalone。**拿那一段的截图**,不要再拿主页截图 —— 主页截图只能告诉我"还有边",
