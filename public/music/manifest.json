@@ -121,6 +121,24 @@
       "bytes": 17903168
     },
     {
+      "id": "jamendo-1466766",
+      "title": "You Got My Heart",
+      "artist": "LAWRENCE BEAMEN",
+      "src": "/music/jamendo-1466766.mp3",
+      "source": "https://www.jamendo.com/track/1466766",
+      "license": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "bytes": 3228672
+    },
+    {
+      "id": "jamendo-391",
+      "title": "Cantate Domino (G.O. Pitoni)",
+      "artist": "Les Petits Chanteurs de Montigny",
+      "src": "/music/jamendo-391.mp3",
+      "source": "https://www.jamendo.com/track/391",
+      "license": "http://creativecommons.org/licenses/by-sa/2.0/",
+      "bytes": 1009664
+    },
+    {
       "id": "jamendo-1313636",
       "title": "Venus and Vindaloo",
       "artist": "MrFunandMusic",
