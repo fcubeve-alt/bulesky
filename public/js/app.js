@@ -785,20 +785,58 @@ function keepBackstopPainted() {
 // figure available is the best guess at the glass. Their difference is the
 // strip — the same 62pt that has been photographed at the bottom of this phone
 // all week.
-function measureStrip() {
+// A floor, so that this cannot come to nothing.
+//
+// The measurement below is the difference between what the browser does with
+// `inset: 0` and the largest screen figure it will report. On the phone in the
+// photographs that difference is the 62pt strip exactly — but it is only
+// visible if screen.height is honest about the glass, and this is the phone that
+// has reported four different heights for one screen. If it happens to report
+// the short one, the difference is zero and nothing moves, which is precisely
+// what "no change at all" looks like.
+//
+// So there is a floor. Sixty pixels of clearance under the bottom controls is a
+// deliberate margin on a phone with nothing wrong, and it clears the strip on
+// the phone that has one. It cannot measure its way to zero.
+const MIN_BOTTOM = 60;
+
+// Read what the safe-area inset actually resolves to, rather than asking CSS to
+// combine it with anything.
+//
+// --safe-bottom used to be `max(env(safe-area-inset-bottom), var(--strip-bottom))`
+// and that is one CSS function too many to bet a week on: an env() inside a
+// max() inside a custom property that is then used inside a calc() is four
+// features deep, and if any layer of that is unsupported the whole declaration
+// is dropped and every bottom control silently loses its margin. Here it is one
+// number, computed once, written as plain pixels. Nothing to support.
+let insetProbe = null;
+function safeAreaBottom() {
+  if (!insetProbe) {
+    insetProbe = document.createElement('div');
+    insetProbe.setAttribute('aria-hidden', 'true');
+    insetProbe.style.cssText =
+      'position:fixed;left:0;bottom:0;width:0;visibility:hidden;pointer-events:none;' +
+      'padding-bottom:env(safe-area-inset-bottom, 0px)';
+    document.body.appendChild(insetProbe);
+  }
+  return parseFloat(getComputedStyle(insetProbe).paddingBottom) || 0;
+}
+
+function placeBottomControls() {
   const box = viewportBox();
-  if (!box) return;
-  const short = Math.max(0, Math.round(skyTarget() - box.bottom));
-  // Only ever a lift, never a push down, and capped: a wrong measurement must
-  // not be able to shove the buttons into the middle of the sky.
-  document.documentElement.style.setProperty('--strip-bottom', `${Math.min(short, 160)}px`);
+  const strip = box ? Math.max(0, Math.round(skyTarget() - box.bottom)) : 0;
+  // Capped: a wrong measurement must not be able to shove the buttons into the
+  // middle of the sky.
+  const bottom = Math.min(Math.max(safeAreaBottom(), strip, MIN_BOTTOM), 200);
+  document.documentElement.style.setProperty('--safe-bottom', `${Math.round(bottom)}px`);
+  document.documentElement.style.setProperty('--strip-bottom', `${Math.min(strip, 200)}px`);
 }
 
 function keepSkyHeight() {
   const run = () => {
     const target = skyTarget();
     coverVideos();
-    measureStrip();
+    placeBottomControls();
     if (target > 0) document.documentElement.style.setProperty('--sky-h', `${target}px`);
 
     // The videos are placed by coverVideos() above and are deliberately not in
@@ -822,6 +860,13 @@ function keepSkyHeight() {
           visual: Math.round((window.visualViewport && window.visualViewport.height) || 0),
           standalone: !!(window.navigator.standalone || matchMedia('(display-mode: standalone)').matches),
           target,
+          // What the bottom controls are actually standing on. If this says
+          // anything less than 60px, the build being run is older than the
+          // change that put a floor under it — which is the difference between
+          // "the fix does not work" and "the fix is not here", and those two
+          // have been confused for a week.
+          safeBottom: document.documentElement.style.getPropertyValue('--safe-bottom'),
+          strip: document.documentElement.style.getPropertyValue('--strip-bottom'),
           layers: seen,
         })
       );

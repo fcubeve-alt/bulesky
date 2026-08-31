@@ -432,6 +432,28 @@ root.style.setProperty('--strip-bottom', short + 'px')
 
 ⚠️ `measureStrip()` **只会往上抬,而且封顶 160px**。量错了不能把按钮推到天空中间去。
 
+### 7j-0. ⚠️ 7i 那条 CSS 写法必须用 JS 写成纯数字,别再写回去
+
+7i 里那句:
+
+```css
+--safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--strip-bottom, 0px));
+```
+
+**部署成功了,线上是新代码,而 Owner 报告"完全没有改变"。** 两个原因,都要堵:
+
+1. **CSS 太深了。** 这是 `env()` 套在 `max()` 里、套在自定义属性里、再被 `calc()` 用。
+   **四层**。任何一层不支持,整条声明被丢弃,底部所有控件**静悄悄地失去边距** ——
+   而"声明被丢弃"和"根本没部署"在屏幕上长得一模一样。
+   现在由 `placeBottomControls()` 算好,写成**一个纯像素数字**。没有任何东西需要被支持。
+2. **测量可能量出 0。** `strip = skyTarget() - viewportBox().bottom` 只有在
+   `screen.height` 对玻璃诚实时才等于那 62pt。而这台手机为同一块屏幕报过四个数。
+   要是它报的是短的那个,差值就是 0,**什么都不动** —— 正是"完全没有改变"的样子。
+   现在有 **`MIN_BOTTOM = 60` 的地板**:量出来再小,也至少留 60px。它**不可能量到零**。
+
+`/diag.html` 的 "What the app measured" 现在会打印 `clearance under the bottom buttons`。
+**小于 60px 就说明手机上跑的是旧版**,而不是"修了没用" —— 这两件事已经被混了一个星期。
+
 ### 7j. Chrome 加到桌面还叫 "Starry Mind" —— 两个原因
 
 1. `public/js/i18n.js` 的 `en.appName` **还是 `'Starry Mind'`** —— 站上唯一还留着这个词的地方

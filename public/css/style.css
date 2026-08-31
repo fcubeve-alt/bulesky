@@ -21,7 +21,19 @@
      as a hole to be filled and treat it as the edge of the screen. Controls that
      sit clear of it read as a deliberate margin; controls that sit under it read
      as broken. */
-  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--strip-bottom, 0px));
+  /* The value here is only what applies before any script has run. The real
+     one is written as plain pixels by placeBottomControls() in app.js, which
+     takes the larger of this inset, the strip the page cannot reach, and a
+     floor — and writes a NUMBER.
+
+     ⚠️ Do not put max() back in here. It was
+       max(env(safe-area-inset-bottom, 0px), var(--strip-bottom, 0px))
+     which is an env() inside a max() inside a custom property that is then used
+     inside a calc(). Four features deep, and if any one of them is not
+     supported the whole declaration is dropped and every control along the
+     bottom silently loses its margin — which is indistinguishable from nothing
+     having been deployed. */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   /* How far the full-bleed layers overshoot the viewport, top and bottom. Must

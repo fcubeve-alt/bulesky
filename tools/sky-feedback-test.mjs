@@ -595,7 +595,7 @@ function reachableBalloon(page) {
     Object.defineProperty(v, 'readyState', { value: 4, configurable: true });
     Object.defineProperty(v, 'videoWidth', { value: 1920, configurable: true });
     Object.defineProperty(v, 'videoHeight', { value: 1080, configurable: true });
-    await new Promise((r) => setTimeout(r, 1600));
+    await new Promise((r) => setTimeout(r, 2400));
     return {
       html: document.documentElement.style.backgroundColor,
       sky: (document.getElementById('sky-bg').style.backgroundImage || '').replace(/"/g, '').slice(0, 14),
@@ -622,27 +622,30 @@ function reachableBalloon(page) {
   // home indicator and that measurement — so one number moves the two entry
   // buttons, the footer, the now-playing line and the reading view's own row
   // together, and a control can never end up underneath it.
-  const lifted = await page.evaluate(async () => {
+  const lifted = await page.evaluate(() => {
     const root = document.documentElement;
     // The bar is anchored to the bottom edge and stays there; what has to clear
     // the strip is what is inside it.
-    const bar = document.querySelector('.bottom-btn') || document.querySelector('.bottom-bar button');
-    const before = bar ? bar.getBoundingClientRect().bottom : 0;
-    root.style.setProperty('--strip-bottom', '62px');
-    await new Promise((r) => requestAnimationFrame(r));
-    const after = bar ? bar.getBoundingClientRect().bottom : 0;
-    root.style.removeProperty('--strip-bottom');
-    return { moved: Math.round(before - after), declared: !!bar };
+    const btn = document.querySelector('.bottom-btn') || document.querySelector('.bottom-bar button');
+    const written = root.style.getPropertyValue('--safe-bottom');
+    const gap = btn ? Math.round(innerHeight - btn.getBoundingClientRect().bottom) : -1;
+    return { written, gap, declared: !!btn };
   });
+  // Written as a plain number, by script, rather than assembled by CSS out of an
+  // env() inside a max() inside a custom property inside a calc(). Four features
+  // deep is four chances for the whole declaration to be dropped, and a dropped
+  // declaration looks exactly like nothing having been deployed.
   check(
-    lifted.declared && lifted.moved > 0,
-    `a strip at the bottom lifts the controls clear of it rather than hiding them under it (${lifted.moved}px)`
+    /^\d+px$/.test(lifted.written),
+    `the bottom margin is written as a plain number, not assembled by CSS (${lifted.written || 'unset'})`
   );
   check(
-    /--safe-bottom:\s*max\(/.test(await page.evaluate(() => [...document.styleSheets]
-      .flatMap((sheet) => { try { return [...sheet.cssRules]; } catch { return []; } })
-      .map((r) => r.cssText).join('\n'))),
-    'and it is one value, so every bottom-anchored control moves together'
+    parseFloat(lifted.written) >= 60,
+    `and never comes to nothing, however the screen reports itself (${lifted.written || 'unset'})`
+  );
+  check(
+    lifted.declared && lifted.gap >= 60,
+    `so the controls always stand clear of the bottom edge (${lifted.gap}px of clearance)`
   );
 
   // What it saw is left where the next round can read it, so a phone with the

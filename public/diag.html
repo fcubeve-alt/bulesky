@@ -173,6 +173,12 @@
     row($('fit'), 'opened from the home screen', note.standalone ? 'yes' : 'NO — this is Safari, the numbers differ', note.standalone ? 'ok' : 'bad');
     row($('fit'), 'screen / inner / client / visual', [note.screen, note.inner, note.client, note.visual].join(' · '));
     row($('fit'), 'height every layer was fitted to', note.target + 'px');
+    row(
+      $('fit'),
+      'clearance under the bottom buttons',
+      (note.safeBottom || 'not set') + (note.strip ? '  (strip measured ' + note.strip + ')' : ''),
+      parseFloat(note.safeBottom) >= 60 ? 'ok' : 'bad'
+    );
     Object.keys(note.layers || {}).forEach(function (name) {
       var l = note.layers[name];
       var short = l.bottom < note.target;
