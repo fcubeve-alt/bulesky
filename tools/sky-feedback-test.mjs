@@ -615,37 +615,28 @@ function reachableBalloon(page) {
     `and the backstop layer shows the frame itself, not a flat gradient (${behind.sky || 'none'})`
   );
 
-  // ---- and the controls clear whatever is left ------------------------------
+  // ---- the bottom controls stay on the bottom edge ---------------------------
   //
-  // The strip is measured rather than fought. Everything anchored to the bottom
-  // of the screen is placed with --safe-bottom, which is now the larger of the
-  // home indicator and that measurement — so one number moves the two entry
-  // buttons, the footer, the now-playing line and the reading view's own row
-  // together, and a control can never end up underneath it.
-  const lifted = await page.evaluate(() => {
-    const root = document.documentElement;
-    // The bar is anchored to the bottom edge and stays there; what has to clear
-    // the strip is what is inside it.
+  // A round was spent lifting them clear of the strip, from script. It put 136pt
+  // of empty space under the footer on the phone, and in Safari — where what is
+  // below the viewport is the browser's own toolbar and needs no clearing — it
+  // pushed the two entry buttons into the middle of the screen. This is the
+  // check that it does not come back.
+  const bottomed = await page.evaluate(() => {
     const btn = document.querySelector('.bottom-btn') || document.querySelector('.bottom-bar button');
-    const written = root.style.getPropertyValue('--safe-bottom');
-    const gap = btn ? Math.round(innerHeight - btn.getBoundingClientRect().bottom) : -1;
-    return { written, gap, declared: !!btn };
+    return {
+      written: document.documentElement.style.getPropertyValue('--safe-bottom'),
+      gap: btn ? Math.round(innerHeight - btn.getBoundingClientRect().bottom) : -1,
+      declared: !!btn,
+    };
   });
-  // Written as a plain number, by script, rather than assembled by CSS out of an
-  // env() inside a max() inside a custom property inside a calc(). Four features
-  // deep is four chances for the whole declaration to be dropped, and a dropped
-  // declaration looks exactly like nothing having been deployed.
   check(
-    /^\d+px$/.test(lifted.written),
-    `the bottom margin is written as a plain number, not assembled by CSS (${lifted.written || 'unset'})`
+    bottomed.written === '',
+    `nothing but the stylesheet decides where the bottom controls sit (${bottomed.written || 'script writes nothing'})`
   );
   check(
-    parseFloat(lifted.written) >= 60,
-    `and never comes to nothing, however the screen reports itself (${lifted.written || 'unset'})`
-  );
-  check(
-    lifted.declared && lifted.gap >= 60,
-    `so the controls always stand clear of the bottom edge (${lifted.gap}px of clearance)`
+    bottomed.declared && bottomed.gap < 60,
+    `and they stay on the bottom edge rather than floating up the screen (${bottomed.gap}px above it)`
   );
 
   // What it saw is left where the next round can read it, so a phone with the

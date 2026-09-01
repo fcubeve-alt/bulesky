@@ -454,6 +454,24 @@ root.style.setProperty('--strip-bottom', short + 'px')
 `/diag.html` 的 "What the app measured" 现在会打印 `clearance under the bottom buttons`。
 **小于 60px 就说明手机上跑的是旧版**,而不是"修了没用" —— 这两件事已经被混了一个星期。
 
+### 7j-1. ⚠️ 那个"抬起底部控件"的做法是错的,已全部撤回,别再做一次
+
+7i / 7j-0 让脚本把 `--safe-bottom` 写成
+`max(安全区, 实测的 strip, 60px 地板)`。**结果比它想避开的问题更糟:**
+
+- **主屏幕 App 上**:页脚下面空出 **136pt**,两个按钮浮在屏幕中间偏上;
+- **Safari 里**:视口下面那块是**浏览器自己的工具栏**,根本不需要避开 ——
+  于是按钮被推到了屏幕正中。
+
+**那条 strip 不是要留的边距。** 底部控件就该贴着屏幕下沿,
+由样式表里的 `env(safe-area-inset-bottom)` 决定,**别的什么都不要参与**。
+
+`placeBottomControls()` / `safeAreaBottom()` / `MIN_BOTTOM` 全部删除。
+`--safe-bottom` 回到纯 `env()`。`sky-feedback-test.mjs` 里加了断言:
+**脚本不许往 `--safe-bottom` 里写任何东西**,而且按钮离下沿必须 < 60px。
+
+strip 的数值仍然记进 localStorage、仍然在 `/diag.html` 里显示 —— **只看,不作数**。
+
 ### 7j. Chrome 加到桌面还叫 "Starry Mind" —— 两个原因
 
 1. `public/js/i18n.js` 的 `en.appName` **还是 `'Starry Mind'`** —— 站上唯一还留着这个词的地方
