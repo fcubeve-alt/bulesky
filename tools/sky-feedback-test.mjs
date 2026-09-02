@@ -615,28 +615,38 @@ function reachableBalloon(page) {
     `and the backstop layer shows the frame itself, not a flat gradient (${behind.sky || 'none'})`
   );
 
-  // ---- the bottom controls stay on the bottom edge ---------------------------
+  // ---- the bottom controls come DOWN onto the strip ---------------------------
   //
-  // A round was spent lifting them clear of the strip, from script. It put 136pt
-  // of empty space under the footer on the phone, and in Safari — where what is
-  // below the viewport is the browser's own toolbar and needs no clearing — it
-  // pushed the two entry buttons into the middle of the screen. This is the
-  // check that it does not come back.
-  const bottomed = await page.evaluate(() => {
-    const btn = document.querySelector('.bottom-btn') || document.querySelector('.bottom-bar button');
-    return {
-      written: document.documentElement.style.getPropertyValue('--safe-bottom'),
-      gap: btn ? Math.round(innerHeight - btn.getBoundingClientRect().bottom) : -1,
-      declared: !!btn,
-    };
+  // Everything anchored to the bottom is anchored to the VIEWPORT's bottom, and
+  // on an installed home-screen app the viewport stops short of the glass — 62pt
+  // on the phone in the photographs. So the buttons float with a band of nothing
+  // beneath them, and what is wanted is for them to sit on that band.
+  //
+  // ⚠️ The round before this did it upwards, adding the strip to --safe-bottom.
+  // That left 136pt of emptiness under the footer and put the two entry buttons
+  // in the middle of the screen in Safari. Up is the wrong direction; these
+  // require down.
+  const pushed = await page.evaluate(async () => {
+    const root = document.documentElement;
+    const bar = document.querySelector('.bottom-bar');
+    const before = bar ? bar.getBoundingClientRect().bottom : 0;
+    root.style.setProperty('--strip-bottom', '62px');
+    await new Promise((r) => requestAnimationFrame(r));
+    const after = bar ? bar.getBoundingClientRect().bottom : 0;
+    root.style.setProperty('--strip-bottom', '0px');
+    return { moved: Math.round(after - before), declared: !!bar };
   });
   check(
-    bottomed.written === '',
-    `nothing but the stylesheet decides where the bottom controls sit (${bottomed.written || 'script writes nothing'})`
+    pushed.declared && pushed.moved === 62,
+    `a strip below the viewport pushes the bottom bar down onto it, by exactly its height (${pushed.moved}px)`
   );
+
+  // In a Safari tab what is below the viewport is the browser's own toolbar, and
+  // pushing the controls into it would hide them behind it. Nothing moves there.
+  const inTab = await page.evaluate(() => document.documentElement.style.getPropertyValue('--strip-bottom'));
   check(
-    bottomed.declared && bottomed.gap < 60,
-    `and they stay on the bottom edge rather than floating up the screen (${bottomed.gap}px above it)`
+    inTab === '0px',
+    `and nothing is pushed anywhere when the page is not an installed app (${inTab || 'unset'})`
   );
 
   // What it saw is left where the next round can read it, so a phone with the

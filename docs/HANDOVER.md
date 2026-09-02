@@ -472,6 +472,28 @@ root.style.setProperty('--strip-bottom', short + 'px')
 
 strip 的数值仍然记进 localStorage、仍然在 `/diag.html` 里显示 —— **只看,不作数**。
 
+### 7j-2. 方向:**往下**,不是往上
+
+Owner 从头到尾要的是「把按钮**落到**底部那条边**上面**」—— 是**往下**放到那条带子上,
+而不是抬到它上方留出空白。7j-1 那一版做反了,才有那 136pt 的空。
+
+做法:底部所有东西都是贴着**视口**下沿摆的,而装到主屏幕后视口比玻璃短一截
+(照片上是 62pt)。所以把它们**整体往下推那一截**:
+
+```css
+:root { --strip-bottom: 0px; }                     /* app.js 实测后写入 */
+.bottom-bar { bottom: calc(0px - var(--strip-bottom, 0px)); }
+/* now-playing / toast 等: bottom: calc(Npx + var(--safe-bottom) - var(--strip-bottom, 0px)); */
+```
+
+⚠️ **只在装成 App 时生效。** Safari 标签页里,视口下面那块是**浏览器自己的工具栏**,
+把控件推进去会被它挡住。那里 `--strip-bottom` 恒为 0,什么都不动 —— 那儿本来也没毛病。
+
+⚠️ **封顶 120px。** 量错了不能把按钮推出屏幕 —— 那是没人点得回来的故障。
+
+回归测试:给 `--strip-bottom` 设 62px,断言 `.bottom-bar` 的下沿**正好往下**移 62px;
+并断言非 standalone 时它是 `0px`。
+
 ### 7j. Chrome 加到桌面还叫 "Starry Mind" —— 两个原因
 
 1. `public/js/i18n.js` 的 `en.appName` **还是 `'Starry Mind'`** —— 站上唯一还留着这个词的地方

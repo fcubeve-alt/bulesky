@@ -785,23 +785,40 @@ function keepBackstopPainted() {
 // figure available is the best guess at the glass. Their difference is the
 // strip — the same 62pt that has been photographed at the bottom of this phone
 // all week.
-// ⚠️ The bottom controls sit AT THE BOTTOM. Nothing here moves them.
+// Push the bottom controls DOWN onto the strip, by exactly its height.
 //
-// A round was spent lifting them clear of the strip: --safe-bottom was written
-// from script as the largest of the safe-area inset, a measured strip, and a
-// 60px floor. On the phone it put 136pt of empty space under the footer, and in
-// Safari — where the space below the viewport is the browser's own toolbar and
-// needs no clearing at all — it pushed the two buttons into the middle of the
-// screen. It made the layout worse than the thing it was avoiding.
+// The page's viewport ends above the glass on an installed home-screen app —
+// measured at 62pt on the phone in the photographs. Everything anchored to the
+// bottom is anchored to the viewport's bottom, so it stops 62pt short and the
+// buttons appear to float with a band of nothing under them. What is wanted is
+// the opposite of a margin: the controls should come DOWN and sit on that band.
 //
-// The strip is not a margin to leave. The controls belong on the bottom edge,
-// where they were, placed by env(safe-area-inset-bottom) in the stylesheet and
-// by nothing else.
+// ⚠️ The previous round did this backwards — it added the strip to
+// --safe-bottom and lifted everything UP, which left 136pt of emptiness under
+// the footer and, in Safari, put the two entry buttons in the middle of the
+// screen. Up is wrong. Down is the whole request.
+//
+// ⚠️ ONLY WHEN INSTALLED. In a Safari tab the space below the viewport is the
+// browser's own toolbar; pushing the controls into it would hide them behind
+// it. There the strip is 0 and nothing moves, which is right, because there is
+// nothing wrong there.
+function placeBottomBar() {
+  const standalone = !!(
+    window.navigator.standalone || matchMedia('(display-mode: standalone)').matches
+  );
+  const box = viewportBox();
+  const strip = standalone && box ? Math.max(0, Math.round(skyTarget() - box.bottom)) : 0;
+  // Capped, so a wrong measurement cannot push the buttons off the screen
+  // entirely — the failure this has to avoid is one nobody can tap their way
+  // out of.
+  document.documentElement.style.setProperty('--strip-bottom', `${Math.min(strip, 120)}px`);
+}
 
 function keepSkyHeight() {
   const run = () => {
     const target = skyTarget();
     coverVideos();
+    placeBottomBar();
     if (target > 0) document.documentElement.style.setProperty('--sky-h', `${target}px`);
 
     // The videos are placed by coverVideos() above and are deliberately not in
@@ -825,9 +842,9 @@ function keepSkyHeight() {
           visual: Math.round((window.visualViewport && window.visualViewport.height) || 0),
           standalone: !!(window.navigator.standalone || matchMedia('(display-mode: standalone)').matches),
           target,
-          // How far the page falls short of the glass, recorded but NOT acted
-          // on — acting on it moved the controls and made things worse.
-          strip: Math.max(0, Math.round(skyTarget() - ((viewportBox() || {}).bottom || 0))),
+          // How far the page falls short of the glass, and how far the bottom
+          // controls are pushed down to meet it.
+          strip: document.documentElement.style.getPropertyValue('--strip-bottom'),
           layers: seen,
         })
       );

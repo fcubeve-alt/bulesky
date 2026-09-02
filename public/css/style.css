@@ -23,13 +23,21 @@
      as broken. */
   /* The home indicator, and nothing else.
    *
-   * ⚠️ Do not add the unreachable strip to this, and do not have script write
-   * it. Both were tried in one round. It put 136pt of empty space under the
-   * footer on the phone, and in Safari — where the space below the viewport is
-   * the browser's own toolbar and needs no clearing — it pushed the two entry
-   * buttons into the middle of the screen. The controls belong on the bottom
-   * edge. */
+   * ⚠️ Do not add the strip to this. Adding it here LIFTS everything, which is
+   * backwards: it left 136pt of empty space under the footer and put the entry
+   * buttons in the middle of the screen in Safari. The strip is handled by
+   * --strip-bottom below, which pushes DOWN. */
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* How far the page stops short of the glass, written by placeBottomBar() in
+     app.js and 0 everywhere except an installed home-screen app.
+     
+     Everything anchored to the bottom is anchored to the VIEWPORT's bottom, and
+     on that phone the viewport ends 62pt above the glass — so without this the
+     controls float with a band of nothing beneath them. Subtracting it from
+     their offsets brings them down onto that band, which is where they belong
+     and what was asked for. */
+  --strip-bottom: 0px;
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   /* How far the full-bleed layers overshoot the viewport, top and bottom. Must
@@ -395,7 +403,7 @@ body.has-video #mist { display: none; }
 }
 .tap-hint {
   position: fixed;
-  bottom: calc(84px + var(--safe-bottom));
+  bottom: calc(84px + var(--safe-bottom) - var(--strip-bottom, 0px));
   left: 0;
   right: 0;
   z-index: 6;
@@ -412,7 +420,7 @@ body.has-video #mist { display: none; }
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(104px + var(--safe-bottom));
+  bottom: calc(104px + var(--safe-bottom) - var(--strip-bottom, 0px));
   z-index: 19;
   max-width: 82vw;
   padding: 5px 12px;
@@ -441,7 +449,10 @@ body.has-video #mist { display: none; }
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  /* Down onto the strip, not above it. Anchored to the viewport's bottom edge
+     this bar stops short of the glass by --strip-bottom and the buttons look
+     like they are floating; pushed down by exactly that, they sit on it. */
+  bottom: calc(0px - var(--strip-bottom, 0px));
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -1341,7 +1352,7 @@ body.reading #now-playing { display: none; }
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(92px + var(--safe-bottom));
+  bottom: calc(92px + var(--safe-bottom) - var(--strip-bottom, 0px));
   transform: translateX(-50%);
   background: rgba(16, 20, 44, 0.94);
   border: 1px solid var(--panel-border);
