@@ -1131,7 +1131,11 @@ body.reading #now-playing { display: none; }
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 26px);
+  /* Down onto the strip, with the two entry buttons on the sky behind it.
+     This row used to name env() directly, so when everything else came down by
+     --strip-bottom it stayed where it was and ended up sitting higher than the
+     buttons it is meant to match. Same two terms as the rest now. */
+  bottom: calc(var(--safe-bottom) + 26px - var(--strip-bottom, 0px));
   z-index: 2;
   display: flex;
   flex-direction: row;

@@ -595,7 +595,13 @@ function reachableBalloon(page) {
     Object.defineProperty(v, 'readyState', { value: 4, configurable: true });
     Object.defineProperty(v, 'videoWidth', { value: 1920, configurable: true });
     Object.defineProperty(v, 'videoHeight', { value: 1080, configurable: true });
-    await new Promise((r) => setTimeout(r, 2400));
+    // Polled rather than slept through: the sampler runs on its own interval and
+    // a fixed wait races it whenever the machine is busy.
+    const deadline = Date.now() + 8000;
+    while (Date.now() < deadline) {
+      if ((document.getElementById('sky-bg').style.backgroundImage || '').startsWith('url(')) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
     return {
       html: document.documentElement.style.backgroundColor,
       sky: (document.getElementById('sky-bg').style.backgroundImage || '').replace(/"/g, '').slice(0, 14),
@@ -639,6 +645,27 @@ function reachableBalloon(page) {
   check(
     pushed.declared && pushed.moved === 62,
     `a strip below the viewport pushes the bottom bar down onto it, by exactly its height (${pushed.moved}px)`
+  );
+
+  // The reading view's own row has to come down with it. It named env() directly
+  // rather than the two shared terms, so it stayed put while everything else
+  // moved and ended up sitting higher than the buttons it is meant to match.
+  const readRow = await page.evaluate(async () => {
+    const root = document.documentElement;
+    // Measured from the computed offset, not the rect: the reading view is not
+    // open, so the row is not laid out and every rect it has is zero.
+    const row = document.querySelector('.read-actions');
+    const at = () => (row ? parseFloat(getComputedStyle(row).bottom) : NaN);
+    const before = at();
+    root.style.setProperty('--strip-bottom', '62px');
+    await new Promise((r) => requestAnimationFrame(r));
+    const after = at();
+    root.style.setProperty('--strip-bottom', '0px');
+    return { moved: Math.round(before - after), declared: !!row };
+  });
+  check(
+    readRow.declared && readRow.moved === 62,
+    `and the reading view's own buttons come down with it, by the same amount (${readRow.moved}px)`
   );
 
   // In a Safari tab what is below the viewport is the browser's own toolbar, and
