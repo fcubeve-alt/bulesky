@@ -75,9 +75,15 @@ async function main() {
 
   const next = articles.find((a) => !taken.has(a.slug));
   if (!next) {
-    log(`all ${articles.length} articles in content/posts/ are published.`);
-    log('Add more .md files there to keep the schedule fed.');
-    return;
+    // ⚠️ This used to `return` here — exit 0, a green checkmark, every
+    // weekday, for as long as nobody noticed the pool was empty. It ran that
+    // way for weeks: the job's one purpose is to publish something, and doing
+    // nothing was reported as success. A `::error::` annotation and a
+    // non-zero exit make an empty pool look like what it is — the one thing a
+    // CI run is for not happening — rather than something a human has to
+    // stumble on by reading the blog and noticing it went quiet.
+    console.error(`::error::content/posts/ is empty — nothing was published today. Add more .md files to keep the schedule fed.`);
+    process.exit(1);
   }
 
   // Every one of these is read by someone having a hard night. The helpline

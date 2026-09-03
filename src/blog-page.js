@@ -35,9 +35,11 @@ export function pageShell({ title, description, canonical, body, current = '/blo
 <meta property="og:title" content="${escapeHtml(title)}" />
 <meta property="og:description" content="${escapeHtml(description)}" />
 <meta property="og:url" content="${escapeHtml(canonical)}" />
-<meta property="og:image" content="${SITE}/icons/icon.svg" />
+<meta property="og:image" content="${SITE}/icons/icon-512.png" />
 <meta name="twitter:card" content="summary" />
-<link rel="icon" href="/icons/icon.svg" />
+<meta name="twitter:image" content="${SITE}/icons/icon-512.png" />
+<link rel="icon" href="/icons/icon-192.png" />
+<link rel="alternate" type="application/rss+xml" title="${BRAND} — Blog" href="${SITE}/blog/rss.xml" />
 <link rel="stylesheet" href="/css/pages.css?v=3" />
 ${jsonLd}
 </head>
