@@ -31,16 +31,6 @@
       "bytes": 10732982
     },
     {
-      "id": "classical-schubert-serenade",
-      "title": "Serenade (Ständchen), D. 957",
-      "artist": "Franz Schubert",
-      "src": "/music/classical-schubert-serenade.mp3",
-      "source": "https://archive.org/details/lp_die-winterreise-schwanengesang-songs_hans-hotter-gerald-moore-franz-schubert-jo",
-      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "pinned": true,
-      "bytes": 11234700
-    },
-    {
       "id": "classical-tchaikovsky-october",
       "title": "The Seasons, Op. 37a — October (Autumn Song)",
       "artist": "Pyotr Ilyich Tchaikovsky",
@@ -49,16 +39,6 @@
       "license": "https://creativecommons.org/publicdomain/mark/1.0/",
       "pinned": true,
       "bytes": 8593297
-    },
-    {
-      "id": "classical-debussy-arabesque-1",
-      "title": "Arabesque No. 1",
-      "artist": "Claude Debussy",
-      "src": "/music/classical-debussy-arabesque-1.mp3",
-      "source": "https://archive.org/details/lp_childrens-corner-arabesque-no-1-est_claude-debussy-ramon-coll",
-      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "pinned": true,
-      "bytes": 7464425
     },
     {
       "id": "classical-bach-cello-suite-1-prelude",
@@ -182,15 +162,6 @@
       "source": "https://www.jamendo.com/track/18865",
       "license": "http://creativecommons.org/licenses/by-sa/3.0/",
       "bytes": 3040768
-    },
-    {
-      "id": "jamendo-1195294",
-      "title": "Happy home",
-      "artist": "Simon van Gend",
-      "src": "/music/jamendo-1195294.mp3",
-      "source": "https://www.jamendo.com/track/1195294",
-      "license": "http://creativecommons.org/licenses/by/3.0/",
-      "bytes": 1957888
     },
     {
       "id": "jamendo-1195293",
@@ -569,6 +540,13 @@
       "source": "https://www.jamendo.com/track/520420",
       "license": "http://creativecommons.org/licenses/by-sa/3.0/",
       "bytes": 2455040
+    },
+    {
+      "id": "original-no-one-but-you",
+      "title": "No One But You",
+      "src": "/music/original-no-one-but-you.mp3",
+      "pinned": true,
+      "bytes": 5113773
     }
   ]
 }

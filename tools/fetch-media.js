@@ -138,6 +138,9 @@ const BLOCKED_IDS = new Set([
   'jamendo-586577', // Le Lover — noisy
   'classical-massenet-meditation-thais', // Méditation from Thaïs — noisy recording
   'jamendo-413772', // Le pain et la vie — spoken word, not music
+  'classical-debussy-arabesque-1', // replaced by the site's own original track
+  'classical-schubert-serenade', // replaced by the site's own original track
+  'jamendo-1195294', // Happy home — replaced by the site's own original track
 ]);
 
 function titleOk(s) {

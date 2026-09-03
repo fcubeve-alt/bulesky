@@ -3,6 +3,18 @@
 The ambient-sound button plays tracks listed here at random. Until you add
 tracks, it falls back to a soft synthesized pad.
 
+## `original-no-one-but-you`
+
+The one entry in `manifest.json` with no `artist`, `source`, or `license` —
+that isn't an oversight, it's a track produced for the site itself, so there
+is no external attribution to show (the credit line in the music panel just
+stays hidden for it, same as it would for any track with nothing to credit).
+It replaced three fetched tracks the owner asked to have removed —
+`classical-debussy-arabesque-1`, `classical-schubert-serenade`, and
+`jamendo-1195294` ("Happy home") — and those three ids are now in
+`BLOCKED_IDS` in `tools/fetch-media.js` so the automatic fetch never brings
+them back.
+
 ## How to add your own music
 
 1. Drop audio files (`.mp3`, `.m4a`, or `.ogg`) into this `public/music/`
